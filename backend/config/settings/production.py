@@ -3,7 +3,7 @@ from decouple import Config, RepositoryEnv
 from .base import *
 
 # Load enviroment
-config = Config(RepositoryEnv(".env.prod"))
+config = Config(RepositoryEnv(BASE_DIR.parent / ".env.prod"))
 
 # Main configuration
 SECRET_KEY = config("SECRET_KEY")
