@@ -7,5 +7,12 @@ requires-python = ">=3.12"
 dependencies = [
     "dj-database-url>=3.0.1",
     "django>=5.2.6",
+    "django-filter>=25.1",
+    "djangorestframework>=3.16.1",
     "python-decouple>=3.8",
+]
+
+[dependency-groups]
+dev = [
+    "markdown>=3.9",
 ]
