@@ -88,7 +88,3 @@ class Upload(BaseModel):
             models.Index(fields=["uploaded_by", "created_at"]),
             models.Index(fields=["hash_md5"]),
         ]
-
-    # TODO: Extension/actual-type validation. Make a validator to
-    # verify that the file extension matches the detected MIME type.
-    # This prevents uploads with false extensions (e.g. .jpg with .exe content).

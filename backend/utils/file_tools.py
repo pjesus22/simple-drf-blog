@@ -29,7 +29,8 @@ class ImageStrategy(BaseStrategy):
 
 class VideoStrategy(BaseStrategy):
     def process(self, file: BinaryIO, head: Optional[bytes] = None) -> dict[str, Any]:
-        # Could use moviepy or ffmpeg here in the future
+        # TODO: Add video processing metadata.
+        # HINT: Could use moviepy or ffmpeg here in the future
         return {"file_type": "video"}
 
 
@@ -149,3 +150,7 @@ class FileProcessor:
             "original_filename": original_filename,
             **base_meta,
         }
+
+        # TODO: Extension/actual-type validation. Make a validator to
+        # verify that the file extension matches the detected MIME type.
+        # This prevents uploads with false extensions (e.g. .jpg with .exe content).
