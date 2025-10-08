@@ -15,7 +15,7 @@ class Upload(BaseModel):
         OTHER = "other", "Other"
 
     file = models.FileField(
-        upload_to="uploads/%Y/%m/%d/",
+        upload_to="uploads/%Y%m%d/",
         max_length=250,
         blank=False,
         null=False,
