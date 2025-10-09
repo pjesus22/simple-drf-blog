@@ -1,9 +1,9 @@
 from apps.users.models import User
-from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator
 from django.db import models
 from utils.base_models import BaseModel
-from utils.file_tools import FileProcessor
+
+from .service import UploadService
 
 
 class Upload(BaseModel):
@@ -13,6 +13,11 @@ class Upload(BaseModel):
         AUDIO = "audio", "Audio"
         DOCUMENT = "document", "Document"
         OTHER = "other", "Other"
+
+    class Purpose(models.TextChoices):
+        AVATAR = "avatar", "Avatar"
+        THUMBNAIL = "thumbnail", "Thumbnail"
+        ATTACHMENT = "attachment", "Attachment"
 
     file = models.FileField(
         upload_to="uploads/%Y%m%d/",
@@ -51,34 +56,19 @@ class Upload(BaseModel):
     is_public = models.BooleanField(default=True)
     width = models.PositiveIntegerField(null=True, blank=True)
     height = models.PositiveIntegerField(null=True, blank=True)
+    purpose = models.CharField(
+        max_length=20,
+        blank=True,
+        choices=Purpose.choices,
+        help_text="Optional: defines the purpose of this file for traceability",
+    )
 
     def __str__(self):
         return f"{self.original_filename} ({self.mime_type})"
 
-    def _update_metadata(self):
-        try:
-            processor = FileProcessor(file_obj=self.file, file_name=self.file.name)
-            meta = processor.process()
-
-            self.mime_type = meta["mime_type"]
-            self.hash_md5 = meta["hash_md5"]
-            self.size = meta["size"]
-            self.original_filename = meta["original_filename"]
-            self.file_type = meta["file_type"]
-
-            if "width" in meta:
-                self.width = meta["width"]
-                self.height = meta["height"]
-
-        except ValidationError:
-            raise
-        except Exception as e:
-            raise ValidationError(f"Unexpected error processing file: {e}")
-
     def save(self, *args, **kwargs):
         if self.file and (not self.pk or self._state.adding or not self.hash_md5):
-            self._update_metadata()
-
+            UploadService.update_metadata(self)
         super().save(*args, **kwargs)
 
     class Meta:
