@@ -55,9 +55,9 @@ class Post(BaseModel):
         return self.title
 
     def save(self, *args, **kwargs):
-        # `slug` validation
+        # slug validation
         self.slug = slugify(self.slug) if self.slug else generate_slug(self, self.title)
-        # `published_at` validation
+        # set published_at if publishing
         if self.is_published() and self.published_at is None:
             self.published_at = timezone.now()
         super().save(*args, **kwargs)
