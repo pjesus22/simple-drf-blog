@@ -4,8 +4,8 @@ from utils.base_models import BaseModel
 
 
 class PostMetric(BaseModel):
-    post = models.OneToOneField(
-        "content.Post",
+    post = models.ForeignKey(
+        to="content.Post",
         on_delete=models.CASCADE,
         related_name="metrics",
     )
