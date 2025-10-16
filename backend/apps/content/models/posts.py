@@ -46,6 +46,7 @@ class Post(BaseModel):
     thumbnail = models.OneToOneField(
         to="uploads.Upload",
         on_delete=models.SET_NULL,
+        null=True,
         blank=True,
         related_name="post_thumbnail",
     )
@@ -75,7 +76,7 @@ class Post(BaseModel):
         return self.status == self.Status.DELETED
 
     class Meta:
-        ordering = ["-published_at, -created_at"]
+        ordering = ["-published_at", "-created_at"]
         indexes = [
             models.Index(fields=["status"]),
             models.Index(fields=["category"]),
