@@ -1,49 +1,78 @@
+import os
+from typing import Optional, Type
+
+from apps.users.models import User
 from django.core.exceptions import ValidationError
-from django.db.models import Model
-from utils.file_tools import FileProcessor
+from django.core.files.uploadedfile import UploadedFile
+from django.db import models
+from django.utils import timezone
+
+from .utils import FileProcessor
 
 
 class UploadService:
+    """
+    Service layer for handling file uploads and metadata processing
+    """
+
+    def __init__(
+        self,
+        uploaded_by: User,
+        upload_model: Type[models.Model],
+        purpose: Optional[str] = None,
+    ):
+        self.uploaded_by = uploaded_by
+        self.purpose = purpose or "uploads"
+        self.upload_model = upload_model
+
+    def create_upload(
+        self, file: UploadedFile, subdir: Optional[str] = None
+    ) -> models.Model:
+        """
+        Creates a new upload instance, processes metadata, and saves it.
+        """
+        if not file:
+            raise ValidationError("A file must be provided to create an upload")
+
+        filename = os.path.basename(file.name)
+        final_subdir = subdir or self.purpose
+        timestamp = timezone.now().strftime("%Y%m%d")
+        file.name = os.path.join(final_subdir, timestamp, filename)
+
+        upload, _ = self.upload_model.objects.get_or_create(
+            file=file,
+            uploaded_by=self.uploaded_by,
+            purpose=self.purpose,
+        )
+
+        self.update_metadata(upload)
+        upload.save()
+        return upload
+
     @staticmethod
-    def update_metadata(instance: Model) -> None:
+    def update_metadata(upload: models.Model) -> None:
         """
-        Processes the file associated with the given instance and
-        updates its metadata.
-
-        Args:
-            instance (Upload): Model instance with a `file` field. Expected to
-            contain attributes such as:
-                - mime_type
-                - hash_md5
-                - size
-                - original_filename
-                - file_type
-                - (optional) width, height
-
-        Raises:
-            `ValidationError`: If no file is provided or if an error
-            occurs during file processing.
+        Processes and updates metadata for a given upload instance.
         """
-
-        if not getattr(instance, "file", None):
+        if not getattr(upload, "file", None):
             raise ValidationError("No file provided for metadata extraction.")
 
         try:
             processor = FileProcessor(
-                file_obj=instance.file,
-                file_name=instance.file.name,
+                file_obj=upload.file,
+                file_name=upload.file.name,
             )
             meta = processor.process()
 
-            instance.mime_type = meta["mime_type"]
-            instance.hash_md5 = meta["hash_md5"]
-            instance.size = meta["size"]
-            instance.original_filename = meta["original_filename"]
-            instance.file_type = meta["file_type"]
+            upload.mime_type = meta["mime_type"]
+            upload.hash_md5 = meta["hash_md5"]
+            upload.size = meta["size"]
+            upload.original_filename = meta["original_filename"]
+            upload.file_type = meta["file_type"]
 
             if "width" in meta:
-                instance.width = meta["width"]
-                instance.height = meta["height"]
+                upload.width = meta["width"]
+                upload.height = meta["height"]
 
         except ValidationError:
             raise

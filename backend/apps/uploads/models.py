@@ -20,7 +20,7 @@ class Upload(BaseModel):
         ATTACHMENT = "attachment", "Attachment"
 
     file = models.FileField(
-        upload_to="uploads/%Y%m%d/",
+        upload_to="",
         max_length=250,
         blank=False,
         null=False,
