@@ -1,10 +1,12 @@
-from .profiles import EditorProfile, SocialAccounts
+from .profiles import EditorProfile, SocialLink
+from .socials import ProviderAccount
 from .users import Admin, Editor, User
 
 __all__ = [
     "Admin",
-    "Editor",
     "EditorProfile",
-    "SocialAccounts",
+    "Editor",
+    "SocialLink",
     "User",
+    "ProviderAccount",
 ]
