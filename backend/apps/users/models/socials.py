@@ -1,36 +1,47 @@
+from typing import Optional
+
+from apps.users.utils.encryption import decrypt_token, encrypt_token
 from django.db import models
 from utils.base_models import BaseModel
 
-from .profiles import EditorProfile
 
-
-class SocialLink(BaseModel):
-    class Providers(models.TextChoices):
-        FACEBOOK = "FACEBOOK", "Facebook"
+class ProviderAccount(BaseModel):
+    class ProviderChoices(models.TextChoices):
         INSTAGRAM = "INSTAGRAM", "Instagram"
-        SNAPCHAT = "SNAPCHAT", "Snapchat"
-        TELEGRAM = "TELEGRAM", "Telegram"
-        WHATSAPP = "WHATSAPP", "WhatsApp"
-        X = "X", "X"
+        FACEBOOK = "FACEBOOK", "Facebook"
         YOUTUBE = "YOUTUBE", "Youtube"
-        OTHER = "OTHER", "Other"
+        X = "X", "X"
 
     profile = models.ForeignKey(
-        to=EditorProfile,
+        to="EditorProfile",
         on_delete=models.CASCADE,
-        related_name="social_accounts",
+        related_name="provider_accounts",
     )
-    provider = models.CharField(max_length=30, choices=Providers.choices)
-    username = models.CharField(max_length=100)
-    url = models.URLField()
+    provider = models.CharField(choices=ProviderChoices.choices)
+    _access_token = models.BinaryField(db_column="access_token", editable=False)
+    _refresh_token = models.BinaryField(
+        db_column="refresh_token", editable=False, null=True, blank=True
+    )
+    _expires_at = models.DateTimeField(null=True, blank=True)
+    _key_version = models.PositiveIntegerField(default=1)
 
-    def __str__(self):
-        return f"{self.provider.title()} - @{self.username}"
+    @property
+    def access_token(self) -> str:
+        return decrypt_token(self._access_token, self._key_version)
 
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["provider", "username", "profile"],
-                name="unique_social_per_provider",
-            )
-        ]
+    @access_token.setter
+    def access_token(self, value: str):
+        self._access_token, self._key_version = encrypt_token(value)
+
+    @property
+    def refresh_token(self) -> Optional[str]:
+        if not self._refresh_token:
+            return None
+        return decrypt_token(self._refresh_token, self._key_version)
+
+    @refresh_token.setter
+    def refresh_token(self, value: Optional[str]):
+        if value:
+            self._refresh_token, self._key_version = encrypt_token(value)
+        else:
+            self._refresh_token = None
