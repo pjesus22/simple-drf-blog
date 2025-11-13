@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.text import slugify
-
 from utils.base_models import BaseModel
+from utils.text_tools import generate_slug
 
 
 class Tag(BaseModel):
@@ -12,8 +12,7 @@ class Tag(BaseModel):
         return self.name
 
     def clean(self):
-        if not self.slug:
-            self.slug = slugify(self.name)
+        self.slug = slugify(self.slug) if self.slug else generate_slug(self, self.name)
         super().clean()
 
     def save(self, *args, **kwargs):
