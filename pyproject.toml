@@ -21,3 +21,16 @@ dev = [
     "ipython>=9.6.0",
     "markdown>=3.9",
 ]
+test = [
+    "pytest>=8.4.2",
+    "pytest-cov>=7.0.0",
+    "pytest-django>=4.11.1",
+    "pytest-factoryboy>=2.8.1",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.development"
+python_files = "tests.py test_*.py *_tests.py"
+addopts = "--nomigrations --reuse-db -v"
+pythonpath = ["backend"]
+testpaths = ["backend"]
