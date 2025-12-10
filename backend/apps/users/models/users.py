@@ -46,6 +46,8 @@ class User(AbstractUser):
     def save(self, *args, **kwargs):
         if not self.pk:
             self.role = self.base_role
+            self.is_staff = self.base_role == self.Role.ADMIN
+            self.is_superuser = self.base_role == self.Role.ADMIN
         super().save(*args, **kwargs)
 
 
