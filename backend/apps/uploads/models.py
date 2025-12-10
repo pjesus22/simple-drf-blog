@@ -1,9 +1,9 @@
 from apps.users.models import User
-from django.core.validators import FileExtensionValidator
+from django.core.validators import FileExtensionValidator, RegexValidator
 from django.db import models
 from utils.base_models import BaseModel
 
-from .service import UploadService
+from .utils import get_upload_path
 
 
 class Upload(BaseModel):
@@ -15,12 +15,12 @@ class Upload(BaseModel):
         OTHER = "other", "Other"
 
     class Purpose(models.TextChoices):
-        AVATAR = "avatar", "Avatar"
-        THUMBNAIL = "thumbnail", "Thumbnail"
-        ATTACHMENT = "attachment", "Attachment"
+        AVATARS = "avatars", "Avatars"
+        THUMBNAILS = "thumbnails", "Thumbnails"
+        ATTACHMENTS = "attachments", "Attachments"
 
     file = models.FileField(
-        upload_to="",
+        upload_to=get_upload_path,
         max_length=250,
         blank=False,
         null=False,
@@ -44,32 +44,36 @@ class Upload(BaseModel):
         ],
     )
     uploaded_by = models.ForeignKey(
-        to=User, on_delete=models.SET_NULL, null=True, related_name="uploads"
+        to=User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="uploads",
     )
     original_filename = models.CharField(max_length=250, blank=True)
     file_type = models.CharField(
-        max_length=20, choices=FileType.choices, default=FileType.OTHER
+        max_length=20,
+        choices=FileType.choices,
+        default=FileType.OTHER,
     )
     mime_type = models.CharField(max_length=100, blank=True)
-    hash_md5 = models.CharField(max_length=32, blank=True, editable=False)
+    hash_md5 = models.CharField(
+        max_length=32,
+        blank=True,
+        editable=False,
+        validators=[RegexValidator(r"^[a-fA-F0-9]{32}$")],
+    )
     size = models.PositiveIntegerField(default=0)
     is_public = models.BooleanField(default=True)
     width = models.PositiveIntegerField(null=True, blank=True)
     height = models.PositiveIntegerField(null=True, blank=True)
     purpose = models.CharField(
         max_length=20,
-        blank=True,
         choices=Purpose.choices,
-        help_text="Optional: defines the purpose of this file for traceability",
+        default=Purpose.ATTACHMENTS,
     )
 
     def __str__(self):
         return f"{self.original_filename} ({self.mime_type})"
-
-    def save(self, *args, **kwargs):
-        if self.file and (not self.pk or self._state.adding or not self.hash_md5):
-            UploadService.update_metadata(self)
-        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ["-created_at"]
