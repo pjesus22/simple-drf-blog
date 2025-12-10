@@ -1,3 +1,19 @@
-from .file_processor import FileProcessor
+from .file_processor import (
+    AudioStrategy,
+    DefaultStrategy,
+    DocumentStrategy,
+    FileProcessor,
+    ImageStrategy,
+    VideoStrategy,
+)
+from .path import get_upload_path
 
-__all__ = ["FileProcessor"]
+__all__ = [
+    "FileProcessor",
+    "ImageStrategy",
+    "VideoStrategy",
+    "AudioStrategy",
+    "DocumentStrategy",
+    "DefaultStrategy",
+    "get_upload_path",
+]
