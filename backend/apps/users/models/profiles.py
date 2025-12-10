@@ -17,7 +17,7 @@ class EditorProfile(BaseModel):
     experience_years = models.PositiveIntegerField(default=0)
 
     def __str__(self):
-        return f"{self.user.username}'s profile"
+        return f"EditorProfile (ID: {self.id})"
 
 
 class SocialLink(BaseModel):
@@ -28,3 +28,6 @@ class SocialLink(BaseModel):
     )
     name = models.CharField(max_length=64)
     url = models.URLField()
+
+    def __str__(self):
+        return f"{self.name} - {self.url}"
