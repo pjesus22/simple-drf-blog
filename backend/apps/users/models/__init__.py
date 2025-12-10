@@ -1,5 +1,4 @@
 from .profiles import EditorProfile, SocialLink
-from .socials import ProviderAccount
 from .users import Admin, Editor, User
 
 __all__ = [
@@ -8,5 +7,4 @@ __all__ = [
     "Editor",
     "SocialLink",
     "User",
-    "ProviderAccount",
 ]
