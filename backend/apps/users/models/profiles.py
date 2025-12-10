@@ -1,3 +1,4 @@
+from django.core.validators import RegexValidator, URLValidator
 from django.db import models
 from utils.base_models import BaseModel
 
@@ -26,8 +27,27 @@ class SocialLink(BaseModel):
         on_delete=models.CASCADE,
         related_name="social_links",
     )
-    name = models.CharField(max_length=64)
-    url = models.URLField()
+    name = models.CharField(
+        max_length=64,
+        choices=[
+            ("facebook", "Facebook"),
+            ("github", "GitHub"),
+            ("instagram", "Instagram"),
+            ("linkedin", "LinkedIn"),
+            ("tiktok", "TikTok"),
+            ("twitter", "Twitter"),
+            ("youtube", "YouTube"),
+        ],
+    )
+    url = models.URLField(
+        unique=True,
+        validators=[
+            URLValidator(),
+            RegexValidator(
+                regex=r"^(https?://)?(www\.)?(github\.com|twitter\.com|x\.com|linkedin\.com|instagram\.com|facebook\.com|youtube\.com|tiktok\.com)/.+$",
+            ),
+        ],
+    )
 
     def __str__(self):
         return f"{self.name} - {self.url}"
