@@ -18,7 +18,7 @@ class BaseHealthCheckView(APIView):
         overall_status = "ok" if db_status == "ok" else "error"
         return {"status": overall_status, "database": db_status}
 
-    def get(self, requests, format=None):
+    def get(self, request, format=None):
         data = self.get_health_status()
         http_status = (
             status.HTTP_200_OK
