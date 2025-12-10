@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import mimetypes
 import os
 from abc import ABC, abstractmethod
@@ -6,7 +7,10 @@ from typing import Any, BinaryIO, Dict, Optional
 
 import magic
 from django.core.exceptions import ValidationError
+from django.utils.text import get_valid_filename
 from PIL import Image, UnidentifiedImageError
+
+logger = logging.getLogger(__name__)
 
 
 class BaseStrategy(ABC):
@@ -91,7 +95,8 @@ class FileProcessor:
                 mime = guessed
 
             self.mime_type = mime or "application/octet-stream"
-        except Exception:
+        except Exception as exc:
+            logger.warning(f"MIME detection failed for {self.file_name}: {exc}")
             self.mime_type = "application/octet-stream"
 
     def select_strategy(self) -> BaseStrategy:
@@ -141,7 +146,7 @@ class FileProcessor:
 
         base_meta = self.strategy.process(self.file, head)
         hash_md5 = self.compute_md5()
-        original_filename = os.path.basename(self.file_name)
+        original_filename = get_valid_filename(os.path.basename(self.file_name))
 
         return {
             "mime_type": self.mime_type,
@@ -151,6 +156,7 @@ class FileProcessor:
             **base_meta,
         }
 
-        # TODO: Extension/actual-type validation. Make a validator to
-        # verify that the file extension matches the detected MIME type.
-        # This prevents uploads with false extensions (e.g. .jpg with .exe content).
+        # TODO: Extension/actual-type validation. Make a validator to verify
+        # that the file extension matches the detected MIME type.
+        # This prevents uploads with false extensions (e.g. .jpg with .exe
+        # content).
