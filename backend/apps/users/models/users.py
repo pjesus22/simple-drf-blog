@@ -37,11 +37,8 @@ class User(AbstractUser):
         null=False,
     )
 
-    def _get_full_name(self):
-        return f"{self.first_name} {self.last_name}".strip()
-
     def __str__(self):
-        return self._get_full_name()
+        return self.get_full_name()
 
     def save(self, *args, **kwargs):
         if not self.pk:
