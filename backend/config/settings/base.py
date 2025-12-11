@@ -135,4 +135,5 @@ REST_FRAMEWORK = {
         "rest_framework_json_api.renderers.JSONRenderer",
     ),
     "TEST_REQUEST_DEFAULT_FORMAT": "vnd.api+json",
+    "JSON_API_FORMAT_FIELD_NAMES": "dasherize",
 }
