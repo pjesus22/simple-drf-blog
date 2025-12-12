@@ -9,6 +9,6 @@ class TagSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tag
-        fields = ("id", "name", "slug", "created_at", "updated_at")
+        fields = ("id", "name", "slug", "created_at", "updated_at", "posts")
         resource_name = "tags"
         read_only_fields = ("id", "created_at", "updated_at")
