@@ -2,23 +2,25 @@ import pytest
 from apps.content.models import Category, Post, Tag
 from apps.users.models import Editor
 
+pytestmark = pytest.mark.django_db
+
 
 class TestCategoryModel:
     def test_category_str_returns_name(self):
         category = Category(name="Test Category")
         assert str(category) == "Test Category"
 
-    def test_category_clean_generates_slug(self, db):
+    def test_category_clean_generates_slug(self):
         category = Category(name="Test Category")
         category.clean()
         assert category.slug == "test-category"
 
-    def test_category_clean_preserves_existing_slug(self, db):
+    def test_category_clean_preserves_existing_slug(self):
         category = Category(name="Test Category", slug="test-category")
         category.clean()
         assert category.slug == "test-category"
 
-    def test_save_category(self, db):
+    def test_save_category(self):
         category = Category(name="Test Category", description="A test category")
         category.save()
         assert category.id is not None
@@ -29,17 +31,17 @@ class TestTagModel:
         tag = Tag(name="Test Tag")
         assert str(tag) == "Test Tag"
 
-    def test_tag_clean_generates_slug(self, db):
+    def test_tag_clean_generates_slug(self):
         tag = Tag(name="Test Tag")
         tag.clean()
         assert tag.slug == "test-tag"
 
-    def test_tag_clean_preserves_existing_slug(self, db):
+    def test_tag_clean_preserves_existing_slug(self):
         tag = Tag(name="Test Tag", slug="test-tag")
         tag.clean()
         assert tag.slug == "test-tag"
 
-    def test_save_tag(self, db):
+    def test_save_tag(self):
         tag = Tag(name="Test Tag")
         tag.save()
         assert tag.id is not None
@@ -50,22 +52,22 @@ class TestPostModel:
         post = Post(title="Test Post")
         assert str(post) == "Test Post"
 
-    def test_post_clean_generates_slug(self, db):
+    def test_post_clean_generates_slug(self):
         post = Post(title="Test Post")
         post.clean()
         assert post.slug == "test-post"
 
-    def test_post_clean_preserves_existing_slug(self, db):
+    def test_post_clean_preserves_existing_slug(self):
         post = Post(title="Test Post", slug="test-post")
         post.clean()
         assert post.slug == "test-post"
 
-    def test_post_clean_sets_published_at(self, db):
+    def test_post_clean_sets_published_at(self):
         post = Post(title="Test Post", status=Post.Status.PUBLISHED)
         post.clean()
         assert post.published_at is not None
 
-    def test_post_published_at_not_updated_on_republish(self, db, post_factory):
+    def test_post_published_at_not_updated_on_republish(self, post_factory):
         post = post_factory(status=Post.Status.PUBLISHED)
         original_published_at = post.published_at
 
@@ -84,12 +86,12 @@ class TestPostModel:
             Post.Status.DELETED,
         ],
     )
-    def test_post_published_at_not_set_for_non_published_status(self, db, status):
+    def test_post_published_at_not_set_for_non_published_status(self, status):
         post = Post(title="Test Post", status=status)
         post.clean()
         assert post.published_at is None
 
-    def test_save_post(self, db):
+    def test_save_post(self):
         category = Category.objects.create(name="Test Category")
         author = Editor.objects.create(
             username="testeditor",
@@ -117,9 +119,7 @@ class TestPostModel:
         ],
         ids=["first_publish", "archive", "delete"],
     )
-    def test_post_status_transitions(
-        self, db, initial_status, final_status, post_factory
-    ):
+    def test_post_status_transitions(self, initial_status, final_status, post_factory):
         post = post_factory(status=initial_status)
 
         original_published_at = post.published_at
@@ -138,7 +138,7 @@ class TestPostModel:
         else:
             assert post.published_at == original_published_at
 
-    def test_post_republish_preserves_published_at(self, db, post_factory):
+    def test_post_republish_preserves_published_at(self, post_factory):
         post = post_factory(status=Post.Status.PUBLISHED)
         original_published_at = post.published_at
 
@@ -150,7 +150,7 @@ class TestPostModel:
 
         assert post.published_at == original_published_at
 
-    def test_post_add_tags(self, db, post_factory, tag_factory):
+    def test_post_add_tags(self, post_factory, tag_factory):
         post = post_factory()
         tags = tag_factory.create_batch(size=2)
 
@@ -158,7 +158,7 @@ class TestPostModel:
 
         assert post.tags.count() == 2
 
-    def test_post_add_attachments(self, db, post_factory, upload_factory, clean_media):
+    def test_post_add_attachments(self, post_factory, upload_factory, clean_media):
         post = post_factory()
         attachments = upload_factory.create_batch(size=2)
 
@@ -166,7 +166,7 @@ class TestPostModel:
 
         assert post.attachments.count() == 2
 
-    def test_post_add_thumbnail(self, db, post_factory, upload_factory, clean_media):
+    def test_post_add_thumbnail(self, post_factory, upload_factory, clean_media):
         post = post_factory()
         thumbnail = upload_factory()
 
@@ -177,7 +177,7 @@ class TestPostModel:
         assert post.thumbnail.purpose == "test"
 
     def test_post_add_thumbnail_deletion_sets_null(
-        self, db, post_factory, upload_factory, clean_media
+        self, post_factory, upload_factory, clean_media
     ):
         post = post_factory()
         thumbnail = upload_factory()
