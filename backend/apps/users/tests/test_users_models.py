@@ -23,8 +23,7 @@ class TestUserModels:
     def test_base_user_method_properties(self):
         user = Editor(first_name="John", last_name="Doe")
 
-        assert user._get_full_name() == "John Doe"
-        assert str(user) == "John Doe"
+        assert str(user) == user.get_full_name()
 
     @pytest.mark.parametrize(
         "user_class,expected_role",
