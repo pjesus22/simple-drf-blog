@@ -5,8 +5,9 @@ from .models import Upload
 
 class UploadSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
+    uploaded_by = serializers.ResourceRelatedField(read_only=True)
     included_serializers = {
-        "uploaded_by": "users.serializers.users.PublicUserSerializer",
+        "uploaded_by": "apps.users.serializers.PublicUserSerializer"
     }
 
     def get_url(self, obj):
@@ -34,7 +35,7 @@ class UploadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Upload
-        fields = [
+        fields = (
             "id",
             "url",
             "original_filename",
@@ -48,8 +49,8 @@ class UploadSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "uploaded_by",
-        ]
-        read_only_fields = [
+        )
+        read_only_fields = (
             "id",
             "url",
             "size",
@@ -59,7 +60,5 @@ class UploadSerializer(serializers.ModelSerializer):
             "is_public",
             "created_at",
             "updated_at",
-        ]
-
-    class JSONAPIMeta:
-        included_resources = ["uploaded_by"]
+        )
+        resource_name = "uploads"

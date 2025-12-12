@@ -4,9 +4,23 @@ from ..models import Post
 
 
 class PostSerializer(serializers.ModelSerializer):
+    author = serializers.ResourceRelatedField(read_only=True)
+    category = serializers.ResourceRelatedField(read_only=True)
+    tags = serializers.ResourceRelatedField(many=True, read_only=True)
+    thumbnail = serializers.ResourceRelatedField(read_only=True)
+    attachments = serializers.ResourceRelatedField(many=True, read_only=True)
+
+    included_serializers = {
+        "author": "apps.users.serializers.PublicUserSerializer",
+        "category": "apps.content.serializers.CategorySerializer",
+        "tags": "apps.content.serializers.TagSerializer",
+        "thumbnail": "apps.uploads.serializers.UploadSerializer",
+        "attachments": "apps.uploads.serializers.UploadSerializer",
+    }
+
     class Meta:
         model = Post
-        fields = [
+        fields = (
             "id",
             "title",
             "slug",
@@ -21,8 +35,6 @@ class PostSerializer(serializers.ModelSerializer):
             "tags",
             "thumbnail",
             "attachments",
-        ]
-        read_only_fields = ["id", "created_at", "updated_at", "published_at"]
-
-    class JSONAPIMeta:
-        included_resources = ["author", "category", "tags", "attachments", "thumbnail"]
+        )
+        resource_name = "posts"
+        read_only_fields = ("id", "created_at", "updated_at", "published_at")

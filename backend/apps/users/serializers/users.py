@@ -11,13 +11,15 @@ class PublicUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "full_name"]
+        fields = ("id", "username", "full_name")
+        resource_name = "users"
+        read_only_fields = ("id", "username", "full_name")
 
 
 class PrivateUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = [
+        fields = (
             "id",
             "username",
             "first_name",
@@ -26,5 +28,6 @@ class PrivateUserSerializer(serializers.ModelSerializer):
             "role",
             "date_joined",
             "last_login",
-        ]
-        read_only_fields = ["id", "role", "date_joined", "last_login"]
+        )
+        resource_name = "users"
+        read_only_fields = ("id", "role", "date_joined", "last_login")
