@@ -24,15 +24,6 @@ class UploadSerializer(serializers.ModelSerializer):
         else:
             return obj.file.url if obj.file else None
 
-    def validate(self, attrs):
-        MEDIA_TYPES = ("image", "video")
-
-        file_type = attrs.get("file_type")
-        if file_type not in MEDIA_TYPES:
-            attrs["width"] = None
-            attrs["height"] = None
-        return attrs
-
     class Meta:
         model = Upload
         fields = (
