@@ -1,4 +1,7 @@
 import factory
+from faker import Faker
+
+fake = Faker()
 
 
 class AdminFactory(factory.django.DjangoModelFactory):
@@ -36,3 +39,26 @@ class ProfileFactory(factory.django.DjangoModelFactory):
     occupation = factory.Faker("job")
     skills = factory.Faker("sentence", nb_words=5)
     experience_years = factory.Faker("random_int", min=0, max=40)
+
+
+class SocialLinkFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = "users.SocialLink"
+
+    profile = factory.SubFactory(ProfileFactory)
+    name = factory.Faker(
+        provider="random_element",
+        elements=(
+            "facebook",
+            "github",
+            "instagram",
+            "linkedin",
+            "tiktok",
+            "twitter",
+            "youtube",
+        ),
+    )
+
+    @factory.lazy_attribute
+    def url(self):
+        return f"{self.name}/@{fake.user_name()}"
