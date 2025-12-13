@@ -29,8 +29,8 @@ test = [
 ]
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "config.settings.development"
+DJANGO_SETTINGS_MODULE = "config.settings.tests"
 python_files = "tests.py test_*.py *_tests.py"
-addopts = "--nomigrations --reuse-db -v"
+addopts = "-v --tb=short --reuse-db --create-db"
 pythonpath = ["backend"]
 testpaths = ["backend"]
