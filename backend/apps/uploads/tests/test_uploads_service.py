@@ -116,6 +116,16 @@ def test_create_upload_rolls_back_on_error(editor_factory, clean_media):
                 file=SimpleUploadedFile(name="file.txt", content=b"data")
             )
 
+    with patch(
+        "apps.uploads.service.FileProcessor.process",
+        side_effect=ValidationError("Something went wrong"),
+    ):
+        service = UploadService(uploaded_by=user)
+        with pytest.raises(ValidationError, match="Something went wrong"):
+            service.create_upload(
+                file=SimpleUploadedFile(name="file.txt", content=b"data")
+            )
+
     assert Upload.objects.count() == 0
 
 
