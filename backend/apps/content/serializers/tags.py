@@ -5,6 +5,7 @@ from ..models import Tag
 
 class TagSerializer(serializers.ModelSerializer):
     posts = serializers.ResourceRelatedField(many=True, read_only=True)
+    lookup_field = "slug"
     included_serializers = {"posts": "apps.content.serializers.posts.PostSerializer"}
 
     class Meta:
