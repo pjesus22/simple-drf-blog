@@ -4,6 +4,7 @@ from .models import Upload
 
 
 class UploadSerializer(serializers.ModelSerializer):
+    queryset = Upload.objects.all().select_related("uploaded_by")
     url = serializers.SerializerMethodField()
     uploaded_by = serializers.ResourceRelatedField(read_only=True)
     included_serializers = {
@@ -48,7 +49,6 @@ class UploadSerializer(serializers.ModelSerializer):
             "mime_type",
             "width",
             "height",
-            "is_public",
             "created_at",
             "updated_at",
         )
