@@ -16,6 +16,7 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework_json_api",
+    "rest_framework_simplejwt",
 ]
 
 LOCAL_APPS = [
@@ -111,6 +112,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework_json_api.pagination.JsonApiPageNumberPagination",
     "DEFAULT_PARSER_CLASSES": (
         "rest_framework_json_api.parsers.JSONParser",
+        "rest_framework.parsers.JSONParser",
         "rest_framework.parsers.FormParser",
         "rest_framework.parsers.MultiPartParser",
     ),
@@ -136,4 +138,7 @@ REST_FRAMEWORK = {
     ),
     "TEST_REQUEST_DEFAULT_FORMAT": "vnd.api+json",
     "JSON_API_FORMAT_FIELD_NAMES": "dasherize",
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
 }
