@@ -17,7 +17,7 @@ class UploadSerializer(serializers.ModelSerializer):
         if not obj.is_public:
             if not request or not request.user.is_authenticated:
                 return None
-            if request.user != obj.uploaded_by:
+            if request.user != obj.uploaded_by and not request.user.is_staff:
                 return None
 
         if request:
