@@ -1,3 +1,5 @@
+import uuid
+
 from apps.users.models import User
 from django.core.validators import FileExtensionValidator, RegexValidator
 from django.db import models
@@ -19,6 +21,13 @@ class Upload(BaseModel):
         THUMBNAILS = "thumbnails", "Thumbnails"
         ATTACHMENTS = "attachments", "Attachments"
 
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        unique=True,
+        db_index=True,
+    )
     file = models.FileField(
         upload_to=get_upload_path,
         max_length=250,
