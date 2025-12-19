@@ -19,6 +19,7 @@ class AdminFactory(factory.django.DjangoModelFactory):
 class EditorFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = "users.Editor"
+        django_get_or_create = ("username",)
         skip_postgeneration_save = True
 
     username = factory.Faker("user_name")
@@ -26,6 +27,19 @@ class EditorFactory(factory.django.DjangoModelFactory):
     first_name = factory.Faker("first_name")
     last_name = factory.Faker("last_name")
     email = factory.Faker("email")
+
+    @factory.post_generation
+    def profile(self, create, extracted, **kwargs):
+        if not create:
+            return
+        if extracted is not None:
+            if extracted is True:
+                ProfileFactory(user=self)
+            elif isinstance(extracted, dict):
+                ProfileFactory(user=self, **extracted)
+            else:
+                self.profile = extracted
+                self.save()
 
 
 class ProfileFactory(factory.django.DjangoModelFactory):
