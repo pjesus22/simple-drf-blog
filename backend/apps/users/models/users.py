@@ -47,6 +47,9 @@ class User(AbstractUser):
             self.is_superuser = self.base_role == self.Role.ADMIN
         super().save(*args, **kwargs)
 
+    class Meta:
+        ordering = ["-id"]
+
 
 class AdminManager(BaseUserManager):
     def get_queryset(self, *args, **kwargs):
