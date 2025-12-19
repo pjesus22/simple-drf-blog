@@ -11,10 +11,11 @@ def test_public_user_serializes_full_name(db, editor_factory):
 
 
 def test_public_user_serializes_object(db, editor_factory):
-    user = editor_factory()
+    user = editor_factory(profile=True)
     serializer = PublicUserSerializer(user)
     expected = {
         "id": user.id,
+        "profile_id": user.profile.id,
         "username": user.username,
         "full_name": user.get_full_name(),
     }
@@ -23,10 +24,11 @@ def test_public_user_serializes_object(db, editor_factory):
 
 
 def test_private_user_serializes_object(db, editor_factory):
-    user = editor_factory()
+    user = editor_factory(profile=True)
     serializer = PrivateUserSerializer(user)
     expected = {
         "id": user.id,
+        "profile_id": user.profile.id,
         "username": user.username,
         "first_name": user.first_name,
         "last_name": user.last_name,

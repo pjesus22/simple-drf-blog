@@ -5,9 +5,7 @@ from ..models import User
 
 class PublicUserSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
-    profile_id = serializers.PrimaryKeyRelatedField(
-        source="editor_profile", read_only=True
-    )
+    profile_id = serializers.PrimaryKeyRelatedField(source="profile", read_only=True)
 
     def get_full_name(self, obj):
         return obj.get_full_name()
@@ -20,9 +18,7 @@ class PublicUserSerializer(serializers.ModelSerializer):
 
 
 class PrivateUserSerializer(serializers.ModelSerializer):
-    profile_id = serializers.PrimaryKeyRelatedField(
-        source="editor_profile", read_only=True
-    )
+    profile_id = serializers.PrimaryKeyRelatedField(source="profile", read_only=True)
 
     class Meta:
         model = User

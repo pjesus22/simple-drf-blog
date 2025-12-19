@@ -9,7 +9,7 @@ class EditorProfile(BaseModel):
     user = models.OneToOneField(
         to=Editor,
         on_delete=models.CASCADE,
-        related_name="editor_profile",
+        related_name="profile",
     )
     biography = models.TextField(blank=True)
     location = models.CharField(max_length=100, blank=True)
