@@ -18,10 +18,11 @@ class HealthView(APIView):
             },
         }
 
-        try:
-            connections["default"].cursor()
-            data["attributes"]["database"] = "ok"
-        except Exception:
-            data["database"] = "unavailable"
+        if request.user.is_staff:
+            try:
+                connections["default"].cursor()
+                data["attributes"]["database"] = "ok"
+            except Exception:
+                data["attributes"]["database"] = "unavailable"
 
         return Response(data)
