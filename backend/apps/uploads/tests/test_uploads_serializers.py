@@ -19,7 +19,7 @@ def test_uploads_serializer_serializes_object(db, upload_factory):
     )
     serializer = UploadSerializer(upload)
     expected = {
-        "id": upload.id,
+        "id": str(upload.id),
         "url": upload.file.url,
         "original_filename": upload.original_filename,
         "file_type": upload.file_type,
