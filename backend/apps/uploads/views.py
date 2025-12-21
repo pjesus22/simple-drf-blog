@@ -1,3 +1,30 @@
-from django.shortcuts import render
+from apps.uploads.models import Upload
+from apps.uploads.serializers import UploadSerializer
+from apps.users.permissions import IsEditor, IsOwner
+from rest_framework import mixins, viewsets
+from rest_framework.permissions import IsAuthenticated
 
-# Create your views here.
+
+class NoListViewSet(
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    pass
+
+
+class UploadViewSet(NoListViewSet):
+    queryset = Upload.objects.all()
+    serializer_class = UploadSerializer
+
+    def get_permissions(self):
+        if self.action in ("create", "update", "partial_update", "destroy"):
+            permission_classes = [IsEditor, IsOwner]
+        else:
+            permission_classes = [IsAuthenticated]
+        return [permission() for permission in permission_classes]
+
+    def perform_create(self, serializer):
+        serializer.save(uploaded_by=self.request.user)
