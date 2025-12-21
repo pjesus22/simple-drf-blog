@@ -15,6 +15,7 @@ def test_editor_profiles_serializes_object(db, profile_factory):
         "skills": profile.skills,
         "experience_years": profile.experience_years,
         "updated_at": field.to_representation(profile.updated_at),
+        "social_links": [],
     }
 
     assert serializer.data == expected
