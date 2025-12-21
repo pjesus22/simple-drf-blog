@@ -53,7 +53,7 @@ def test_upload_hash_md5_not_editable():
     assert not field.editable
 
 
-def test_upload_file_extension_validator_raises_validation_error():
+def test_upload_file_extension_validator_raises_validation_error(db):
     upload = Upload(
         file=SimpleUploadedFile(
             name="malicious.exe",
