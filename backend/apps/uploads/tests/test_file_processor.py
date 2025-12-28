@@ -4,6 +4,7 @@ import pytest
 from apps.uploads.tests.helpers import make_file, make_image
 from apps.uploads.utils import (
     AudioStrategy,
+    BaseStrategy,
     DefaultStrategy,
     DocumentStrategy,
     FileProcessor,
@@ -19,8 +20,17 @@ class BrokenFile:
     def seek(self, *args, **kwargs):
         raise OSError("seek failed")
 
-    def read(self, *args, **kwargs):
-        raise OSError("read failed")
+
+def test_base_strategy_process_has_no_implementation():
+    class MinimalStrategy(BaseStrategy):
+        def process(self, file, head=None):
+            return super().process(file, head)
+
+    strategy = MinimalStrategy()
+    test_file = make_file(content=b"test content")
+
+    result = strategy.process(test_file)
+    assert result is None
 
 
 @pytest.mark.parametrize(
