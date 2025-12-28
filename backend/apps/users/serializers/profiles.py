@@ -43,13 +43,11 @@ class EditorProfileSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         social_links_data = validated_data.pop("social_links", None)
 
-        # Update profile fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
         instance.save()
 
-        # Update social links
         if social_links_data is not None:
             existing_links = {link.id: link for link in instance.social_links.all()}
             posted_links_ids = []
