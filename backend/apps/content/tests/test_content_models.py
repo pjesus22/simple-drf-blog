@@ -133,8 +133,6 @@ class TestPostModel:
         ):
             assert post.published_at is not None
             assert original_published_at is None
-        elif final_status == Post.Status.PUBLISHED:
-            assert post.published_at == original_published_at
         else:
             assert post.published_at == original_published_at
 
