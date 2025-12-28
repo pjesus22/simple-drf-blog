@@ -16,7 +16,7 @@ from rest_framework.permissions import IsAuthenticated
     ],
     ids=("create", "update", "partial_update", "destroy"),
 )
-def test_uploads_viewset_gets_writing_permissions(action, expected_permissions):
+def test_upload_viewset_gets_writing_permissions(action, expected_permissions):
     viewset = UploadViewSet(action=action)
     permissions = viewset.get_permissions()
     assert len(permissions) == len(expected_permissions), (
@@ -28,7 +28,7 @@ def test_uploads_viewset_gets_writing_permissions(action, expected_permissions):
     )
 
 
-def test_uploads_viewset_gets_reading_permissions():
+def test_upload_viewset_gets_reading_permissions():
     viewset = UploadViewSet(action="retrieve")
     permissions = viewset.get_permissions()
     assert len(permissions) == 1, "Expected 1 permission, got {}".format(
@@ -37,7 +37,7 @@ def test_uploads_viewset_gets_reading_permissions():
     assert isinstance(permissions[0], IsAuthenticated)
 
 
-def test_uploads_viewset_perform_create_sets_uploaded_by(db, editor_factory):
+def test_upload_viewset_perform_create_sets_uploaded_by(db, editor_factory):
     user = editor_factory()
     request = Mock(user=user)
     viewset = UploadViewSet(request=request)
