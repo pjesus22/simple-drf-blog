@@ -1,5 +1,6 @@
 from .file_processor import (
     AudioStrategy,
+    BaseStrategy,
     DefaultStrategy,
     DocumentStrategy,
     FileProcessor,
@@ -16,4 +17,5 @@ __all__ = [
     "DocumentStrategy",
     "DefaultStrategy",
     "get_upload_path",
+    "BaseStrategy",
 ]
