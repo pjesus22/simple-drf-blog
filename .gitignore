@@ -355,3 +355,4 @@ $RECYCLE.BIN/
 *.lnk
 
 .vscode
+.idea
