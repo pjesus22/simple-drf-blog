@@ -6,7 +6,9 @@ from rest_framework.permissions import IsAuthenticated
 
 
 class ProfileViewSet(viewsets.ModelViewSet):
-    queryset = EditorProfile.objects.all()
+    queryset = EditorProfile.objects.select_related("user").prefetch_related(
+        "social_links"
+    )
     serializer_class = EditorProfileSerializer
     http_method_names = ["get", "patch", "head", "options"]
 
