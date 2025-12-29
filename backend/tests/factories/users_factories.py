@@ -32,14 +32,8 @@ class EditorFactory(factory.django.DjangoModelFactory):
     def profile(self, create, extracted, **kwargs):
         if not create:
             return
-        if extracted is not None:
-            if extracted is True:
-                ProfileFactory(user=self)
-            elif isinstance(extracted, dict):
-                ProfileFactory(user=self, **extracted)
-            else:
-                self.profile = extracted
-                self.save()
+        if extracted is True:
+            ProfileFactory(user=self)
 
 
 class ProfileFactory(factory.django.DjangoModelFactory):
@@ -75,4 +69,4 @@ class SocialLinkFactory(factory.django.DjangoModelFactory):
 
     @factory.lazy_attribute
     def url(self):
-        return f"{self.name}/@{fake.user_name()}"
+        return f"https://{self.name}.com/{fake.user_name()}"
