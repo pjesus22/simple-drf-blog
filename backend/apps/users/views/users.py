@@ -18,7 +18,7 @@ class UserViewSet(ModelViewSet):
     def get_permissions(self):
         if self.action in ("list", "retrieve"):
             permission_classes = [AllowAny]
-        elif self.action in ("me"):
+        elif self.action == "me":
             permission_classes = [IsAuthenticated]
         elif self.action in ("update", "partial_update", "destroy"):
             permission_classes = [IsOwner]
@@ -26,9 +26,7 @@ class UserViewSet(ModelViewSet):
             permission_classes = [IsAdmin]
         return [permission() for permission in permission_classes]
 
-    @action(
-        detail=False, methods=["get", "patch"], permission_classes=[IsAuthenticated]
-    )
+    @action(detail=False, methods=["get", "patch"])
     def me(self, request):
         user = request.user
 
