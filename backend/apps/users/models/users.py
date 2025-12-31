@@ -41,10 +41,12 @@ class User(AbstractUser):
         return self.get_full_name()
 
     def save(self, *args, **kwargs):
-        if not self.pk:
-            self.role = self.base_role
-            self.is_staff = self.base_role == self.Role.ADMIN
-            self.is_superuser = self.base_role == self.Role.ADMIN
+        if self.pk is None:
+            if not self.role:
+                self.role = getattr(self, "base_role", self.Role.ADMIN)
+            if self.role == self.Role.ADMIN:
+                self.is_staff = True
+                self.is_superuser = True
         super().save(*args, **kwargs)
 
     class Meta:
@@ -62,9 +64,15 @@ class Admin(User):
     class Meta:
         proxy = True
 
-    def save(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.role = User.Role.ADMIN
         self.is_staff = True
         self.is_superuser = True
+
+    def save(self, *args, **kwargs):
+        if not self.role or self.role != User.Role.ADMIN:
+            self.role = User.Role.ADMIN
         super().save(*args, **kwargs)
 
 
@@ -79,3 +87,14 @@ class Editor(User):
 
     class Meta:
         proxy = True
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.role = self.base_role
+        self.is_staff = False
+        self.is_superuser = False
+
+    def save(self, *args, **kwargs):
+        if not self.role or self.role != self.base_role:
+            self.role = self.base_role
+        super().save(*args, **kwargs)
