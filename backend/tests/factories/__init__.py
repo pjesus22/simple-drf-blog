@@ -1,3 +1,4 @@
+from .content_factories import CategoryFactory, PostFactory, TagFactory
 from .uploads_factories import UploadFactory
 from .users_factories import (
     AdminFactory,
@@ -12,4 +13,7 @@ __all__ = [
     "ProfileFactory",
     "AdminFactory",
     "SocialLinkFactory",
+    "CategoryFactory",
+    "TagFactory",
+    "PostFactory",
 ]
