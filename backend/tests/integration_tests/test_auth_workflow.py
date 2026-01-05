@@ -120,7 +120,7 @@ class TestVerifyJWTPair:
 
 
 class TestProtectedEndpointAccess:
-    def test_access_with_valid_token(self, db, test_user, authenticated_client):
-        response = authenticated_client.get(reverse("v1:user-me"))
+    def test_access_with_valid_token(self, db, test_user, editor_client):
+        response = editor_client.get(reverse("v1:user-me"))
 
         assert response.status_code == 200
