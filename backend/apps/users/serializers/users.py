@@ -35,3 +35,16 @@ class PrivateUserSerializer(serializers.ModelSerializer):
         )
         resource_name = "users"
         read_only_fields = ("id", "profile_id", "role", "date_joined", "last_login")
+
+
+class AdminUserSerializer(PrivateUserSerializer):
+    password = serializers.CharField(write_only=True, required=False)
+
+    class Meta(PrivateUserSerializer.Meta):
+        fields = PrivateUserSerializer.Meta.fields + ("password",)
+        read_only_fields = tuple(
+            f for f in PrivateUserSerializer.Meta.read_only_fields if f != "role"
+        )
+
+    def create(self, validated_data):
+        return User.objects.create_user(**validated_data)
