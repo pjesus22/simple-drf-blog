@@ -1,12 +1,12 @@
 import pytest
 from pytest_factoryboy import register
+from tests.factories.accounts_factories import EditorFactory
 from tests.factories.content_factories import (
     CategoryFactory,
     PostFactory,
     TagFactory,
 )
 from tests.factories.uploads_factories import UploadFactory
-from tests.factories.users_factories import EditorFactory
 
 register(CategoryFactory)
 register(TagFactory)

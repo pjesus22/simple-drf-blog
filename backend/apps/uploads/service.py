@@ -1,7 +1,7 @@
 import os
 from typing import Optional
 
-from apps.users.models import User
+from apps.accounts.models import User
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction

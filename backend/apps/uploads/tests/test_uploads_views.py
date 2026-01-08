@@ -1,8 +1,8 @@
 from unittest.mock import Mock
 
 import pytest
+from apps.accounts.permissions import IsEditor, IsOwner
 from apps.uploads.views import UploadViewSet
-from apps.users.permissions import IsEditor, IsOwner
 from rest_framework.permissions import IsAuthenticated
 
 

@@ -1,6 +1,6 @@
 import pytest
-from apps.users.permissions import IsOwner
-from apps.users.views import ProfileViewSet
+from apps.accounts.permissions import IsOwner
+from apps.accounts.views import ProfileViewSet
 from rest_framework.permissions import IsAuthenticated
 
 

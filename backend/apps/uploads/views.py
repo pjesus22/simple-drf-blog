@@ -1,6 +1,6 @@
+from apps.accounts.permissions import IsEditor, IsOwner
 from apps.uploads.models import Upload
 from apps.uploads.serializers import UploadSerializer
-from apps.users.permissions import IsEditor, IsOwner
 from rest_framework import mixins, viewsets
 from rest_framework.permissions import IsAuthenticated
 

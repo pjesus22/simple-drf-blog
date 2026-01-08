@@ -18,7 +18,7 @@ class Post(BaseModel):
         default=Status.DRAFT,
     )
     author = models.ForeignKey(
-        to="users.User",
+        to="accounts.User",
         on_delete=models.CASCADE,
         related_name="posts",
     )

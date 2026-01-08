@@ -1,6 +1,6 @@
 import pytest
+from apps.accounts.models import Editor
 from apps.content.models import Category, Post, Tag
-from apps.users.models import Editor
 
 pytestmark = pytest.mark.django_db
 

@@ -22,7 +22,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "apps.content",
     "apps.metrics",
-    "apps.users",
+    "apps.accounts",
     "apps.uploads",
 ]
 
@@ -103,7 +103,7 @@ MEDIA_URL = "/media/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Custom user model
-AUTH_USER_MODEL = "users.User"
+AUTH_USER_MODEL = "accounts.User"
 
 # REST Framework settings
 REST_FRAMEWORK = {

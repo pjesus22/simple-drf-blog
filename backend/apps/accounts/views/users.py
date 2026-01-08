@@ -1,12 +1,12 @@
-from apps.users.models import User
-from apps.users.permissions import IsAdmin
-from apps.users.serializers import (
+from apps.accounts.models import User
+from apps.accounts.permissions import IsAdmin, IsOwner
+from apps.accounts.serializers import (
     AdminUserSerializer,
     PrivateUserSerializer,
     PublicUserSerializer,
 )
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
@@ -17,7 +17,7 @@ class UserViewSet(ModelViewSet):
     def get_serializer_class(self):
         user = self.request.user
 
-        if user.is_authenticated and user.role == "admin":
+        if user.is_authenticated and user.role == User.Role.ADMIN:
             return AdminUserSerializer
         if self.action == "me":
             return PrivateUserSerializer
@@ -26,18 +26,18 @@ class UserViewSet(ModelViewSet):
 
     def get_permissions(self):
         user = self.request.user
-        if user.is_authenticated and user.role == "admin":
+        if user.is_authenticated and user.role == User.Role.ADMIN:
             permission_classes = [IsAdmin]
         elif self.action == "me":
             permission_classes = [IsAuthenticated]
-        elif self.action in ("list", "retrieve"):
-            permission_classes = [AllowAny]
-        else:
+        elif self.action == "create":
             permission_classes = [IsAdmin]
+        else:
+            permission_classes = [IsOwner]
         return [permission() for permission in permission_classes]
 
     @action(detail=False, methods=["get", "patch"])
-    def me(self, request):
+    def me(self, request, *args, **kwargs):
         user = request.user
 
         if request.method == "GET":

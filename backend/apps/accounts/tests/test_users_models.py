@@ -1,5 +1,5 @@
 import pytest
-from apps.users.models import Admin, Editor, User
+from apps.accounts.models import Admin, Editor, User
 
 
 def test_base_user_method_properties(editor_factory):

@@ -1,4 +1,4 @@
-from apps.users.serializers import PrivateUserSerializer, PublicUserSerializer
+from apps.accounts.serializers import PrivateUserSerializer, PublicUserSerializer
 from rest_framework.fields import DateTimeField
 
 field = DateTimeField()

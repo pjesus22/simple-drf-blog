@@ -1,4 +1,4 @@
-from apps.users.models import EditorProfile, SocialLink
+from apps.accounts.models import EditorProfile, SocialLink
 
 
 def test_editor_profile_str_returns_username(db, editor_factory):

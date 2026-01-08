@@ -1,6 +1,6 @@
 import pytest
-from apps.users.models import SocialLink
-from apps.users.serializers import EditorProfileSerializer, SocialLinkSerializer
+from apps.accounts.models import SocialLink
+from apps.accounts.serializers import EditorProfileSerializer, SocialLinkSerializer
 from rest_framework.fields import DateTimeField
 
 field = DateTimeField()

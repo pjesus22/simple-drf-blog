@@ -1,5 +1,5 @@
 import factory
-from apps.users.models import User
+from apps.accounts.models import User
 from faker import Faker
 
 _fake = Faker()
@@ -20,7 +20,7 @@ class BaseUserFactory(factory.django.DjangoModelFactory):
 
 class DefaultUserFactory(BaseUserFactory):
     class Meta:
-        model = "users.User"
+        model = "accounts.User"
 
     @factory.post_generation
     def finalize(self, create, extracted, **kwargs):
@@ -38,7 +38,7 @@ class AdminFactory(BaseUserFactory):
     role = User.Role.ADMIN
 
     class Meta:
-        model = "users.Admin"
+        model = "accounts.Admin"
 
     @factory.post_generation
     def finalize(self, create, extracted, **kwargs):
@@ -52,7 +52,7 @@ class EditorFactory(BaseUserFactory):
     role = User.Role.EDITOR
 
     class Meta:
-        model = "users.Editor"
+        model = "accounts.Editor"
 
     @factory.post_generation
     def finalize(self, create, extracted, **kwargs):
@@ -81,7 +81,7 @@ class ProfileFactory(factory.django.DjangoModelFactory):
     experience_years = factory.Faker("random_int", min=0, max=40)
 
     class Meta:
-        model = "users.EditorProfile"
+        model = "accounts.EditorProfile"
 
 
 class SocialLinkFactory(factory.django.DjangoModelFactory):
@@ -100,7 +100,7 @@ class SocialLinkFactory(factory.django.DjangoModelFactory):
     )
 
     class Meta:
-        model = "users.SocialLink"
+        model = "accounts.SocialLink"
 
     @factory.lazy_attribute
     def url(self):

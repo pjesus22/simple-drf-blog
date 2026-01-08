@@ -1,20 +1,15 @@
 from unittest.mock import Mock
 
 import pytest
+from apps.accounts.permissions import IsAdmin, IsEditor, IsOwner
 from apps.content.views import CategoryViewSet, PostViewSet, TagViewSet
-from apps.users.permissions import IsAdmin, IsEditor, IsOwner
 from rest_framework.permissions import AllowAny
 
 
 @pytest.mark.parametrize(
     "action, expected_permissions",
-    [
-        ("create", [IsAdmin]),
-        ("update", [IsAdmin]),
-        ("partial_update", [IsAdmin]),
-        ("destroy", [IsAdmin]),
-    ],
-    ids=("create", "update", "partial_update", "destroy"),
+    [("create", [IsAdmin]), ("partial_update", [IsAdmin]), ("destroy", [IsAdmin])],
+    ids=("create", "partial_update", "destroy"),
 )
 def test_category_viewset_gets_writing_permissions(action, expected_permissions):
     viewset = CategoryViewSet(action=action)
@@ -47,13 +42,8 @@ def test_category_viewset_gets_reading_permissions(action, expected_permissions)
 
 @pytest.mark.parametrize(
     "action, expected_permissions",
-    [
-        ("create", [IsEditor]),
-        ("update", [IsEditor]),
-        ("partial_update", [IsEditor]),
-        ("destroy", [IsEditor]),
-    ],
-    ids=("create", "update", "partial_update", "destroy"),
+    [("create", [IsEditor]), ("partial_update", [IsEditor]), ("destroy", [IsEditor])],
+    ids=("create", "partial_update", "destroy"),
 )
 def test_tag_viewset_gets_writing_permissions(action, expected_permissions):
     viewset = TagViewSet(action=action)

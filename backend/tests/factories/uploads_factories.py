@@ -7,7 +7,7 @@ class UploadFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Upload
 
-    uploaded_by = factory.SubFactory("tests.factories.users_factories.EditorFactory")
+    uploaded_by = factory.SubFactory("tests.factories.accounts_factories.EditorFactory")
     purpose = "test"
 
     @factory.lazy_attribute

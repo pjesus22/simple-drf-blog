@@ -28,5 +28,5 @@ class PostFactory(factory.django.DjangoModelFactory):
     slug = factory.LazyAttribute(lambda obj: slugify(obj.title))
     content = factory.Faker("text")
     summary = factory.Faker("text")
-    author = factory.SubFactory("tests.factories.users_factories.EditorFactory")
+    author = factory.SubFactory("tests.factories.accounts_factories.EditorFactory")
     category = factory.SubFactory("tests.factories.content_factories.CategoryFactory")

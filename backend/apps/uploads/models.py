@@ -1,6 +1,5 @@
 import uuid
 
-from apps.users.models import User
 from django.core.validators import FileExtensionValidator, RegexValidator
 from django.db import models
 from utils.base_models import BaseModel
@@ -53,7 +52,7 @@ class Upload(BaseModel):
         ],
     )
     uploaded_by = models.ForeignKey(
-        to=User,
+        to="accounts.User",
         on_delete=models.SET_NULL,
         null=True,
         related_name="uploads",

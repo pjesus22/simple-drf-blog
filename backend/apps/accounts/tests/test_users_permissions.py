@@ -1,6 +1,6 @@
 from unittest.mock import Mock
 
-from apps.users.permissions import IsAdmin, IsEditor, IsOwner
+from apps.accounts.permissions import IsAdmin, IsEditor, IsOwner
 
 
 class TestIsEditor:

@@ -1,6 +1,6 @@
-from apps.users.models import EditorProfile
-from apps.users.permissions import IsOwner
-from apps.users.serializers import EditorProfileSerializer
+from apps.accounts.models import EditorProfile
+from apps.accounts.permissions import IsOwner
+from apps.accounts.serializers import EditorProfileSerializer
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 

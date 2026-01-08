@@ -27,7 +27,6 @@ class SocialLinkSerializer(serializers.ModelSerializer):
                 "youtube": "youtube.com",
             }
             expected_domains = domain_map.get(name)
-            expected_domains = domain_map.get(name)
             if isinstance(expected_domains, str):
                 expected_domains = [expected_domains]
             if not any(domain in url for domain in expected_domains):

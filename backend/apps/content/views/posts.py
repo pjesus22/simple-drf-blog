@@ -1,6 +1,6 @@
+from apps.accounts.permissions import IsEditor, IsOwner
 from apps.content.models import Post
 from apps.content.serializers import PostSerializer
-from apps.users.permissions import IsEditor, IsOwner
 from rest_framework import viewsets
 from rest_framework.permissions import AllowAny
 
