@@ -1,5 +1,6 @@
 import pytest
 from django.urls import reverse
+from rest_framework import status
 
 
 class TestObtainJWTPair:
@@ -16,18 +17,24 @@ class TestObtainJWTPair:
             format="json",
         )
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
         assert "access" in response.data
         assert "refresh" in response.data
 
     @pytest.mark.parametrize(
         "data, expected_status_code",
         (
-            ({}, 400),
-            ({"username": "testuser"}, 400),
-            ({"password": "defaultpassword"}, 400),
-            ({"username": "testuser", "password": "wrongpassword"}, 401),
-            ({"username": "nonexistentuser", "password": "defaultpassword"}, 401),
+            ({}, status.HTTP_400_BAD_REQUEST),
+            ({"username": "testuser"}, status.HTTP_400_BAD_REQUEST),
+            ({"password": "defaultpassword"}, status.HTTP_400_BAD_REQUEST),
+            (
+                {"username": "testuser", "password": "wrongpassword"},
+                status.HTTP_401_UNAUTHORIZED,
+            ),
+            (
+                {"username": "nonexistentuser", "password": "defaultpassword"},
+                status.HTTP_401_UNAUTHORIZED,
+            ),
         ),
         ids=(
             "empty-data",
@@ -60,7 +67,7 @@ class TestObtainJWTPair:
             format="json",
         )
 
-        assert response.status_code == 401
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestRefreshJWTPair:
@@ -79,7 +86,7 @@ class TestRefreshJWTPair:
             format="json",
         )
 
-        assert refresh_response.status_code == 200
+        assert refresh_response.status_code == status.HTTP_200_OK
         assert login_response.data["access"] != refresh_response.data["access"]
 
     def test_jwt_refresh_invalid_token(self, db, api_client, test_user):
@@ -92,7 +99,7 @@ class TestRefreshJWTPair:
             format="json",
         )
 
-        assert refresh_response.status_code == 401
+        assert refresh_response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestVerifyJWTPair:
@@ -111,7 +118,7 @@ class TestVerifyJWTPair:
             format="json",
         )
 
-        assert verify_response.status_code == 200
+        assert verify_response.status_code == status.HTTP_200_OK
 
     def test_jwt_verify_invalid_token(self, db, test_user, api_client):
         client, _ = api_client
@@ -123,7 +130,7 @@ class TestVerifyJWTPair:
             format="json",
         )
 
-        assert verify_response.status_code == 401
+        assert verify_response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestProtectedEndpointAccess:
@@ -131,4 +138,4 @@ class TestProtectedEndpointAccess:
         client, _ = editor_client
         response = client.get(reverse("v1:user-me"))
 
-        assert response.status_code == 200
+        assert response.status_code == status.HTTP_200_OK
