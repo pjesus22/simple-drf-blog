@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 from apps.accounts.permissions import IsAdmin, IsOwner
-from apps.accounts.serializers import PrivateUserSerializer, PublicUserSerializer
+from apps.accounts.serializers import UserDetailSerializer, UserListSerializer
 from apps.accounts.views import UserViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.test import APIRequestFactory, force_authenticate
@@ -17,24 +17,24 @@ def test_user_viewset_get_serializer_class_returns_public_serializer(api_factory
     request = api_factory.get("/users/")
     request.user = Mock(is_authenticated=False)
     viewset = UserViewSet(action="list", request=request)
-    assert viewset.get_serializer_class() == PublicUserSerializer
+    assert viewset.get_serializer_class() == UserListSerializer
 
 
 def test_user_viewset_get_serializer_class_returns_private_serializer(api_factory):
     request = api_factory.get("/users/me/")
     request.user = Mock(is_authenticated=True, role="editor")
     viewset = UserViewSet(action="me", request=request)
-    assert viewset.get_serializer_class() == PrivateUserSerializer
+    assert viewset.get_serializer_class() == UserDetailSerializer
 
 
 @pytest.mark.parametrize(
     "action, expected_permissions",
     [
-        ("list", [IsOwner]),
-        ("retrieve", [IsOwner]),
-        ("me", [IsAuthenticated]),
+        ("list", [IsAuthenticated]),
+        ("retrieve", [IsAuthenticated]),
+        ("me", [IsOwner]),
         ("partial_update", [IsOwner]),
-        ("destroy", [IsOwner]),
+        ("destroy", [IsAdmin]),
         ("create", [IsAdmin]),
     ],
     ids=("list", "retrieve", "me", "partial_update", "destroy", "create"),
