@@ -9,33 +9,38 @@ class SocialLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = SocialLink
         fields = ("id", "name", "url", "created_at", "updated_at")
-        resource_name = "social_links"
         read_only_fields = ("created_at", "updated_at")
 
+    class JSONAPIMeta:
+        resource_name = "social-links"
+
     def validate(self, data):
-        name, url = data.get("name"), data.get("url")
+        name = data.get("name")
+        url = data.get("url")
 
         if name and url:
             domain_map = {
-                "facebook": "facebook.com",
-                "github": "github.com",
-                "instagram": "instagram.com",
-                "linkedin": "linkedin.com",
-                "tiktok": "tiktok.com",
-                "twitter": "twitter.com",
-                "x": "x.com",
-                "youtube": "youtube.com",
+                "facebook": ["facebook.com"],
+                "github": ["github.com"],
+                "instagram": ["instagram.com"],
+                "linkedin": ["linkedin.com"],
+                "tiktok": ["tiktok.com"],
+                "twitter": ["twitter.com"],
+                "x": ["x.com"],
+                "youtube": ["youtube.com"],
             }
-            expected_domains = domain_map.get(name)
-            if isinstance(expected_domains, str):
-                expected_domains = [expected_domains]
-            if not any(domain in url for domain in expected_domains):
-                raise serializers.ValidationError(f"URL must be a {name} link")
+            expected_domains = domain_map.get(name.lower())
+            if expected_domains:
+                if not any(domain in url for domain in expected_domains):
+                    raise serializers.ValidationError(
+                        {"url": [f"The URL must be a valid {name} link."]}
+                    )
+
         return data
 
 
 class EditorProfileSerializer(serializers.ModelSerializer):
-    social_links = SocialLinkSerializer(many=True)
+    social_links = SocialLinkSerializer(many=True, required=False)
 
     class Meta:
         model = EditorProfile
@@ -49,50 +54,61 @@ class EditorProfileSerializer(serializers.ModelSerializer):
             "updated_at",
             "social_links",
         )
-        resource_name = "profiles"
         read_only_fields = ("id", "updated_at")
+
+    class JSONAPIMeta:
+        resource_name = "profiles"
+        included_resources = ["social_links"]
 
     def create(self, validated_data):
         social_links_data = validated_data.pop("social_links", [])
-        instance = EditorProfile.objects.create(**validated_data)
+        profile = EditorProfile.objects.create(**validated_data)
 
-        for link_data in social_links_data:
-            SocialLink.objects.create(profile=instance, **link_data)
+        SocialLink.objects.bulk_create(
+            [
+                SocialLink(profile=profile, **link_data)
+                for link_data in social_links_data
+            ]
+        )
 
-        return instance
+        return profile
 
     def update(self, instance, validated_data):
         social_links_data = validated_data.pop("social_links", None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-
         instance.save()
 
         if social_links_data is not None:
             existing_links = {link.id: link for link in instance.social_links.all()}
-            posted_links_ids = []
-            links_to_update = []
+            incoming_ids = set()
+
+            to_create = []
+            to_update = []
 
             for link_data in social_links_data:
                 link_id = link_data.get("id")
 
                 if link_id and link_id in existing_links:
-                    link_instance = existing_links[link_id]
-                    link_instance.name = link_data.get("name", link_instance.name)
-                    link_instance.url = link_data.get("url", link_instance.url)
-                    links_to_update.append(link_instance)
-                    posted_links_ids.append(link_id)
+                    link = existing_links[link_id]
+                    link.name = link_data.get("name", link.name)
+                    link.url = link_data.get("url", link.url)
+                    to_update.append(link)
+                    incoming_ids.add(link_id)
                 else:
                     link_data.pop("id", None)
-                    new_link = SocialLink.objects.create(profile=instance, **link_data)
-                    posted_links_ids.append(new_link.id)
+                    to_create.append(SocialLink(profile=instance, **link_data))
 
-            if links_to_update:
-                SocialLink.objects.bulk_update(links_to_update, ["name", "url"])
+            if to_create:
+                SocialLink.objects.bulk_create(to_create)
 
-            for link_id, link_instance in existing_links.items():
-                if link_id not in posted_links_ids:
-                    link_instance.delete()
+            if to_update:
+                SocialLink.objects.bulk_update(to_update, ["name", "url"])
+
+            # delete removed links
+            for link_id, link in existing_links.items():
+                if link_id not in incoming_ids:
+                    link.delete()
 
         return instance
