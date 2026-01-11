@@ -50,8 +50,8 @@ def test_social_link_serializer_raises_error_for_invalid_url(db):
     serializer = SocialLinkSerializer(data=data)
 
     assert not serializer.is_valid()
-    assert "non_field_errors" in serializer.errors
-    assert "URL must be a github link" in str(serializer.errors["non_field_errors"])
+    assert "url" in serializer.errors
+    assert "The URL must be a valid github link." in str(serializer.errors["url"])
 
 
 def test_editor_profile_serializer_creates_profile_without_social_links(
@@ -77,26 +77,21 @@ def test_editor_profile_serializer_creates_profile_without_social_links(
 
 
 def test_editor_profile_serializer_creates_profile_with_social_links(
-    db, editor_profile_data, editor_factory
+    db, editor_profile_data, editor_factory, social_link_factory
 ):
     user = editor_factory()
-    data = editor_profile_data.copy()
-    data.update(
-        {
-            "social_links": [
-                {"name": "github", "url": "https://github.com/username"},
-                {"name": "facebook", "url": "https://facebook.com/username"},
-            ]
-        }
-    )
+    links = [
+        {"name": "github", "url": "https://github.com/username"},
+        {"name": "facebook", "url": "https://facebook.com/username"},
+    ]
+    payload = {**editor_profile_data, "social_links": links}
 
-    serializer = EditorProfileSerializer(data=data)
-
-    assert serializer.is_valid()
-
+    serializer = EditorProfileSerializer(data=payload)
+    assert serializer.is_valid(), serializer.errors
     profile = serializer.save(user=user)
 
-    assert profile.social_links.count() == 2
+    assert profile.user == user
+    assert profile.social_links.count() == len(links)
 
 
 def test_editor_profile_serializer_updates_profile_without_social_links(
