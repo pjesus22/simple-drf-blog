@@ -17,6 +17,7 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework_json_api",
     "rest_framework_simplejwt",
+    "django_extensions",
 ]
 
 LOCAL_APPS = [
