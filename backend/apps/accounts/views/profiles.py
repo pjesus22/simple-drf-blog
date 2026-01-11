@@ -10,11 +10,9 @@ class ProfileViewSet(viewsets.ModelViewSet):
         "social_links"
     )
     serializer_class = EditorProfileSerializer
-    http_method_names = ["get", "patch", "head", "options"]
+    http_method_names = ["get", "put", "head", "options"]
 
     def get_permissions(self):
-        if self.action in ("update", "partial_update"):
-            permission_classes = [IsOwner]
-        else:
-            permission_classes = [IsAuthenticated]
-        return [permission() for permission in permission_classes]
+        if self.action == "update":
+            return [IsOwner()]
+        return [IsAuthenticated()]
