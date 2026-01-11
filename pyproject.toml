@@ -19,6 +19,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "django-extensions>=4.1",
     "ipython>=9.6.0",
     "markdown>=3.9",
 ]
