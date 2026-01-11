@@ -1,30 +1,20 @@
+from django.contrib.auth import get_user_model
 from rest_framework_json_api import serializers
 
-from ..models import User
+User = get_user_model()
 
 
-class PublicUserSerializer(serializers.ModelSerializer):
-    full_name = serializers.SerializerMethodField()
-    profile_id = serializers.PrimaryKeyRelatedField(source="profile", read_only=True)
-
-    def get_full_name(self, obj):
-        return obj.get_full_name()
-
-    class Meta:
-        model = User
-        fields = ("id", "profile_id", "username", "full_name")
-        resource_name = "users"
-        read_only_fields = ("id", "profile_id", "username", "full_name")
-
-
-class PrivateUserSerializer(serializers.ModelSerializer):
-    profile_id = serializers.PrimaryKeyRelatedField(source="profile", read_only=True)
+class BaseUserSerializer(serializers.ModelSerializer):
+    profile = serializers.ResourceRelatedField(read_only=True)
+    password = serializers.CharField(write_only=True, required=False)
+    included_serializers = {
+        "profile": "apps.accounts.serializers.profiles.EditorProfileSerializer"
+    }
 
     class Meta:
         model = User
         fields = (
             "id",
-            "profile_id",
             "username",
             "first_name",
             "last_name",
@@ -32,19 +22,29 @@ class PrivateUserSerializer(serializers.ModelSerializer):
             "role",
             "date_joined",
             "last_login",
+            "profile",
+            "password",
         )
+        abstract = True
+
+    class JSONAPIMeta:
         resource_name = "users"
-        read_only_fields = ("id", "profile_id", "role", "date_joined", "last_login")
 
 
-class AdminUserSerializer(PrivateUserSerializer):
-    password = serializers.CharField(write_only=True, required=False)
+class UserListSerializer(BaseUserSerializer):
+    class Meta(BaseUserSerializer.Meta):
+        fields = ("id", "username", "role", "profile")
+        read_only_fields = ("id", "username", "role", "profile")
 
-    class Meta(PrivateUserSerializer.Meta):
-        fields = PrivateUserSerializer.Meta.fields + ("password",)
-        read_only_fields = tuple(
-            f for f in PrivateUserSerializer.Meta.read_only_fields if f != "role"
-        )
 
-    def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
+class UserCreateSerializer(BaseUserSerializer):
+    password = serializers.CharField(write_only=True, required=True)
+
+    class Meta(BaseUserSerializer.Meta):
+        fields = BaseUserSerializer.Meta.fields
+        read_only_fields = ("id", "profile")
+
+
+class UserDetailSerializer(BaseUserSerializer):
+    class Meta(BaseUserSerializer.Meta):
+        fields = BaseUserSerializer.Meta.fields
