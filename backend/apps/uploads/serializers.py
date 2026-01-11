@@ -8,7 +8,7 @@ class UploadSerializer(serializers.ModelSerializer):
     url = serializers.SerializerMethodField()
     uploaded_by = serializers.ResourceRelatedField(read_only=True)
     included_serializers = {
-        "uploaded_by": "apps.accounts.serializers.PublicUserSerializer"
+        "uploaded_by": "apps.accounts.serializers.UserListSerializer"
     }
 
     def get_url(self, obj):

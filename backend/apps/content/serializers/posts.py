@@ -25,7 +25,7 @@ class PostSerializer(serializers.ModelSerializer):
     lookup_field = "slug"
 
     included_serializers = {
-        "author": "apps.accounts.serializers.PublicUserSerializer",
+        "author": "apps.accounts.serializers.UserListSerializer",
         "category": "apps.content.serializers.CategorySerializer",
         "tags": "apps.content.serializers.TagSerializer",
         "thumbnail": "apps.uploads.serializers.UploadSerializer",
