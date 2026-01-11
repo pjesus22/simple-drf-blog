@@ -2,12 +2,10 @@ from django.core.validators import RegexValidator
 from django.db import models
 from utils.base_models import BaseModel
 
-from .users import Editor
-
 
 class EditorProfile(BaseModel):
     user = models.OneToOneField(
-        to=Editor,
+        to="accounts.User",
         on_delete=models.CASCADE,
         related_name="profile",
     )
