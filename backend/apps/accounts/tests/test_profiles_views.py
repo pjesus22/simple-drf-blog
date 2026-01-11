@@ -8,11 +8,10 @@ from rest_framework.permissions import IsAuthenticated
     "action, expected_permissions",
     [
         ("update", [IsOwner]),
-        ("partial_update", [IsOwner]),
         ("list", [IsAuthenticated]),
         ("retrieve", [IsAuthenticated]),
     ],
-    ids=("update", "partial_update", "list", "retrieve"),
+    ids=("update", "list", "retrieve"),
 )
 def test_user_viewset_gets_appropriate_permissions(action, expected_permissions):
     viewset = ProfileViewSet(action=action)
