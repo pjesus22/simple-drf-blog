@@ -7,7 +7,6 @@ User = get_user_model()
 
 class BaseUserSerializer(serializers.ModelSerializer):
     profile = serializers.ResourceRelatedField(read_only=True)
-    password = serializers.CharField(write_only=True, required=False)
     included_serializers = {
         "profile": "apps.accounts.serializers.profiles.EditorProfileSerializer"
     }
@@ -24,7 +23,6 @@ class BaseUserSerializer(serializers.ModelSerializer):
             "date_joined",
             "last_login",
             "profile",
-            "password",
         )
         abstract = True
 
@@ -43,12 +41,12 @@ class UserCreateSerializer(BaseUserSerializer):
 
     class Meta(BaseUserSerializer.Meta):
         fields = BaseUserSerializer.Meta.fields
-        read_only_fields = ("id", "profile", "date_joined", "last_login")
+        read_only_fields = ("id", "profile", "date_joined", "last_login") + (
+            "password",
+        )
 
 
 class UserDetailSerializer(BaseUserSerializer):
-    password = serializers.CharField(write_only=True, required=False)
-
     class Meta(BaseUserSerializer.Meta):
         fields = BaseUserSerializer.Meta.fields
         read_only_fields = ("id", "profile", "role", "date_joined", "last_login")
