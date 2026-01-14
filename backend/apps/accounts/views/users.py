@@ -1,11 +1,13 @@
 from apps.accounts.permissions import IsAdmin, IsOwner
 from apps.accounts.serializers import (
+    PasswordUpdateSerializer,
     UserCreateSerializer,
     UserDetailSerializer,
     UserListSerializer,
 )
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -29,10 +31,10 @@ class UserViewSet(ModelViewSet):
         return UserDetailSerializer
 
     def get_permissions(self):
-        if self.action in {"create", "destroy"}:
+        if self.action in {"create", "destroy", "change_role"}:
             return [IsAdmin()]
 
-        if self.action in {"partial_update", "me"}:
+        if self.action in {"partial_update", "me", "set_password"}:
             return [IsOwner()]
         return super().get_permissions()
 
@@ -49,3 +51,31 @@ class UserViewSet(ModelViewSet):
         serializer.save()
 
         return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def change_role(self, request, pk=None):
+        user = self.get_object()
+        new_role = request.data.get("role")
+
+        if new_role not in User.Role.values:
+            raise ValidationError(
+                {"role": f"Invalid role: Must be one of {User.Role.values}"}
+            )
+
+        user.role = new_role
+        user.save()
+        serializer = self.get_serializer(user)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def set_password(self, request, pk=None):
+        user = self.get_object()
+        serializer = PasswordUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        if not user.check_password(serializer.validated_data["old_password"]):
+            raise ValidationError({"old_password": "Wrong password"})
+
+        user.set_password(serializer.validated_data["new_password"])
+        user.save()
+        return Response({"status": "password set"}, status=200)
