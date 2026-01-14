@@ -44,9 +44,12 @@ class User(AbstractUser):
         if self.pk is None:
             if not self.role:
                 self.role = getattr(self, "base_role", self.Role.ADMIN)
-            if self.role == self.Role.ADMIN:
-                self.is_staff = True
-                self.is_superuser = True
+        if self.role == self.Role.ADMIN:
+            self.is_staff = True
+            self.is_superuser = True
+        elif self.role == self.Role.EDITOR:
+            self.is_staff = False
+            self.is_superuser = False
         super().save(*args, **kwargs)
 
     class Meta:
