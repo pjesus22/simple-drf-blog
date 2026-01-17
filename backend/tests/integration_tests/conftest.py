@@ -1,7 +1,7 @@
 import pytest
-from django.urls import reverse
 from pytest_factoryboy import register
 from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
 from tests.factories import (
     AdminFactory,
     CategoryFactory,
@@ -13,6 +13,7 @@ from tests.factories import (
     UploadFactory,
 )
 
+# Factory Registration
 register(EditorFactory)
 register(AdminFactory)
 register(DefaultUserFactory)
@@ -29,31 +30,34 @@ def test_user(editor_factory):
 
 
 @pytest.fixture
-def api_client():
-    return (APIClient(), None)
+def api_client() -> APIClient:
+    return APIClient()
 
 
 @pytest.fixture
-def editor_client(editor_factory):
-    client = APIClient()
-    user = editor_factory(username="testeditor", password="defaultpassword")
-    response = client.post(
-        path=reverse("token_obtain_pair"),
-        data={"username": "testeditor", "password": "defaultpassword"},
-        format="json",
-    )
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.data.get('access')}")
-    return (client, user)
+def auth_client(api_client):
+    """
+    Returns a function that authenticates the API client
+    for a given user using a JWT access token.
+    """
+
+    def _authenticate(user):
+        refresh = RefreshToken.for_user(user)
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+        return api_client
+
+    return _authenticate
 
 
 @pytest.fixture
-def admin_client(admin_factory):
-    client = APIClient()
-    user = admin_factory(username="testadmin", password="defaultpassword")
-    response = client.post(
-        path=reverse("token_obtain_pair"),
-        data={"username": "testadmin", "password": "defaultpassword"},
-        format="json",
-    )
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {response.data.get('access')}")
-    return (client, user)
+def editor_client(editor_factory, auth_client):
+    user = editor_factory()
+    client = auth_client(user)
+    return client, user
+
+
+@pytest.fixture
+def admin_client(admin_factory, auth_client):
+    user = admin_factory()
+    client = auth_client(user)
+    return client, user
