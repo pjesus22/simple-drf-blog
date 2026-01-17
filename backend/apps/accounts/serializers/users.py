@@ -40,7 +40,7 @@ class UserCreateSerializer(BaseUserSerializer):
     password = serializers.CharField(write_only=True, required=True)
 
     class Meta(BaseUserSerializer.Meta):
-        fields = BaseUserSerializer.Meta.fields
+        fields = BaseUserSerializer.Meta.fields + ("password",)
         read_only_fields = ("id", "profile", "date_joined", "last_login") + (
             "password",
         )
