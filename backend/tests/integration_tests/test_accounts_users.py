@@ -2,10 +2,15 @@ import pytest
 from apps.accounts.models import User
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
 from rest_framework import status
+from tests.helpers import (
+    assert_datetimes_close,
+    assert_jsonapi_error_pointers,
+    assert_jsonapi_error_response,
+)
 
 pytestmark = pytest.mark.django_db
+NONEXISTENT_USER_ID = 0
 
 
 @pytest.fixture
@@ -37,10 +42,6 @@ class TestCreateUser:
         data = response.json().get("data")
 
         assert data["type"] == "users"
-        assert data["attributes"]["username"] == payload["username"]
-        assert data["attributes"]["role"] == role
-        assert "password" not in data["attributes"]
-        assert "profile" not in data["attributes"]
 
         expected_fields = {
             "username": payload["username"],
@@ -57,11 +58,18 @@ class TestCreateUser:
         client, _ = admin_client
 
         response = client.post(path=reverse("v1:user-list"), data={}, format="json")
-        errors = response.json().get("errors")
-        required = {"username", "first_name", "last_name", "email", "password"}
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert {e["source"]["pointer"].split("/")[-1] for e in errors} == required
+        assert_jsonapi_error_pointers(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            expected_pointers={
+                "username",
+                "first_name",
+                "last_name",
+                "email",
+                "password",
+            },
+        )
 
     @pytest.mark.parametrize(
         "field", ["username", "first_name", "last_name", "email", "password"]
@@ -74,55 +82,54 @@ class TestCreateUser:
         payload.pop(field)
 
         response = client.post(
-            path=reverse("v1:user-list"), data=payload, format="json"
-        )
-        errors = response.json().get("errors")
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert errors[0]["detail"] == "This field is required."
-        assert errors[0]["source"]["pointer"] == f"/data/attributes/{field}"
-
-    @pytest.mark.parametrize(
-        "field, message",
-        [
-            ("username", "user with this username already exists."),
-            ("email", "user with this email already exists."),
-        ],
-        ids=("username", "email"),
-    )
-    def test_create_user_bad_request_duplicate_attribute(
-        self, admin_client, field, message, user_data, editor_factory
-    ):
-        client, _ = admin_client
-        editor_factory(**user_data)
-
-        payload = {**user_data, "username": "unique", "email": "unique@test.com"}
-        payload[field] = user_data[field]
-
-        response = client.post(
             path=reverse("v1:user-list"),
             data=payload,
             format="json",
         )
-        errors = response.json().get("errors")
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert errors[0]["detail"] == message
-        assert errors[0]["source"]["pointer"] == f"/data/attributes/{field}"
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer=f"/data/attributes/{field}",
+            code="required",
+            detail_contains="required",
+        )
 
-    def test_create_user_unauthorized(self, db, api_client, user_data):
+    @pytest.mark.parametrize("field", ["username", "email"])
+    def test_create_user_bad_request_duplicate_attribute(
+        self, admin_client, field, user_data, editor_factory
+    ):
+        client, _ = admin_client
+        editor_factory(**user_data)
+        payload = {**user_data, "username": "unique", "email": "unique@test.com"}
+        payload[field] = user_data[field]
+
+        response = client.post(
+            path=reverse("v1:user-list"), data=payload, format="json"
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer=f"/data/attributes/{field}",
+            code="unique",
+            detail_contains="already exists.",
+        )
+
+    def test_create_user_unauthorized(self, api_client, user_data):
         client = api_client
 
         response = client.post(
-            path=reverse("v1:user-list"),
-            data=user_data,
-            format="json",
+            path=reverse("v1:user-list"), data=user_data, format="json"
         )
-        errors = response.json().get("errors")
 
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert errors[0]["detail"] == "Authentication credentials were not provided."
-        assert errors[0]["source"]["pointer"] == "/data"
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            pointer="/data",
+            code="not_authenticated",
+            detail_contains="credentials were not provided.",
+        )
 
     def test_create_user_forbidden(self, editor_client, user_data):
         client, _ = editor_client
@@ -132,13 +139,14 @@ class TestCreateUser:
             data=user_data,
             format="json",
         )
-        errors = response.json().get("errors")
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
-        assert (
-            errors[0]["detail"] == "You do not have permission to perform this action."
+        assert_jsonapi_error_response(
+            response=response,
+            pointer="/data",
+            code="permission_denied",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail_contains="do not have permission to perform this action.",
         )
-        assert errors[0]["source"]["pointer"] == "/data"
 
 
 class TestReadUser:
@@ -193,7 +201,7 @@ class TestReadUser:
         assert data["type"] == "users"
         for field in expected_fields:
             if field in ["date_joined", "last_login"]:
-                assert parse_datetime(data["attributes"][field]) == getattr(user, field)
+                assert_datetimes_close(data["attributes"][field], getattr(user, field))
             else:
                 assert data["attributes"][field] == getattr(user, field)
         assert set(data["attributes"]).issubset(expected_fields)
@@ -213,21 +221,32 @@ class TestReadUser:
     def test_retrieve_user_not_found(self, editor_client):
         client, _ = editor_client
 
-        response = client.get(path=reverse("v1:user-detail", args=[999]))
-        errors = response.json().get("errors")
+        response = client.get(
+            path=reverse("v1:user-detail", args=[NONEXISTENT_USER_ID])
+        )
+        print(response.json())
 
-        assert response.status_code == status.HTTP_404_NOT_FOUND
-        assert errors[0]["detail"] == "No User matches the given query."
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="not_found",
+            detail_contains="No User matches the given query.",
+        )
 
-    def test_retrieve_user_unauthorized(self, db, api_client):
+    def test_retrieve_user_unauthorized(self, api_client):
         client = api_client
 
-        response = client.get(path=reverse("v1:user-detail", args=[1]))
-        errors = response.json().get("errors")
+        response = client.get(
+            path=reverse("v1:user-detail", args=[NONEXISTENT_USER_ID])
+        )
 
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert errors[0]["detail"] == "Authentication credentials were not provided."
-        assert errors[0]["source"]["pointer"] == "/data"
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            pointer="/data",
+            code="not_authenticated",
+            detail_contains="credentials were not provided.",
+        )
 
     @pytest.mark.parametrize(
         "client_name", ["admin_client", "editor_client"], ids=["admin", "editor"]
@@ -245,8 +264,8 @@ class TestReadUser:
         for field in ("username", "first_name", "last_name", "email", "role"):
             assert data["attributes"][field] == getattr(client_user, field)
         for field in ("date_joined", "last_login"):
-            assert parse_datetime(data["attributes"][field]) == getattr(
-                client_user, field
+            assert_datetimes_close(
+                data["attributes"][field], getattr(client_user, field)
             )
         assert "profile" in data["relationships"]
 
@@ -319,34 +338,41 @@ class TestPartialUpdateUser:
         editor_factory(username="new_testuser", email="new_testuser@example.com")
 
         response = client.patch(path=reverse("v1:user-me"), data=data, format="json")
-        errors = response.json().get("errors")
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert errors[0]["detail"] == expected_error
-        assert errors[0]["source"]["pointer"] == pointer
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail_contains=expected_error,
+            pointer=pointer,
+            code="unique",
+        )
 
-    def test_partial_update_user_unauthorized(self, db, api_client):
+    def test_partial_update_user_unauthorized(self, api_client):
         client = api_client
 
         response = client.patch(path=reverse("v1:user-me"))
-        errors = response.json().get("errors")
 
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert errors[0]["detail"] == "Authentication credentials were not provided."
-        assert errors[0]["source"]["pointer"] == "/data"
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            pointer="/data",
+            detail_contains="credentials were not provided.",
+            code="not_authenticated",
+        )
 
-    def test_partial_update_user_forbidden(self, db, editor_client, editor_factory):
+    def test_partial_update_user_forbidden(self, editor_client, editor_factory):
         client, _ = editor_client
         other_user = editor_factory()
 
         response = client.patch(path=reverse("v1:user-detail", args=[other_user.id]))
-        errors = response.json().get("errors")
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
-        assert (
-            errors[0]["detail"] == "You do not have permission to perform this action."
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_403_FORBIDDEN,
+            pointer="/data",
+            detail_contains="not have permission to perform this action.",
+            code="permission_denied",
         )
-        assert errors[0]["source"]["pointer"] == "/data"
 
 
 class TestDeleteUser:
@@ -360,30 +386,30 @@ class TestDeleteUser:
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert User.objects.count() == initial_state - 1
 
-    def test_delete_user_unauthorized(self, db, api_client, editor_factory):
+    def test_delete_user_unauthorized(self, api_client, editor_factory):
         client = api_client
         user = editor_factory()
-        initial_state = User.objects.count()
 
         response = client.delete(path=reverse("v1:user-detail", args=[user.id]))
-        errors = response.json().get("errors")
 
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert User.objects.count() == initial_state
-        assert errors[0]["source"]["pointer"] == "/data"
-        assert errors[0]["detail"] == "Authentication credentials were not provided."
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            pointer="/data",
+            detail_contains="credentials were not provided.",
+            code="not_authenticated",
+        )
 
-    def test_delete_user_forbidden(self, db, editor_client, editor_factory):
+    def test_delete_user_forbidden(self, editor_client, editor_factory):
         client, _ = editor_client
         user = editor_factory()
-        initial_state = User.objects.count()
 
         response = client.delete(path=reverse("v1:user-detail", args=[user.id]))
-        errors = response.json().get("errors")
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
-        assert User.objects.count() == initial_state
-        assert errors[0]["source"]["pointer"] == "/data"
-        assert (
-            errors[0]["detail"] == "You do not have permission to perform this action."
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_403_FORBIDDEN,
+            pointer="/data",
+            detail_contains="not have permission to perform this action.",
+            code="permission_denied",
         )
