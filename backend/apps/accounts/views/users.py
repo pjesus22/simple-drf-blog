@@ -59,11 +59,11 @@ class UserViewSet(ModelViewSet):
 
         if new_role not in User.Role.values:
             raise ValidationError(
-                {"role": f"Invalid role: Must be one of {User.Role.values}"}
+                {"role": f"Invalid role: Must be one of {tuple(User.Role.values)}"}
             )
 
         user.role = new_role
-        user.save()
+        user.save(update_fields=["role"])
         serializer = self.get_serializer(user)
         return Response(serializer.data)
 
@@ -77,5 +77,5 @@ class UserViewSet(ModelViewSet):
             raise ValidationError({"old_password": "Wrong password"})
 
         user.set_password(serializer.validated_data["new_password"])
-        user.save()
+        user.save(update_fields=["password"])
         return Response({"status": "password set"}, status=200)
