@@ -62,6 +62,14 @@ class UserViewSet(ModelViewSet):
                 {"role": f"Invalid role: Must be one of {tuple(User.Role.values)}"}
             )
 
+        if request.user == user and new_role != User.Role.ADMIN:
+            if User.objects.filter(role=User.Role.ADMIN).count() <= 1:
+                raise ValidationError(
+                    {
+                        "role": "You cannot demote yourself if you are the last administrator."
+                    }
+                )
+
         user.role = new_role
         user.save(update_fields=["role"])
         serializer = self.get_serializer(user)
