@@ -248,48 +248,13 @@ class TestReadUser:
             detail_contains="credentials were not provided.",
         )
 
-    @pytest.mark.parametrize(
-        "client_name", ["admin_client", "editor_client"], ids=["admin", "editor"]
-    )
-    def test_retrieve_user_me_action_success(self, client_name, request):
-        client, client_user = request.getfixturevalue(client_name)
-        client_user.last_login = timezone.now()
-        client_user.save(update_fields=["last_login"])
-
-        response = client.get(path=reverse("v1:user-me"))
-        data = response.json().get("data")
-
-        assert response.status_code == status.HTTP_200_OK
-        assert data["type"] == "users"
-        for field in ("username", "first_name", "last_name", "email", "role"):
-            assert data["attributes"][field] == getattr(client_user, field)
-        for field in ("date_joined", "last_login"):
-            assert_datetimes_close(
-                data["attributes"][field], getattr(client_user, field)
-            )
-        assert "profile" in data["relationships"]
-
 
 class TestPartialUpdateUser:
-    @pytest.mark.parametrize(
-        "client_name, url_route, use_pk",
-        [
-            ("admin_client", "v1:user-detail", True),
-            ("editor_client", "v1:user-me", False),
-        ],
-        ids=["admin", "editor"],
-    )
-    def test_partial_update_user_success(
-        self, client_name, url_route, use_pk, editor_factory, request
-    ):
-        client, client_user = request.getfixturevalue(client_name)
-        target_user = editor_factory() if use_pk else client_user
-        url = (
-            reverse(url_route, args=[target_user.id]) if use_pk else reverse(url_route)
-        )
-
+    def test_partial_update_user_success(self, admin_client, editor_factory):
+        client, _ = admin_client
+        user = editor_factory()
         response = client.patch(
-            path=url,
+            path=reverse("v1:user-detail", args=[user.id]),
             data={
                 "username": "new_username",
                 "first_name": "new_name",
@@ -308,12 +273,12 @@ class TestPartialUpdateUser:
         assert data["attributes"]["last_name"] == "new_last_name"
         assert data["attributes"]["email"] == "new_email@example.com"
 
-        target_user.refresh_from_db()
+        user.refresh_from_db()
 
-        assert target_user.first_name == "new_name"
-        assert target_user.username == "new_username"
-        assert target_user.last_name == "new_last_name"
-        assert target_user.email == "new_email@example.com"
+        assert user.first_name == "new_name"
+        assert user.last_name == "new_last_name"
+        assert user.email == "new_email@example.com"
+        assert user.username == "new_username"
 
     @pytest.mark.parametrize(
         "data, expected_error, pointer",
@@ -405,6 +370,198 @@ class TestDeleteUser:
         user = editor_factory()
 
         response = client.delete(path=reverse("v1:user-detail", args=[user.id]))
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_403_FORBIDDEN,
+            pointer="/data",
+            detail_contains="not have permission to perform this action.",
+            code="permission_denied",
+        )
+
+
+class TestUserMe:
+    @pytest.mark.parametrize(
+        "client_name", ["admin_client", "editor_client"], ids=["admin", "editor"]
+    )
+    def test_get_me_success(self, client_name, request):
+        client, client_user = request.getfixturevalue(client_name)
+        client_user.last_login = timezone.now()
+        client_user.save(update_fields=["last_login"])
+
+        response = client.get(path=reverse("v1:user-me"))
+        data = response.json().get("data")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert data["type"] == "users"
+        for field in ("username", "first_name", "last_name", "email", "role"):
+            assert data["attributes"][field] == getattr(client_user, field)
+        for field in ("date_joined", "last_login"):
+            assert_datetimes_close(
+                data["attributes"][field], getattr(client_user, field)
+            )
+        assert "profile" in data["relationships"]
+
+    def test_patch_me_success(self, editor_client):
+        client, user = editor_client
+        response = client.patch(
+            path=reverse("v1:user-me"),
+            data={
+                "username": "new_username",
+                "first_name": "new_name",
+                "last_name": "new_last_name",
+                "email": "new_email@example.com",
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.json().get("data")
+
+        assert data["attributes"]["first_name"] == "new_name"
+        assert data["attributes"]["username"] == "new_username"
+        assert data["attributes"]["last_name"] == "new_last_name"
+        assert data["attributes"]["email"] == "new_email@example.com"
+
+        user.refresh_from_db()
+
+        assert user.first_name == "new_name"
+        assert user.last_name == "new_last_name"
+        assert user.email == "new_email@example.com"
+        assert user.username == "new_username"
+
+    def test_patch_me_unauthorized(self, api_client):
+        client = api_client
+
+        response = client.patch(path=reverse("v1:user-me"))
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            pointer="/data",
+            detail_contains="credentials were not provided.",
+            code="not_authenticated",
+        )
+
+
+class TestChangeRole:
+    def test_change_role_success(self, admin_client, default_user_factory):
+        client, _ = admin_client
+        user = default_user_factory(role="editor")
+
+        response = client.post(
+            path=reverse("v1:user-change-role", args=[user.id]),
+            data={"role": "admin"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        user.refresh_from_db()
+
+        assert user.role == "admin"
+
+    def test_change_role_unauthorized(self, api_client, default_user_factory):
+        client = api_client
+        user = default_user_factory(role="editor")
+
+        response = client.post(
+            path=reverse("v1:user-change-role", args=[user.id]),
+            data={"role": "admin"},
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            pointer="/data",
+            detail_contains="credentials were not provided.",
+            code="not_authenticated",
+        )
+
+    def test_change_role_forbidden(self, editor_client, default_user_factory):
+        client, _ = editor_client
+        user = default_user_factory(role="editor")
+
+        response = client.post(
+            path=reverse("v1:user-change-role", args=[user.id]),
+            data={"role": "admin"},
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_403_FORBIDDEN,
+            pointer="/data",
+            detail_contains="not have permission to perform this action.",
+            code="permission_denied",
+        )
+
+    def test_change_role_bad_request(self, admin_client, default_user_factory):
+        client, _ = admin_client
+        user = default_user_factory(role="editor")
+
+        response = client.post(
+            path=reverse("v1:user-change-role", args=[user.id]),
+            data={"role": "invalid_role"},
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer="/data",
+            detail_contains="Invalid role",
+            code="invalid",
+        )
+
+
+class TestSetPassword:
+    def test_set_password_success(self, admin_client, default_user_factory):
+        client, _ = admin_client
+        user = default_user_factory()
+
+        response = client.post(
+            path=reverse("v1:user-set-password", args=[user.id]),
+            data={"old_password": "defaultpassword", "new_password": "newpassword"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        user.refresh_from_db()
+
+        assert user.check_password("newpassword")
+        assert response.json().get("data")["status"] == "password set"
+
+    def test_set_password_unauthorized(self, api_client, default_user_factory):
+        client = api_client
+        user = default_user_factory()
+
+        response = client.post(
+            path=reverse("v1:user-set-password", args=[user.id]),
+            data={"old_password": "defaultpassword", "new_password": "newpassword"},
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            pointer="/data",
+            detail_contains="credentials were not provided.",
+            code="not_authenticated",
+        )
+
+    def test_set_password_forbidden(self, editor_client, default_user_factory):
+        client, _ = editor_client
+        user = default_user_factory()
+
+        response = client.post(
+            path=reverse("v1:user-set-password", args=[user.id]),
+            data={"old_password": "defaultpassword", "new_password": "newpassword"},
+            format="json",
+        )
 
         assert_jsonapi_error_response(
             response=response,
