@@ -1,11 +1,16 @@
 import pytest
 from django.urls import reverse
 from rest_framework import status
+from tests.helpers import (
+    assert_drf_error_response,
+    assert_jsonapi_error_pointers,
+    assert_jsonapi_error_response,
+)
 
 
 class TestObtainJWTPair:
     @pytest.mark.parametrize("role", ("admin", "editor"))
-    def test_valid_user_obtain_jwt_pair(
+    def test_post_obtain_jwt_pair_success(
         self, db, default_user_factory, role, api_client
     ):
         client = api_client
@@ -21,31 +26,46 @@ class TestObtainJWTPair:
         assert "access" in response.data
         assert "refresh" in response.data
 
+    def test_post_obtain_jwt_pair_bad_request_empty_payload(self, db, api_client):
+        client = api_client
+        response = client.post(
+            path=reverse("token_obtain_pair"),
+            data={},
+            format="json",
+        )
+
+        assert_jsonapi_error_pointers(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            expected_pointers={"username", "password"},
+        )
+
     @pytest.mark.parametrize(
-        "data, expected_status_code",
+        "data, pointer, code, detail_contains",
         (
-            ({}, status.HTTP_400_BAD_REQUEST),
-            ({"username": "testuser"}, status.HTTP_400_BAD_REQUEST),
-            ({"password": "defaultpassword"}, status.HTTP_400_BAD_REQUEST),
             (
-                {"username": "testuser", "password": "wrongpassword"},
-                status.HTTP_401_UNAUTHORIZED,
+                {"username": "testuser"},
+                "/data/attributes/password",
+                "required",
+                "required",
             ),
             (
-                {"username": "nonexistentuser", "password": "defaultpassword"},
-                status.HTTP_401_UNAUTHORIZED,
+                {"password": "defaultpassword"},
+                "/data/attributes/username",
+                "required",
+                "required",
             ),
         ),
-        ids=(
-            "empty-data",
-            "missing-username",
-            "missing-password",
-            "wrong-password",
-            "nonexistent-user",
-        ),
+        ids=("missing_username", "missing_password"),
     )
-    def test_invalid_credentials(
-        self, db, data, expected_status_code, api_client, test_user
+    def test_post_obtain_jwt_pair_bad_request_missing_fields(
+        self,
+        db,
+        data,
+        pointer,
+        code,
+        detail_contains,
+        api_client,
     ):
         client = api_client
         response = client.post(
@@ -54,10 +74,51 @@ class TestObtainJWTPair:
             format="json",
         )
 
-        assert "errors" in response.json()
-        assert response.status_code == expected_status_code
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer=pointer,
+            code=code,
+            detail_contains=detail_contains,
+        )
 
-    def test_inactive_user_cannot_login(self, db, editor_factory, api_client):
+    @pytest.mark.parametrize(
+        "data, detail_contains",
+        (
+            (
+                {"username": "testuser", "password": "wrongpassword"},
+                "No active account",
+            ),
+            (
+                {"username": "nonexistentuser", "password": "defaultpassword"},
+                "No active account",
+            ),
+        ),
+        ids=("wrong_password", "nonexistent_user"),
+    )
+    def test_post_obtain_jwt_pair_unauthorized_invalid_credentials(
+        self,
+        db,
+        data,
+        detail_contains,
+        api_client,
+    ):
+        client = api_client
+        response = client.post(
+            path=reverse("token_obtain_pair"),
+            data=data,
+            format="json",
+        )
+
+        assert_drf_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail_contains=detail_contains,
+        )
+
+    def test_post_obtain_jwt_pair_unauthorized_inactive_user_cannot_login(
+        self, db, editor_factory, api_client
+    ):
         client = api_client
         editor_factory(username="testuser", password="defaultpassword", is_active=False)
 
@@ -67,7 +128,11 @@ class TestObtainJWTPair:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert_drf_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail_contains="No active account",
+        )
 
 
 class TestRefreshJWTPair:
@@ -89,17 +154,24 @@ class TestRefreshJWTPair:
         assert refresh_response.status_code == status.HTTP_200_OK
         assert login_response.data["access"] != refresh_response.data["access"]
 
-    def test_jwt_refresh_invalid_token(self, db, api_client, test_user):
+    def test_jwt_refresh_unauthorized_invalid_token(self, db, api_client, test_user):
         client = api_client
         refresh_token = "invalid_token"
 
-        refresh_response = client.post(
+        response = client.post(
             path=reverse("token_refresh"),
             data={"refresh": refresh_token},
             format="json",
         )
 
-        assert refresh_response.status_code == status.HTTP_401_UNAUTHORIZED
+        print(response.json())
+
+        assert_drf_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="token_not_valid",
+            detail_contains="invalid",
+        )
 
 
 class TestVerifyJWTPair:
@@ -120,21 +192,28 @@ class TestVerifyJWTPair:
 
         assert verify_response.status_code == status.HTTP_200_OK
 
-    def test_jwt_verify_invalid_token(self, db, test_user, api_client):
+    def test_jwt_verify_unauthorized_invalid_token(self, db, test_user, api_client):
         client = api_client
         access_token = "invalid_token"
 
-        verify_response = client.post(
+        response = client.post(
             path=reverse("token_verify"),
             data={"token": access_token},
             format="json",
         )
 
-        assert verify_response.status_code == status.HTTP_401_UNAUTHORIZED
+        print(response.json())
+
+        assert_drf_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="token_not_valid",
+            detail_contains="invalid",
+        )
 
 
 class TestProtectedEndpointAccess:
-    def test_access_with_valid_token(self, db, test_user, editor_client):
+    def test_access_with_valid_token(self, db, editor_client):
         client, _ = editor_client
         response = client.get(reverse("v1:user-me"))
 
