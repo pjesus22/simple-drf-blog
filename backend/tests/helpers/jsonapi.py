@@ -81,3 +81,29 @@ def assert_jsonapi_error_pointers(
     }
 
     assert pointers == expected_pointers
+
+
+def assert_drf_error_response(
+    response: Response,
+    *,
+    status_code: int,
+    detail_contains: Optional[str] = None,
+    code: Optional[str] = None,
+):
+    """
+    Asserts a standard DRF error response. Handles potential wrapping by
+    the JSON:API renderer.
+    """
+    assert response.status_code == status_code
+
+    body = response.json()
+
+    errors = body.get("errors", body) if isinstance(body.get("errors"), dict) else body
+
+    if detail_contains is not None:
+        assert "detail" in errors
+        assert detail_contains.lower() in errors["detail"].lower()
+
+    if code is not None:
+        assert "code" in errors
+        assert code.lower() == errors["code"].lower()
