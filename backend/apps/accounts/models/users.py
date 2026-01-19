@@ -67,14 +67,8 @@ class Admin(User):
     class Meta:
         proxy = True
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.role = User.Role.ADMIN
-        self.is_staff = True
-        self.is_superuser = True
-
     def save(self, *args, **kwargs):
-        if not self.role or self.role != User.Role.ADMIN:
+        if not self.pk or not self.role:
             self.role = User.Role.ADMIN
         super().save(*args, **kwargs)
 
@@ -91,13 +85,7 @@ class Editor(User):
     class Meta:
         proxy = True
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.role = self.base_role
-        self.is_staff = False
-        self.is_superuser = False
-
     def save(self, *args, **kwargs):
-        if not self.role or self.role != self.base_role:
-            self.role = self.base_role
+        if not self.pk or not self.role:
+            self.role = User.Role.EDITOR
         super().save(*args, **kwargs)
