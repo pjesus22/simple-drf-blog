@@ -10,7 +10,6 @@ from tests.helpers import (
 )
 
 pytestmark = pytest.mark.django_db
-NONEXISTENT_USER_ID = 0
 ADMIN_ROLE = User.Role.ADMIN
 EDITOR_ROLE = User.Role.EDITOR
 
@@ -223,9 +222,7 @@ class TestReadUser:
     def test_retrieve_user_not_found(self, editor_client):
         client, _ = editor_client
 
-        response = client.get(
-            path=reverse("v1:user-detail", args=[NONEXISTENT_USER_ID])
-        )
+        response = client.get(path=reverse("v1:user-detail", args=[0]))
         print(response.json())
 
         assert_jsonapi_error_response(
@@ -238,9 +235,7 @@ class TestReadUser:
     def test_retrieve_user_unauthorized(self, api_client):
         client = api_client
 
-        response = client.get(
-            path=reverse("v1:user-detail", args=[NONEXISTENT_USER_ID])
-        )
+        response = client.get(path=reverse("v1:user-detail", args=[0]))
 
         assert_jsonapi_error_response(
             response=response,
