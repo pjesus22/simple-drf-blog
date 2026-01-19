@@ -11,6 +11,8 @@ from tests.helpers import (
 
 pytestmark = pytest.mark.django_db
 NONEXISTENT_USER_ID = 0
+ADMIN_ROLE = User.Role.ADMIN
+EDITOR_ROLE = User.Role.EDITOR
 
 
 @pytest.fixture
@@ -188,7 +190,7 @@ class TestReadUser:
         ],
         ids=["admin", "editor"],
     )
-    def test_retrieve_user_success(
+    def test_retrieve_other_user_success(
         self, client_fixture, editor_factory, request, expected_fields
     ):
         client, _ = request.getfixturevalue(client_fixture)
@@ -250,7 +252,9 @@ class TestReadUser:
 
 
 class TestPartialUpdateUser:
-    def test_partial_update_user_success(self, admin_client, editor_factory):
+    def test_partial_update_other_user_as_admin_success(
+        self, admin_client, editor_factory
+    ):
         client, _ = admin_client
         user = editor_factory()
         response = client.patch(
@@ -296,7 +300,7 @@ class TestPartialUpdateUser:
         ],
         ids=["duplicate_username", "duplicate_email"],
     )
-    def test_partial_update_user_bad_request(
+    def test_partial_update_self_bad_request(
         self, editor_client, data, expected_error, pointer, user_data, editor_factory
     ):
         client, client_user = editor_client
@@ -312,7 +316,7 @@ class TestPartialUpdateUser:
             code="unique",
         )
 
-    def test_partial_update_user_unauthorized(self, api_client):
+    def test_partial_update_self_unauthorized(self, api_client):
         client = api_client
 
         response = client.patch(path=reverse("v1:user-me"))
@@ -325,7 +329,9 @@ class TestPartialUpdateUser:
             code="not_authenticated",
         )
 
-    def test_partial_update_user_forbidden(self, editor_client, editor_factory):
+    def test_partial_update_other_user_as_editor_forbidden(
+        self, editor_client, editor_factory
+    ):
         client, _ = editor_client
         other_user = editor_factory()
 
@@ -446,13 +452,13 @@ class TestUserMe:
 
 
 class TestChangeRole:
-    def test_change_role_success(self, admin_client, default_user_factory):
+    def test_change_role_success(self, admin_client, editor_factory):
         client, _ = admin_client
-        user = default_user_factory(role="editor")
+        user = editor_factory()
 
         response = client.post(
             path=reverse("v1:user-change-role", args=[user.id]),
-            data={"role": "admin"},
+            data={"role": ADMIN_ROLE},
             format="json",
         )
 
@@ -468,7 +474,7 @@ class TestChangeRole:
 
         response = client.post(
             path=reverse("v1:user-change-role", args=[client_user.id]),
-            data={"role": "editor"},
+            data={"role": EDITOR_ROLE},
             format="json",
         )
 
@@ -478,13 +484,13 @@ class TestChangeRole:
 
         assert client_user.role == "editor"
 
-    def test_change_role_unauthorized(self, api_client, default_user_factory):
+    def test_change_role_unauthorized(self, api_client, editor_factory):
         client = api_client
-        user = default_user_factory(role="editor")
+        user = editor_factory()
 
         response = client.post(
             path=reverse("v1:user-change-role", args=[user.id]),
-            data={"role": "admin"},
+            data={"role": ADMIN_ROLE},
             format="json",
         )
 
@@ -496,13 +502,13 @@ class TestChangeRole:
             code="not_authenticated",
         )
 
-    def test_change_role_forbidden(self, editor_client, default_user_factory):
+    def test_change_role_forbidden(self, editor_client, editor_factory):
         client, _ = editor_client
-        user = default_user_factory(role="editor")
+        user = editor_factory()
 
         response = client.post(
             path=reverse("v1:user-change-role", args=[user.id]),
-            data={"role": "admin"},
+            data={"role": ADMIN_ROLE},
             format="json",
         )
 
@@ -519,7 +525,7 @@ class TestChangeRole:
 
         response = client.post(
             path=reverse("v1:user-change-role", args=[client_user.id]),
-            data={"role": "editor"},
+            data={"role": EDITOR_ROLE},
             format="json",
         )
 
@@ -534,9 +540,9 @@ class TestChangeRole:
     @pytest.mark.parametrize(
         "payload", [{"role": "invalid_role"}, {}], ids=["invalid_role", "missing_role"]
     )
-    def test_change_role_bad_request(self, admin_client, default_user_factory, payload):
+    def test_change_role_bad_request(self, admin_client, editor_factory, payload):
         client, _ = admin_client
-        user = default_user_factory(role="editor")
+        user = editor_factory()
 
         response = client.post(
             path=reverse("v1:user-change-role", args=[user.id]),
@@ -554,7 +560,7 @@ class TestChangeRole:
 
 
 class TestSetPassword:
-    def test_set_own_password_success(self, editor_client, default_user_factory):
+    def test_set_own_password_success(self, editor_client):
         client, client_user = editor_client
 
         response = client.post(
@@ -570,9 +576,11 @@ class TestSetPassword:
         assert client_user.check_password("newpassword")
         assert response.json().get("data")["status"] == "password set"
 
-    def test_set_other_user_password_success(self, admin_client, default_user_factory):
-        client, client_user = admin_client
-        user = default_user_factory()
+    def test_set_other_user_password_as_admin_success(
+        self, admin_client, editor_factory
+    ):
+        client, _ = admin_client
+        user = editor_factory()
 
         response = client.post(
             path=reverse("v1:user-set-password", args=[user.id]),
@@ -587,9 +595,9 @@ class TestSetPassword:
         assert user.check_password("newpassword")
         assert response.json().get("data")["status"] == "password set"
 
-    def test_set_password_unauthorized(self, api_client, default_user_factory):
+    def test_set_password_unauthorized(self, api_client, editor_factory):
         client = api_client
-        user = default_user_factory()
+        user = editor_factory()
 
         response = client.post(
             path=reverse("v1:user-set-password", args=[user.id]),
@@ -605,9 +613,11 @@ class TestSetPassword:
             code="not_authenticated",
         )
 
-    def test_set_password_forbidden(self, editor_client, default_user_factory):
+    def test_set_other_user_password_as_editor_forbidden(
+        self, editor_client, editor_factory
+    ):
         client, _ = editor_client
-        user = default_user_factory()
+        user = editor_factory()
 
         response = client.post(
             path=reverse("v1:user-set-password", args=[user.id]),
@@ -623,11 +633,9 @@ class TestSetPassword:
             code="permission_denied",
         )
 
-    def test_set_password_bad_request_old_password(
-        self, admin_client, default_user_factory
-    ):
+    def test_set_password_bad_request_old_password(self, admin_client, editor_factory):
         client, _ = admin_client
-        user = default_user_factory()
+        user = editor_factory()
 
         response = client.post(
             path=reverse("v1:user-set-password", args=[user.id]),
