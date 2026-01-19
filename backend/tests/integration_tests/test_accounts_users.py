@@ -462,6 +462,22 @@ class TestChangeRole:
 
         assert user.role == "admin"
 
+    def test_change_role_self_demotion_success(self, admin_client, admin_factory):
+        client, client_user = admin_client
+        admin_factory()
+
+        response = client.post(
+            path=reverse("v1:user-change-role", args=[client_user.id]),
+            data={"role": "editor"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        client_user.refresh_from_db()
+
+        assert client_user.role == "editor"
+
     def test_change_role_unauthorized(self, api_client, default_user_factory):
         client = api_client
         user = default_user_factory(role="editor")
@@ -498,13 +514,33 @@ class TestChangeRole:
             code="permission_denied",
         )
 
-    def test_change_role_bad_request(self, admin_client, default_user_factory):
+    def test_change_role_self_demotion_forbidden_last_admin(self, admin_client):
+        client, client_user = admin_client
+
+        response = client.post(
+            path=reverse("v1:user-change-role", args=[client_user.id]),
+            data={"role": "editor"},
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer="/data",
+            detail_contains="cannot demote yourself",
+            code="invalid",
+        )
+
+    @pytest.mark.parametrize(
+        "payload", [{"role": "invalid_role"}, {}], ids=["invalid_role", "missing_role"]
+    )
+    def test_change_role_bad_request(self, admin_client, default_user_factory, payload):
         client, _ = admin_client
         user = default_user_factory(role="editor")
 
         response = client.post(
             path=reverse("v1:user-change-role", args=[user.id]),
-            data={"role": "invalid_role"},
+            data=payload,
             format="json",
         )
 
@@ -518,8 +554,24 @@ class TestChangeRole:
 
 
 class TestSetPassword:
-    def test_set_password_success(self, admin_client, default_user_factory):
-        client, _ = admin_client
+    def test_set_own_password_success(self, editor_client, default_user_factory):
+        client, client_user = editor_client
+
+        response = client.post(
+            path=reverse("v1:user-set-password", args=[client_user.id]),
+            data={"old_password": "defaultpassword", "new_password": "newpassword"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        client_user.refresh_from_db()
+
+        assert client_user.check_password("newpassword")
+        assert response.json().get("data")["status"] == "password set"
+
+    def test_set_other_user_password_success(self, admin_client, default_user_factory):
+        client, client_user = admin_client
         user = default_user_factory()
 
         response = client.post(
@@ -569,4 +621,24 @@ class TestSetPassword:
             pointer="/data",
             detail_contains="not have permission to perform this action.",
             code="permission_denied",
+        )
+
+    def test_set_password_bad_request_old_password(
+        self, admin_client, default_user_factory
+    ):
+        client, _ = admin_client
+        user = default_user_factory()
+
+        response = client.post(
+            path=reverse("v1:user-set-password", args=[user.id]),
+            data={"old_password": "wrongpassword", "new_password": "newpassword"},
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer="/data",
+            detail_contains="Wrong password",
+            code="invalid",
         )
