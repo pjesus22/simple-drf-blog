@@ -109,7 +109,7 @@ AUTH_USER_MODEL = "accounts.User"
 # REST Framework settings
 REST_FRAMEWORK = {
     "PAGE_SIZE": 10,
-    "EXCEPTION_HANDLER": "rest_framework_json_api.exceptions.exception_handler",
+    "EXCEPTION_HANDLER": "utils.exceptions.custom_exception_handler",
     "DEFAULT_PAGINATION_CLASS": "rest_framework_json_api.pagination.JsonApiPageNumberPagination",
     "DEFAULT_PARSER_CLASSES": (
         "rest_framework_json_api.parsers.JSONParser",
@@ -139,4 +139,11 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
+}
+
+SIMPLE_JWT = {
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
+    "REFRESH_TOKEN_TYPE": "refresh",
+    "ACCESS_TOKEN_TYPE": "access",
 }
