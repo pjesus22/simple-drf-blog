@@ -5,6 +5,7 @@ from django.utils import timezone
 from rest_framework import status
 from tests.helpers import (
     assert_datetimes_close,
+    assert_drf_error_response,
     assert_jsonapi_error_pointers,
     assert_jsonapi_error_response,
 )
@@ -124,11 +125,9 @@ class TestCreateUser:
             path=reverse("v1:user-list"), data=user_data, format="json"
         )
 
-        assert_jsonapi_error_response(
+        assert_drf_error_response(
             response=response,
             status_code=status.HTTP_401_UNAUTHORIZED,
-            pointer="/data",
-            code="not_authenticated",
             detail_contains="credentials were not provided.",
         )
 
@@ -237,11 +236,9 @@ class TestReadUser:
 
         response = client.get(path=reverse("v1:user-detail", args=[0]))
 
-        assert_jsonapi_error_response(
+        assert_drf_error_response(
             response=response,
             status_code=status.HTTP_401_UNAUTHORIZED,
-            pointer="/data",
-            code="not_authenticated",
             detail_contains="credentials were not provided.",
         )
 
@@ -316,12 +313,10 @@ class TestPartialUpdateUser:
 
         response = client.patch(path=reverse("v1:user-me"))
 
-        assert_jsonapi_error_response(
+        assert_drf_error_response(
             response=response,
             status_code=status.HTTP_401_UNAUTHORIZED,
-            pointer="/data",
             detail_contains="credentials were not provided.",
-            code="not_authenticated",
         )
 
     def test_partial_update_other_user_as_editor_forbidden(
@@ -358,12 +353,10 @@ class TestDeleteUser:
 
         response = client.delete(path=reverse("v1:user-detail", args=[user.id]))
 
-        assert_jsonapi_error_response(
+        assert_drf_error_response(
             response=response,
             status_code=status.HTTP_401_UNAUTHORIZED,
-            pointer="/data",
             detail_contains="credentials were not provided.",
-            code="not_authenticated",
         )
 
     def test_delete_user_forbidden(self, editor_client, editor_factory):
@@ -437,12 +430,10 @@ class TestUserMe:
 
         response = client.patch(path=reverse("v1:user-me"))
 
-        assert_jsonapi_error_response(
+        assert_drf_error_response(
             response=response,
             status_code=status.HTTP_401_UNAUTHORIZED,
-            pointer="/data",
             detail_contains="credentials were not provided.",
-            code="not_authenticated",
         )
 
 
@@ -489,12 +480,10 @@ class TestChangeRole:
             format="json",
         )
 
-        assert_jsonapi_error_response(
+        assert_drf_error_response(
             response=response,
             status_code=status.HTTP_401_UNAUTHORIZED,
-            pointer="/data",
             detail_contains="credentials were not provided.",
-            code="not_authenticated",
         )
 
     def test_change_role_forbidden(self, editor_client, editor_factory):
@@ -600,12 +589,10 @@ class TestSetPassword:
             format="json",
         )
 
-        assert_jsonapi_error_response(
+        assert_drf_error_response(
             response=response,
             status_code=status.HTTP_401_UNAUTHORIZED,
-            pointer="/data",
             detail_contains="credentials were not provided.",
-            code="not_authenticated",
         )
 
     def test_set_other_user_password_as_editor_forbidden(
