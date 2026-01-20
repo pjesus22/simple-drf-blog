@@ -2,6 +2,7 @@ import pytest
 from apps.content.models import Tag
 from django.urls import reverse
 from rest_framework import status
+from tests.helpers import assert_drf_error_response, assert_jsonapi_error_response
 
 
 class TestCreateTag:
@@ -26,32 +27,34 @@ class TestCreateTag:
         assert data["attributes"]["slug"] == "test-tag"
 
     @pytest.mark.parametrize(
-        "data, expected_error, pointer",
+        "data, error, pointer, code",
         [
             (
                 {"name": "Test Tag", "slug": "unique-slug"},
-                "tag with this name already exists.",
+                "already exists",
                 "/data/attributes/name",
+                "unique",
             ),
             (
                 {"name": "Unique Tag", "slug": "test-tag"},
-                "tag with this slug already exists.",
+                "already exists",
                 "/data/attributes/slug",
+                "unique",
             ),
             (
                 {"name": ""},
                 "This field may not be blank.",
                 "/data/attributes/name",
+                "blank",
             ),
         ],
         ids=("duplicate_name", "duplicate_slug", "blank name"),
     )
     def test_create_tag_bad_request(
-        self, db, tag_factory, editor_client, data, expected_error, pointer
+        self, db, tag_factory, editor_client, data, error, pointer, code
     ):
         client, _ = editor_client
         tag_factory(name="Test Tag", slug="test-tag")
-        initial_state = Tag.objects.count()
 
         response = client.post(
             path=reverse("v1:tag-list"),
@@ -59,17 +62,16 @@ class TestCreateTag:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert Tag.objects.count() == initial_state
-
-        errors = response.json().get("errors")
-
-        assert errors[0]["source"]["pointer"] == pointer
-        assert errors[0]["detail"] == expected_error
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code=code,
+            pointer=pointer,
+            detail_contains=error,
+        )
 
     def test_create_tag_unauthorized(self, db, api_client):
         client = api_client
-        initial_state = Tag.objects.count()
 
         response = client.post(
             path=reverse("v1:tag-list"),
@@ -77,13 +79,11 @@ class TestCreateTag:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert Tag.objects.count() == initial_state
-
-        errors = response.json().get("errors")
-
-        assert errors[0]["source"]["pointer"] == "/data"
-        assert errors[0]["detail"] == "Authentication credentials were not provided."
+        assert_drf_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail_contains="credentials were not provided",
+        )
 
 
 class TestReadTag:
@@ -160,10 +160,13 @@ class TestReadTag:
         client = api_client
 
         response = client.get(path=reverse("v1:tag-detail", args=["nonexistent-slug"]))
-        errors = response.json().get("errors")
 
-        assert response.status_code == status.HTTP_404_NOT_FOUND
-        assert errors[0]["detail"] == "No Tag matches the given query."
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="not_found",
+            detail_contains="No Tag matches the given query.",
+        )
 
 
 class TestPartialUpdateTag:
@@ -185,33 +188,35 @@ class TestPartialUpdateTag:
         assert data["attributes"]["slug"] == "updated-tag"
 
     @pytest.mark.parametrize(
-        "data, expected_error, pointer",
+        "data, error, pointer, code",
         [
             (
                 {"name": "Updated Tag"},
                 "tag with this name already exists.",
                 "/data/attributes/name",
+                "unique",
             ),
             (
                 {"slug": "updated-tag"},
                 "tag with this slug already exists.",
                 "/data/attributes/slug",
+                "unique",
             ),
             (
                 {"name": ""},
                 "This field may not be blank.",
                 "/data/attributes/name",
+                "blank",
             ),
         ],
         ids=("duplicate_name", "duplicate_slug", "blank name"),
     )
     def test_partial_update_tag_bad_request(
-        self, db, editor_client, tag_factory, data, expected_error, pointer
+        self, db, editor_client, tag_factory, data, error, pointer, code
     ):
         client, _ = editor_client
         tag = tag_factory()
         tag_factory(name="Updated Tag", slug="updated-tag")
-        initial_state = Tag.objects.count()
 
         response = client.patch(
             path=reverse("v1:tag-detail", args=[tag.slug]),
@@ -219,18 +224,17 @@ class TestPartialUpdateTag:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert Tag.objects.count() == initial_state
-
-        errors = response.json().get("errors")
-
-        assert errors[0]["source"]["pointer"] == pointer
-        assert errors[0]["detail"] == expected_error
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer=pointer,
+            code=code,
+            detail_contains=error,
+        )
 
     def test_partial_update_tag_unauthorized(self, db, api_client, tag_factory):
         client = api_client
         tag = tag_factory()
-        initial_state = Tag.objects.count()
 
         response = client.patch(
             path=reverse("v1:tag-detail", args=[tag.slug]),
@@ -238,13 +242,11 @@ class TestPartialUpdateTag:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert Tag.objects.count() == initial_state
-
-        errors = response.json().get("errors")
-
-        assert errors[0]["source"]["pointer"] == "/data"
-        assert errors[0]["detail"] == "Authentication credentials were not provided."
+        assert_drf_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail_contains="credentials were not provided.",
+        )
 
     def test_partial_update_tag_not_found(self, db, editor_client):
         client, _ = editor_client
@@ -254,10 +256,13 @@ class TestPartialUpdateTag:
             data={"name": "Updated Tag"},
             format="json",
         )
-        errors = response.json().get("errors")
 
-        assert response.status_code == status.HTTP_404_NOT_FOUND
-        assert errors[0]["detail"] == "No Tag matches the given query."
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="not_found",
+            detail_contains="No Tag matches the given query.",
+        )
 
 
 class TestDeleteTag:
@@ -275,21 +280,23 @@ class TestDeleteTag:
     def test_delete_tag_unauthorized(self, db, api_client, tag_factory):
         client = api_client
         tag = tag_factory()
-        initial_state = Tag.objects.count()
 
         response = client.delete(path=reverse("v1:tag-detail", args=[tag.slug]))
-        errors = response.json().get("errors")
 
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert Tag.objects.count() == initial_state
-        assert errors[0]["source"]["pointer"] == "/data"
-        assert errors[0]["detail"] == "Authentication credentials were not provided."
+        assert_drf_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail_contains="credentials were not provided.",
+        )
 
     def test_delete_tag_not_found(self, db, editor_client):
         client, _ = editor_client
 
         response = client.delete(path=reverse("v1:tag-detail", args=["fake-slug"]))
-        errors = response.json().get("errors")
 
-        assert response.status_code == status.HTTP_404_NOT_FOUND
-        assert errors[0]["detail"] == "No Tag matches the given query."
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="not_found",
+            detail_contains="No Tag matches the given query.",
+        )
