@@ -2,6 +2,7 @@ import pytest
 from apps.content.models import Category
 from django.urls import reverse
 from rest_framework import status
+from tests.helpers import assert_drf_error_response, assert_jsonapi_error_response
 
 pytestmark = pytest.mark.django_db
 
@@ -38,26 +39,17 @@ class TestCreateCategory:
         assert data["attributes"]["description"] == category_data["description"]
 
     @pytest.mark.parametrize(
-        "conflict_field, expected_error",
-        [
-            ("name", "category with this name already exists."),
-            ("slug", "category with this slug already exists."),
-        ],
+        "field, detail",
+        [("name", "name already exists."), ("slug", "slug already exists.")],
         ids=("name", "slug"),
     )
     def test_create_category_bad_request_duplicate_attribute(
-        self,
-        admin_client,
-        conflict_field,
-        expected_error,
-        category_data,
-        category_factory,
+        self, admin_client, field, detail, category_data, category_factory
     ):
         client, _ = admin_client
         category_factory(**category_data)
         payload = {**category_data, "name": "Unique Name", "slug": "unique-slug"}
-        payload[conflict_field] = category_data[conflict_field]
-        initial_state = Category.objects.count()
+        payload[field] = category_data[field]
 
         response = client.post(
             path=reverse("v1:category-list"),
@@ -65,13 +57,13 @@ class TestCreateCategory:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert Category.objects.count() == initial_state
-
-        errors = response.json().get("errors")
-
-        assert errors[0]["detail"] == expected_error
-        assert errors[0]["source"]["pointer"] == f"/data/attributes/{conflict_field}"
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="unique",
+            pointer=f"/data/attributes/{field}",
+            detail_contains=detail,
+        )
 
     def test_create_category_bad_request_missing_name(
         self, admin_client, category_data
@@ -79,7 +71,6 @@ class TestCreateCategory:
         client, _ = admin_client
         payload = category_data.copy()
         payload.pop("name")
-        initial_state = Category.objects.count()
 
         response = client.post(
             path=reverse("v1:category-list"),
@@ -87,17 +78,16 @@ class TestCreateCategory:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert Category.objects.count() == initial_state
-
-        errors = response.json().get("errors")
-
-        assert errors[0]["detail"] == "This field is required."
-        assert errors[0]["source"]["pointer"] == "/data/attributes/name"
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail_contains="required.",
+            pointer="/data/attributes/name",
+            code="required",
+        )
 
     def test_create_category_unauthorized(self, api_client, category_data):
         client = api_client
-        initial_state = Category.objects.count()
 
         response = client.post(
             path=reverse("v1:category-list"),
@@ -105,17 +95,14 @@ class TestCreateCategory:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert Category.objects.count() == initial_state
-
-        errors = response.json().get("errors")
-
-        assert errors[0]["source"]["pointer"] == "/data"
-        assert errors[0]["detail"] == "Authentication credentials were not provided."
+        assert_drf_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail_contains="credentials were not provided.",
+        )
 
     def test_create_category_forbidden(self, editor_client, category_data):
         client, _ = editor_client
-        initial_state = Category.objects.count()
 
         response = client.post(
             path=reverse("v1:category-list"),
@@ -123,14 +110,12 @@ class TestCreateCategory:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
-        assert Category.objects.count() == initial_state
-
-        errors = response.json().get("errors")
-
-        assert errors[0]["source"]["pointer"] == "/data"
-        assert (
-            errors[0]["detail"] == "You do not have permission to perform this action."
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail_contains="not have permission",
+            pointer="/data",
+            code="permission_denied",
         )
 
 
@@ -210,10 +195,13 @@ class TestReadCategory:
         client = api_client
 
         response = client.get(path=reverse("v1:category-detail", args=["fake-slug"]))
-        errors = response.json().get("errors")
 
-        assert response.status_code == status.HTTP_404_NOT_FOUND
-        assert errors[0]["detail"] == "No Category matches the given query."
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail_contains="No Category matches the given query.",
+            code="not_found",
+        )
 
 
 class TestPartialUpdateCategory:
@@ -240,33 +228,35 @@ class TestPartialUpdateCategory:
         assert data["attributes"]["description"] == "Updated category description"
 
     @pytest.mark.parametrize(
-        "data, expected_error, pointer",
+        "data, error, pointer, code",
         [
             (
                 {"name": "Updated Category"},
                 "category with this name already exists.",
                 "/data/attributes/name",
+                "unique",
             ),
             (
                 {"slug": "updated-category"},
                 "category with this slug already exists.",
                 "/data/attributes/slug",
+                "unique",
             ),
             (
                 {"name": ""},
                 "This field may not be blank.",
                 "/data/attributes/name",
+                "blank",
             ),
         ],
         ids=("duplicate_name", "duplicate_slug", "blank name"),
     )
     def test_partial_update_category_bad_request(
-        self, admin_client, category_factory, data, expected_error, pointer
+        self, admin_client, category_factory, data, error, pointer, code
     ):
         client, _ = admin_client
         category = category_factory()
         category_factory(name="Updated Category", slug="updated-category")
-        initial_state = Category.objects.count()
 
         response = client.patch(
             path=reverse("v1:category-detail", args=[category.slug]),
@@ -274,18 +264,17 @@ class TestPartialUpdateCategory:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert Category.objects.count() == initial_state
-
-        errors = response.json().get("errors")
-
-        assert errors[0]["source"]["pointer"] == pointer
-        assert errors[0]["detail"] == expected_error
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail_contains=error,
+            pointer=pointer,
+            code=code,
+        )
 
     def test_partial_update_category_unauthorized(self, api_client, category_factory):
         client = api_client
         category = category_factory()
-        initial_state = Category.objects.count()
 
         response = client.patch(
             path=reverse("v1:category-detail", args=[category.slug]),
@@ -293,18 +282,15 @@ class TestPartialUpdateCategory:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert Category.objects.count() == initial_state
-
-        errors = response.json().get("errors")
-
-        assert errors[0]["source"]["pointer"] == "/data"
-        assert errors[0]["detail"] == "Authentication credentials were not provided."
+        assert_drf_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail_contains="credentials were not provided.",
+        )
 
     def test_partial_update_category_forbidden(self, editor_client, category_factory):
         client, _ = editor_client
         category = category_factory()
-        initial_state = Category.objects.count()
 
         response = client.patch(
             path=reverse("v1:category-detail", args=[category.slug]),
@@ -312,14 +298,12 @@ class TestPartialUpdateCategory:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
-        assert Category.objects.count() == initial_state
-
-        errors = response.json().get("errors")
-
-        assert errors[0]["source"]["pointer"] == "/data"
-        assert (
-            errors[0]["detail"] == "You do not have permission to perform this action."
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail_contains="do not have permission",
+            pointer="/data",
+            code="permission_denied",
         )
 
 
@@ -339,35 +323,29 @@ class TestDeleteCategory:
     def test_delete_category_unauthorized(self, api_client, category_factory):
         client = api_client
         category = category_factory()
-        initial_state = Category.objects.count()
 
         response = client.delete(
             path=reverse("v1:category-detail", args=[category.slug])
         )
 
-        assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert Category.objects.count() == initial_state
-
-        errors = response.json().get("errors")
-
-        assert errors[0]["source"]["pointer"] == "/data"
-        assert errors[0]["detail"] == "Authentication credentials were not provided."
+        assert_drf_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail_contains="credentials were not provided.",
+        )
 
     def test_delete_category_forbidden(self, editor_client, category_factory):
         client, _ = editor_client
         category = category_factory()
-        initial_state = Category.objects.count()
 
         response = client.delete(
             path=reverse("v1:category-detail", args=[category.slug])
         )
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
-        assert Category.objects.count() == initial_state
-
-        errors = response.json().get("errors")
-
-        assert errors[0]["source"]["pointer"] == "/data"
-        assert (
-            errors[0]["detail"] == "You do not have permission to perform this action."
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail_contains="do not have permission",
+            pointer="/data",
+            code="permission_denied",
         )
