@@ -2,6 +2,7 @@ import os
 from typing import Optional
 
 from apps.accounts.models import User
+from apps.uploads.exceptions import InvalidFileError, InvalidPurposeError
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
@@ -23,45 +24,35 @@ class UploadService:
         self.purpose = purpose or Upload.Purpose.ATTACHMENTS
 
         if self.purpose not in Upload.Purpose.values:
-            raise ValidationError(
-                {"purpose": [f"Value '{self.purpose}' is not a valid choice."]}
-            )
+            raise InvalidPurposeError(f"Value '{self.purpose}' is not a valid choice.")
 
     @transaction.atomic
     def create_upload(self, file: UploadedFile) -> Upload:
         """Creates a new upload instance."""
         if not file:
-            raise ValidationError("A file must be provided to create an upload")
+            raise InvalidFileError("A file must be provided.")
 
-        try:
-            processor = FileProcessor(file_obj=file, file_name=file.name)
-            meta = processor.process()
-        except ValidationError:
-            raise
-        except Exception as e:
-            raise ValidationError(f"Error processing file metadata: {e}")
+        processor = FileProcessor(file_obj=file, file_name=file.name)
+        meta = processor.process()
 
-        existing_upload = Upload.objects.filter(hash_md5=meta["hash_md5"]).first()
+        existing = Upload.objects.filter(hash_sha256=meta["hash_sha256"]).first()
 
-        if existing_upload and os.path.exists(existing_upload.file.path):
-            file_to_save = existing_upload.file
-        else:
-            file_to_save = file
+        file_to_save = (
+            existing.file if existing and os.path.exists(existing.file.path) else file
+        )
 
-        upload = Upload.objects.create(
+        return Upload.objects.create(
             file=file_to_save,
             uploaded_by=self.uploaded_by,
             purpose=self.purpose,
             mime_type=meta["mime_type"],
-            hash_md5=meta["hash_md5"],
+            hash_sha256=meta["hash_sha256"],
             size=meta["size"],
             original_filename=meta["original_filename"],
             file_type=meta["file_type"],
             width=meta.get("width"),
             height=meta.get("height"),
         )
-
-        return upload
 
     @staticmethod
     def update_metadata(upload: Upload) -> Upload:
@@ -76,7 +67,7 @@ class UploadService:
             meta = processor.process()
 
             upload.mime_type = meta["mime_type"]
-            upload.hash_md5 = meta["hash_md5"]
+            upload.hash_sha256 = meta["hash_sha256"]
             upload.size = meta["size"]
             upload.original_filename = meta["original_filename"]
             upload.file_type = meta["file_type"]
