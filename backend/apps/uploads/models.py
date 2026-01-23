@@ -1,6 +1,6 @@
 import uuid
 
-from django.core.validators import FileExtensionValidator, RegexValidator
+from django.core.validators import RegexValidator
 from django.db import models
 from utils.base_models import BaseModel
 
@@ -10,9 +10,6 @@ from .utils import get_upload_path
 class Upload(BaseModel):
     class FileType(models.TextChoices):
         IMAGE = "image", "Image"
-        VIDEO = "video", "Video"
-        AUDIO = "audio", "Audio"
-        DOCUMENT = "document", "Document"
         OTHER = "other", "Other"
 
     class Purpose(models.TextChoices):
@@ -32,24 +29,6 @@ class Upload(BaseModel):
         max_length=250,
         blank=False,
         null=False,
-        validators=[
-            FileExtensionValidator(
-                allowed_extensions=[
-                    "jpg",
-                    "jpeg",
-                    "png",
-                    "gif",
-                    "mp4",
-                    "mov",
-                    "avi",
-                    "mp3",
-                    "wav",
-                    "doc",
-                    "docx",
-                    "pdf",
-                ]
-            )
-        ],
     )
     uploaded_by = models.ForeignKey(
         to="accounts.User",
@@ -57,18 +36,17 @@ class Upload(BaseModel):
         null=True,
         related_name="uploads",
     )
-    original_filename = models.CharField(max_length=250, blank=True)
+    original_filename = models.CharField(max_length=250, blank=False)
     file_type = models.CharField(
         max_length=20,
         choices=FileType.choices,
         default=FileType.OTHER,
     )
     mime_type = models.CharField(max_length=100, blank=True)
-    hash_md5 = models.CharField(
-        max_length=32,
-        blank=True,
+    hash_sha256 = models.CharField(
+        max_length=64,
         editable=False,
-        validators=[RegexValidator(r"^[a-fA-F0-9]{32}$")],
+        validators=[RegexValidator(r"^[a-fA-F0-9]{64}$")],
     )
     size = models.PositiveIntegerField(default=0)
     is_public = models.BooleanField(default=True)
@@ -88,5 +66,5 @@ class Upload(BaseModel):
         indexes = [
             models.Index(fields=["file_type"]),
             models.Index(fields=["uploaded_by", "created_at"]),
-            models.Index(fields=["hash_md5"]),
+            models.Index(fields=["hash_sha256"]),
         ]
