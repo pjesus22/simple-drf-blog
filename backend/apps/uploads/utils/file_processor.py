@@ -6,157 +6,171 @@ from abc import ABC, abstractmethod
 from typing import Any, BinaryIO, Dict, Optional
 
 import magic
-from django.core.exceptions import ValidationError
+from apps.uploads.exceptions import (
+    FileTooLargeError,
+    InvalidFileError,
+    UnsupportedMimeTypeError,
+    UploadError,
+)
 from django.utils.text import get_valid_filename
 from PIL import Image, UnidentifiedImageError
 
 logger = logging.getLogger(__name__)
 
+ALLOWED_MIME_EXTENSIONS = {
+    "image/jpeg": {"jpg", "jpeg"},
+    "image/png": {"png"},
+    "image/gif": {"gif"},
+    "image/webp": {"webp"},
+    "application/pdf": {"pdf"},
+    "text/plain": {"txt"},
+    "video/mp4": {"mp4"},
+    "audio/mpeg": {"mp3"},
+}
+
+DENIED_MIME_TYPES = {
+    "application/x-msdownload",
+    "application/x-executable",
+    "application/x-sh",
+}
+
+
+def validate_extension(mime: str, filename: str) -> None:
+    ext = os.path.splitext(filename)[1].lstrip(".").lower()
+
+    if not ext:
+        raise InvalidFileError("Uploaded file has no extension.")
+
+    allowed = ALLOWED_MIME_EXTENSIONS.get(mime)
+
+    if not allowed:
+        raise UnsupportedMimeTypeError(f"MIME type '{mime}' is not allowed.")
+
+    if ext not in allowed:
+        raise InvalidFileError(
+            f"File extension '.{ext}' is not allowed for MIME type '{mime}'."
+        )
+
 
 class BaseStrategy(ABC):
     @abstractmethod
-    def process(self, file: BinaryIO, head: Optional[bytes] = None) -> dict[str, Any]:
-        pass
+    def process(self, file: BinaryIO, head: bytes) -> dict[str, Any]:
+        raise NotImplementedError
 
 
 class ImageStrategy(BaseStrategy):
-    def process(self, file: BinaryIO, head: Optional[bytes] = None) -> dict[str, Any]:
+    def process(self, file: BinaryIO, head: bytes) -> dict[str, Any]:
         try:
             with Image.open(file) as img:
                 img.verify()
                 width, height = img.size
-            file.seek(0)
             return {"file_type": "image", "width": width, "height": height}
         except (UnidentifiedImageError, OSError):
-            raise ValidationError("Uploaded file is not a valid or supported image.")
-
-
-class VideoStrategy(BaseStrategy):
-    def process(self, file: BinaryIO, head: Optional[bytes] = None) -> dict[str, Any]:
-        # TODO: Add video processing metadata.
-        # HINT: Could use moviepy or ffmpeg here in the future
-        return {"file_type": "video"}
-
-
-class AudioStrategy(BaseStrategy):
-    def process(self, file: BinaryIO, head: Optional[bytes] = None) -> dict[str, Any]:
-        return {"file_type": "audio"}
-
-
-class DocumentStrategy(BaseStrategy):
-    def process(self, file: BinaryIO, head: Optional[bytes] = None) -> dict[str, Any]:
-        return {"file_type": "document"}
+            raise InvalidFileError("Uploaded file is not a valid or supported image.")
 
 
 class DefaultStrategy(BaseStrategy):
-    def process(self, file: BinaryIO, head: Optional[bytes] = None) -> dict[str, Any]:
+    def process(self, file: BinaryIO, head: bytes) -> dict[str, Any]:
         return {"file_type": "other"}
 
 
 class FileProcessor:
-    STRATEGIES = {
-        "image/": ImageStrategy(),
-        "video/": VideoStrategy(),
-        "audio/": AudioStrategy(),
-        "application/": DocumentStrategy(),
-    }
+    DEFAULT_MAX_SIZE = 10 * 1024**2  # 10MiB
+    IMAGE_STRATEGY = ImageStrategy()
+    DEFAULT_STRATEGY = DefaultStrategy()
 
     def __init__(
         self,
         file_obj: BinaryIO,
         file_name: Optional[str] = None,
-        use_magic: bool = True,
         max_size: Optional[int] = None,
+        use_magic: bool = True,
     ):
-        self.file: BinaryIO = file_obj
-        self.file_name: str = file_name or getattr(file_obj, "name", "")
-        self.use_magic: bool = use_magic
-        self._head: Optional[bytes] = None
-        self.mime_type: Optional[str] = None
-        self.strategy: BaseStrategy = DefaultStrategy()
-        self.MAX_FILE_SIZE = max_size or 10 * 1024**2
+        self.file = file_obj
+        self.file_name = file_name or getattr(file_obj, "name", "")
+        self.use_magic = use_magic
+        self.max_size = max_size or self.DEFAULT_MAX_SIZE
 
-    def _read_head(self, bytes_count: int = 2048) -> bytes:
-        data = self.file.read(bytes_count) or b""
-        self._head = data
+    def _stream_file(self, chunk_size: int = 8192) -> tuple[int, bytes, str]:
+        """Streams the file once:
+        - Computes SHA-256
+        - Captures head bytes
+        - Computes size
+        """
+        hasher = hashlib.sha256()
+        size = 0
+        head = b""
+
         self.file.seek(0)
-        return data
 
-    def detect_mime_type(self) -> None:
-        data = self._head or self._read_head()
+        for chunk in iter(lambda: self.file.read(chunk_size), b""):
+            if size < 2048:
+                head += chunk[: 2048 - size]
+            size += len(chunk)
+            hasher.update(chunk)
+
+        if size > self.max_size:
+            raise FileTooLargeError("The file exceeds the maximum size permitted.")
+
+        if size == 0:
+            raise InvalidFileError("Empty or broken file.")
+
+        return size, head, hasher.hexdigest()
+
+    def _detect_mime(self, head: bytes) -> str:
         try:
+            mime = None
+
             if self.use_magic:
-                mime = magic.from_buffer(data, mime=True)
-            else:
-                mime = None
+                mime = magic.from_buffer(head, mime=True)
 
             if not mime:
                 guessed, _ = mimetypes.guess_type(self.file_name)
                 mime = guessed
 
-            self.mime_type = mime or "application/octet-stream"
+            mime = (mime or "application/octet-stream").lower()
+
+            if mime in DENIED_MIME_TYPES:
+                raise UnsupportedMimeTypeError(f"MIME type '{mime}' is not allowed.")
+
+            return mime
+
+        except UploadError:
+            raise
         except Exception as exc:
-            logger.warning(f"MIME detection failed for {self.file_name}: {exc}")
-            self.mime_type = "application/octet-stream"
+            logger.warning("MIME detection failed: %s", exc)
+            return "application/octet-stream"
 
-    def select_strategy(self) -> BaseStrategy:
-        if not self.mime_type:
-            self.detect_mime_type()
-
-        mime = (self.mime_type or "application/octet-stream").lower()
-        for prefix, strategy in self.STRATEGIES.items():
-            if mime.startswith(prefix):
-                self.strategy = strategy
-                break
-        return self.strategy
-
-    def compute_md5(self, chunk_size: int = 8192) -> str:
-        md5 = hashlib.md5()
-        self.file.seek(0)
-        for chunk in iter(lambda: self.file.read(chunk_size), b""):
-            md5.update(chunk)
-        self.file.seek(0)
-        return md5.hexdigest().lower()
-
-    def _get_size(self) -> int:
-        if hasattr(self.file, "size"):
-            return self.file.size
-        try:
-            self.file.seek(0, os.SEEK_END)
-            size = self.file.tell()
-            self.file.seek(0)
-            if size <= 0:
-                raise ValidationError("Empty or broken file.")
-            return size
-        except Exception as e:
-            raise ValidationError(f"Could not determine file size: {e}")
+    def _select_strategy(self, mime: str) -> BaseStrategy:
+        if mime.startswith("image/"):
+            return self.IMAGE_STRATEGY
+        return self.DEFAULT_STRATEGY
 
     def process(self) -> Dict[str, Any]:
         if not self.file:
-            raise ValidationError("No file provided.")
+            raise InvalidFileError("No file provided.")
 
-        size = self._get_size()
+        try:
+            size, head, sha256 = self._stream_file()
+            mime = self._detect_mime(head)
 
-        if size > self.MAX_FILE_SIZE:
-            raise ValidationError("The file exceeds the maximum size permitted.")
+            validate_extension(mime, self.file_name)
 
-        head = self._read_head()
-        self.detect_mime_type()
-        self.select_strategy()
+            strategy = self._select_strategy(mime)
 
-        base_meta = self.strategy.process(self.file, head)
-        hash_md5 = self.compute_md5()
-        original_filename = get_valid_filename(os.path.basename(self.file_name))
+            self.file.seek(0)
+            base_meta = strategy.process(self.file, head)
 
-        return {
-            "mime_type": self.mime_type,
-            "hash_md5": hash_md5,
-            "size": size,
-            "original_filename": original_filename,
-            **base_meta,
-        }
-
-        # TODO: Extension/actual-type validation. Make a validator to verify
-        # that the file extension matches the detected MIME type.
-        # This prevents uploads with false extensions (e.g. .jpg with .exe
-        # content).
+            return {
+                "mime_type": mime,
+                "hash_sha256": sha256,
+                "size": size,
+                "original_filename": get_valid_filename(
+                    os.path.basename(self.file.name)
+                ),
+                **base_meta,
+            }
+        except UploadError:
+            raise
+        finally:
+            self.file.seek(0)
