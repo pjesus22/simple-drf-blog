@@ -4,9 +4,9 @@ from .models import Upload
 
 
 class UploadSerializer(serializers.ModelSerializer):
-    queryset = Upload.objects.all().select_related("uploaded_by")
-    url = serializers.SerializerMethodField()
+    url = serializers.SerializerMethodField(read_only=True)
     uploaded_by = serializers.ResourceRelatedField(read_only=True)
+    file = serializers.FileField(write_only=True, required=True)
     included_serializers = {
         "uploaded_by": "apps.accounts.serializers.UserListSerializer"
     }
@@ -30,6 +30,7 @@ class UploadSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "url",
+            "file",
             "original_filename",
             "file_type",
             "mime_type",
@@ -49,7 +50,10 @@ class UploadSerializer(serializers.ModelSerializer):
             "mime_type",
             "width",
             "height",
+            "file_type",
+            "original_filename",
             "created_at",
             "updated_at",
+            "hash_sha256",
         )
         resource_name = "uploads"
