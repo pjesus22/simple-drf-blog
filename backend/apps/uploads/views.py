@@ -1,6 +1,7 @@
 from apps.accounts.permissions import IsEditor, IsOwner
 from apps.uploads.models import Upload
 from apps.uploads.serializers import UploadSerializer
+from apps.uploads.services import UploadService
 from rest_framework import mixins, viewsets
 from rest_framework.permissions import IsAuthenticated
 
@@ -27,4 +28,8 @@ class UploadViewSet(NoListViewSet):
         return [permission() for permission in permission_classes]
 
     def perform_create(self, serializer):
-        serializer.save(uploaded_by=self.request.user)
+        service = UploadService(
+            uploaded_by=self.request.user,
+            purpose=self.request.data.get("purpose"),
+        )
+        serializer.instance = service.create_upload(file=self.request.FILES.get("file"))
