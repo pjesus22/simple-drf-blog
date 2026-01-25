@@ -1,4 +1,4 @@
-from .accounts_factories import (
+from .accounts import (
     AdminFactory,
     DefaultUserFactory,
     EditorFactory,
