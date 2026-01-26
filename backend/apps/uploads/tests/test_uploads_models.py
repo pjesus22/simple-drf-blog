@@ -1,127 +1,59 @@
-import pytest
+import hashlib
+
 from apps.uploads.models import Upload
-from django.core.exceptions import ValidationError
-from django.core.files.uploadedfile import SimpleUploadedFile
+from apps.uploads.tests.helpers import FileFactory as ff
+from django.utils import timezone
 
 
-def test_upload_str_returns_filename_and_mime_type():
-    upload = Upload(original_filename="testfile.jpg", mime_type="image/jpeg")
-    assert str(upload) == "testfile.jpg (image/jpeg)"
+def test_upload_str_returns_original_filename_and_purpose():
+    upload = Upload(original_filename="testfile.jpg", purpose=Upload.Purpose.ATTACHMENT)
+    assert str(upload) == f"{upload.original_filename} - {upload.purpose}"
 
 
-def test_save_upload(db, editor_factory):
+def test_save_upload_object_successfully(db, editor_factory):
     user = editor_factory()
+    f = ff.create_real_image_file(size=(100, 100))
+    hash_sha256 = hashlib.sha256(f.read()).hexdigest()
 
     upload = Upload(
-        file=SimpleUploadedFile(
-            name="test.jpg",
-            content=b"fake image content",
-            content_type="image/jpeg",
-        ),
+        file=f,
         uploaded_by=user,
-        original_filename="test.jpg",
-        mime_type="image/jpeg",
-        file_type=Upload.FileType.IMAGE,
+        original_filename=f.name,
+        mime_type=f.content_type,
+        size=f.size,
+        hash_sha256=hash_sha256,
+        purpose=Upload.Purpose.ATTACHMENT,
+        visibility=Upload.Visibility.PUBLIC,
+        width=100,
+        height=100,
     )
     upload.save()
 
-    assert upload.id is not None
-    assert upload.file.name.endswith("test.jpg")
-    assert upload.uploaded_by == user
-    assert upload.original_filename == "test.jpg"
-    assert upload.mime_type == "image/jpeg"
-    assert upload.file_type == Upload.FileType.IMAGE
-
-
-def test_check_upload_default_attributes():
-    upload = Upload(
-        file=SimpleUploadedFile(
-            name="test.txt",
-            content=b"data",
-            content_type="text/plain",
-        ),
+    assert Upload.objects.filter(pk=upload.pk).exists()
+    assert upload.file.name.startswith(
+        f"{upload.purpose}/{timezone.now().strftime('%Y%m%d')}"
     )
+    assert upload.uploaded_by == user
+    assert upload.original_filename == f.name
+    assert upload.mime_type == f.content_type
+    assert upload.hash_sha256 == hash_sha256
+    assert upload.size == f.size
+    assert upload.width == 100
+    assert upload.height == 100
+    assert upload.purpose == Upload.Purpose.ATTACHMENT
+    assert upload.visibility == Upload.Visibility.PUBLIC
 
-    assert upload.file_type == Upload.FileType.OTHER
-    assert upload.is_public is True
-    assert upload.width is None
-    assert upload.height is None
 
-
-def test_upload_hash_md5_not_editable():
-    field = Upload._meta.get_field("hash_md5")
+def test_upload_hash_sha256_is_not_editable():
+    f = ff.create_mock_file()
+    hash_sha256 = hashlib.sha256(f.read()).hexdigest()
+    upload = Upload(file=f, hash_sha256=hash_sha256)
+    field = upload._meta.get_field("hash_sha256")
     assert not field.editable
 
 
-def test_upload_file_extension_validator_raises_validation_error(db):
-    upload = Upload(
-        file=SimpleUploadedFile(
-            name="malicious.exe",
-            content=b"data",
-        ),
-    )
-
-    with pytest.raises(ValidationError):
-        upload.full_clean()
-
-
-def test_upload_uploaded_by_relationship(db, editor_factory, clean_media):
-    user = editor_factory()
-
-    upload = Upload.objects.create(
-        file=SimpleUploadedFile(name="test.txt", content=b"data"),
-        uploaded_by=user,
-    )
-
-    assert upload.uploaded_by == user
-    assert upload in user.uploads.all()
-
-
-def test_upload_uploaded_by_set_null_on_delete(db, editor_factory, clean_media):
-    user = editor_factory()
-
-    upload = Upload.objects.create(
-        file=SimpleUploadedFile(name="test.txt", content=b"data"),
-        uploaded_by=user,
-    )
-
-    user.delete()
-    upload.refresh_from_db()
-
-    assert upload.uploaded_by is None
-
-
-def test_upload_default_ordering(db, editor_factory, clean_media):
-    user = editor_factory()
-
-    upload1 = Upload.objects.create(
-        file=SimpleUploadedFile(name="first.txt", content=b"1"),
-        uploaded_by=user,
-    )
-    upload2 = Upload.objects.create(
-        file=SimpleUploadedFile(name="second.txt", content=b"2"),
-        uploaded_by=user,
-    )
-    upload3 = Upload.objects.create(
-        file=SimpleUploadedFile(name="third.txt", content=b"3"),
-        uploaded_by=user,
-    )
-
-    uploads = list(Upload.objects.all())
-
-    assert uploads[0] == upload3
-    assert uploads[1] == upload2
-    assert uploads[2] == upload1
-
-
-def test_upload_has_indexes(db):
-    meta = Upload._meta
-    indexes = meta.indexes
-
-    assert len(indexes) == 3
-
-    index_fields = [tuple(idx.fields) for idx in indexes]
-
-    assert ("file_type",) in index_fields
-    assert ("uploaded_by", "created_at") in index_fields
-    assert ("hash_md5",) in index_fields
+def test_upload_size_is_not_editable():
+    f = ff.create_mock_file()
+    upload = Upload(file=f)
+    field = upload._meta.get_field("size")
+    assert not field.editable
