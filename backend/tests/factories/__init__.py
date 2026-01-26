@@ -6,7 +6,7 @@ from .accounts import (
     SocialLinkFactory,
 )
 from .content import CategoryFactory, PostFactory, TagFactory
-from .uploads_factories import UploadFactory
+from .uploads import UploadFactory
 
 __all__ = [
     "UploadFactory",
