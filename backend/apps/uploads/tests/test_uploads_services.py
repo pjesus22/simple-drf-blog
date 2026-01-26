@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 from apps.uploads.models import Upload
-from apps.uploads.service import UploadService
+from apps.uploads.services import UploadService
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
