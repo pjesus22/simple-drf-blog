@@ -28,12 +28,6 @@ ALLOWED_MIME_EXTENSIONS = {
     "audio/mpeg": {"mp3"},
 }
 
-DENIED_MIME_TYPES = {
-    "application/x-msdownload",
-    "application/x-executable",
-    "application/x-sh",
-}
-
 
 def validate_extension(mime: str, filename: str) -> None:
     ext = os.path.splitext(filename)[1].lstrip(".").lower()
@@ -63,15 +57,19 @@ class ImageStrategy(BaseStrategy):
         try:
             with Image.open(file) as img:
                 img.verify()
+
+            file.seek(0)
+            with Image.open(file) as img:
                 width, height = img.size
-            return {"file_type": "image", "width": width, "height": height}
+
+            return {"width": width, "height": height}
         except (UnidentifiedImageError, OSError):
             raise InvalidFileError("Uploaded file is not a valid or supported image.")
 
 
 class DefaultStrategy(BaseStrategy):
     def process(self, file: BinaryIO, head: bytes) -> dict[str, Any]:
-        return {"file_type": "other"}
+        return {}
 
 
 class FileProcessor:
@@ -118,28 +116,24 @@ class FileProcessor:
         return size, head, hasher.hexdigest()
 
     def _detect_mime(self, head: bytes) -> str:
-        try:
-            mime = None
+        mime = None
 
-            if self.use_magic:
+        if self.use_magic:
+            try:
                 mime = magic.from_buffer(head, mime=True)
+            except Exception as exc:
+                logger.warning("Magic MIME detection failed: %s", exc)
 
-            if not mime:
-                guessed, _ = mimetypes.guess_type(self.file_name)
-                mime = guessed
+        if not mime:
+            guessed, _ = mimetypes.guess_type(self.file_name)
+            mime = guessed
 
-            mime = (mime or "application/octet-stream").lower()
+        mime = (mime or "application/octet-stream").lower()
 
-            if mime in DENIED_MIME_TYPES:
-                raise UnsupportedMimeTypeError(f"MIME type '{mime}' is not allowed.")
+        if mime not in ALLOWED_MIME_EXTENSIONS:
+            raise UnsupportedMimeTypeError(f"MIME type '{mime}' is not allowed.")
 
-            return mime
-
-        except UploadError:
-            raise
-        except Exception as exc:
-            logger.warning("MIME detection failed: %s", exc)
-            return "application/octet-stream"
+        return mime
 
     def _select_strategy(self, mime: str) -> BaseStrategy:
         if mime.startswith("image/"):

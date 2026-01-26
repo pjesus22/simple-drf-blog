@@ -1,5 +1,4 @@
 from .file_processor import (
-    BaseStrategy,
     DefaultStrategy,
     FileProcessor,
     ImageStrategy,
@@ -7,7 +6,6 @@ from .file_processor import (
 from .path import get_upload_path
 
 __all__ = [
-    "BaseStrategy",
     "DefaultStrategy",
     "FileProcessor",
     "ImageStrategy",
