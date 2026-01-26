@@ -8,63 +8,52 @@ from .utils import get_upload_path
 
 
 class Upload(BaseModel):
-    class FileType(models.TextChoices):
-        IMAGE = "image", "Image"
-        OTHER = "other", "Other"
-
     class Purpose(models.TextChoices):
-        AVATARS = "avatars", "Avatars"
-        THUMBNAILS = "thumbnails", "Thumbnails"
-        ATTACHMENTS = "attachments", "Attachments"
+        AVATAR = "avatar", "Avatar"
+        THUMBNAIL = "thumbnail", "Thumbnail"
+        ATTACHMENT = "attachment", "Attachment"
 
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-        unique=True,
-        db_index=True,
-    )
-    file = models.FileField(
-        upload_to=get_upload_path,
-        max_length=250,
-        blank=False,
-        null=False,
-    )
+    class Visibility(models.TextChoices):
+        PUBLIC = "public", "Public"
+        PRIVATE = "private", "Private"
+        INHERIT = "inherit", "Inherit"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    file = models.FileField(upload_to=get_upload_path, max_length=250)
     uploaded_by = models.ForeignKey(
         to="accounts.User",
-        on_delete=models.SET_NULL,
-        null=True,
+        on_delete=models.CASCADE,
         related_name="uploads",
     )
-    original_filename = models.CharField(max_length=250, blank=False)
-    file_type = models.CharField(
-        max_length=20,
-        choices=FileType.choices,
-        default=FileType.OTHER,
-    )
-    mime_type = models.CharField(max_length=100, blank=True)
+    original_filename = models.CharField(max_length=250)
+    mime_type = models.CharField(max_length=100)
     hash_sha256 = models.CharField(
         max_length=64,
         editable=False,
+        unique=True,
         validators=[RegexValidator(r"^[a-fA-F0-9]{64}$")],
     )
-    size = models.PositiveIntegerField(default=0)
-    is_public = models.BooleanField(default=True)
+    size = models.PositiveIntegerField(editable=False)
     width = models.PositiveIntegerField(null=True, blank=True)
     height = models.PositiveIntegerField(null=True, blank=True)
     purpose = models.CharField(
         max_length=20,
         choices=Purpose.choices,
-        default=Purpose.ATTACHMENTS,
+        default=Purpose.ATTACHMENT,
     )
-
-    def __str__(self):
-        return f"{self.original_filename} ({self.mime_type})"
+    visibility = models.CharField(
+        max_length=10,
+        choices=Visibility.choices,
+        default=Visibility.INHERIT,
+        db_index=True,
+    )
 
     class Meta:
         ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["file_type"]),
-            models.Index(fields=["uploaded_by", "created_at"]),
             models.Index(fields=["hash_sha256"]),
+            models.Index(fields=["uploaded_by", "created_at"]),
         ]
+
+    def __str__(self):
+        return f"{self.original_filename} - {self.purpose}"
