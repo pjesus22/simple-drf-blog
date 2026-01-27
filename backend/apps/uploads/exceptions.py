@@ -16,3 +16,7 @@ class InvalidPurposeError(UploadError):
 
 class UnsupportedMimeTypeError(UploadError):
     pass
+
+
+class InvalidVisibilityError(UploadError):
+    pass
