@@ -7,7 +7,9 @@ field = DateTimeField()
 factory = APIRequestFactory()
 
 
-def test_uploads_serializer_serializes_object_successfully(db, upload_factory):
+def test_uploads_serializer_serializes_object_successfully(
+    db, upload_factory, clean_media
+):
     upload = upload_factory()
     serializer = UploadSerializer(upload)
     expected = {
@@ -28,14 +30,14 @@ def test_uploads_serializer_serializes_object_successfully(db, upload_factory):
     assert serializer.data == expected
 
 
-def test_get_url_returns_none_for_private_file(db, upload_factory):
+def test_get_url_returns_none_for_private_file(db, upload_factory, clean_media):
     upload = upload_factory(visibility=Upload.Visibility.PRIVATE)
     serializer = UploadSerializer(upload)
     assert serializer.data["url"] is None
 
 
 def test_get_url_returns_none_for_private_file_wrong_user(
-    db, upload_factory, editor_factory, admin_factory
+    db, upload_factory, editor_factory, admin_factory, clean_media
 ):
     upload = upload_factory(visibility=Upload.Visibility.PRIVATE)
     user = editor_factory()
@@ -48,7 +50,7 @@ def test_get_url_returns_none_for_private_file_wrong_user(
 
 
 def test_get_url_returns_absolute_uri_for_private_file_correct_user(
-    db, upload_factory, editor_factory, admin_factory
+    db, upload_factory, editor_factory, admin_factory, clean_media
 ):
     editor = editor_factory()
     admin = admin_factory()
