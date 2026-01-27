@@ -160,7 +160,7 @@ class FileProcessor:
                 "hash_sha256": sha256,
                 "size": size,
                 "original_filename": get_valid_filename(
-                    os.path.basename(self.file.name)
+                    os.path.basename(self.file_name)
                 ),
                 **base_meta,
             }
