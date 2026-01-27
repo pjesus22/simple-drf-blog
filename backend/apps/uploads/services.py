@@ -1,9 +1,12 @@
-import os
+from dataclasses import dataclass
 from typing import Optional
 
 from apps.accounts.models import User
-from apps.uploads.exceptions import InvalidFileError, InvalidPurposeError
-from django.core.exceptions import ValidationError
+from apps.uploads.exceptions import (
+    InvalidFileError,
+    InvalidPurposeError,
+    InvalidVisibilityError,
+)
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 
@@ -11,74 +14,136 @@ from .models import Upload
 from .utils import FileProcessor
 
 
+@dataclass(frozen=True)
+class FileMetadata:
+    mime_type: str
+    hash_sha256: str
+    size: int
+    original_filename: str
+    width: int | None = None
+    height: int | None = None
+
+
 class UploadService:
-    """Service layer for handling file uploads, metadata processing and
-    deduplication."""
+    """
+    Service layer responsible for upload creation, deduplication
+    and metadata synchronization.
+    """
 
     def __init__(
         self,
         uploaded_by: User,
         purpose: Optional[str] = None,
+        visibility: Optional[str] = None,
     ):
         self.uploaded_by = uploaded_by
-        self.purpose = purpose or Upload.Purpose.ATTACHMENTS
+        self.purpose = purpose or Upload.Purpose.ATTACHMENT
+        self.visibility = visibility or Upload.Visibility.INHERIT
 
+        self._validate_choices()
+
+    def create_or_get_upload(self, file: UploadedFile) -> Upload:
+        """Create or reuse an Upload from an uploaded file."""
+        self._validate_file(file)
+
+        metadata = self._process_file(file)
+
+        with transaction.atomic():
+            upload, _ = Upload.objects.get_or_create(
+                hash_sha256=metadata.hash_sha256,
+                defaults=self._build_defaults(metadata, file),
+            )
+
+        return upload
+
+    def update_metadata(self, upload: Upload) -> Upload:
+        """
+        Recalculate and persist metadata derivable from the stored file.
+
+        This is a technical repair/synchronization operation intended for
+        migrations or recovery from corrupted data.
+
+        Only metadata that can be deterministically derived from file contents
+        is updated (e.g. hash, size, mime type, image dimensions).
+        Semantic domain data such as `original_filename` is preserved and
+        never inferred or repaired.
+        """
+        self._validate_file(upload.file)
+
+        metadata = self._process_file(
+            upload.file,
+            file_name=upload.original_filename,
+        )
+
+        self._apply_metadata(upload, metadata)
+        upload.save(
+            update_fields=[
+                "mime_type",
+                "hash_sha256",
+                "size",
+                "original_filename",
+                "width",
+                "height",
+            ]
+        )
+
+        return upload
+
+    def _validate_choices(self) -> None:
         if self.purpose not in Upload.Purpose.values:
-            raise InvalidPurposeError(f"Value '{self.purpose}' is not a valid choice.")
+            raise InvalidPurposeError(f"Value '{self.purpose}' is not a valid purpose")
 
-    @transaction.atomic
-    def create_upload(self, file: UploadedFile) -> Upload:
-        """Creates a new upload instance."""
+        if self.visibility not in Upload.Visibility.values:
+            raise InvalidVisibilityError(
+                f"Value '{self.visibility}' is not a valid visibility"
+            )
+
+    @staticmethod
+    def _validate_file(file: UploadedFile | None) -> None:
         if not file:
             raise InvalidFileError("A file must be provided.")
 
-        processor = FileProcessor(file_obj=file, file_name=file.name)
-        meta = processor.process()
+    @staticmethod
+    def _process_file(
+        file: UploadedFile, file_name: Optional[str] = None
+    ) -> FileMetadata:
+        processor = FileProcessor(
+            file_obj=file,
+            file_name=file_name or file.name,
+        )
+        metadata = processor.process()
 
-        existing = Upload.objects.filter(hash_sha256=meta["hash_sha256"]).first()
-
-        file_to_save = (
-            existing.file if existing and os.path.exists(existing.file.path) else file
+        return FileMetadata(
+            mime_type=metadata["mime_type"],
+            hash_sha256=metadata["hash_sha256"],
+            size=metadata["size"],
+            original_filename=metadata["original_filename"],
+            width=metadata.get("width"),
+            height=metadata.get("height"),
         )
 
-        return Upload.objects.create(
-            file=file_to_save,
-            uploaded_by=self.uploaded_by,
-            purpose=self.purpose,
-            mime_type=meta["mime_type"],
-            hash_sha256=meta["hash_sha256"],
-            size=meta["size"],
-            original_filename=meta["original_filename"],
-            file_type=meta["file_type"],
-            width=meta.get("width"),
-            height=meta.get("height"),
-        )
+    def _build_defaults(
+        self,
+        metadata: FileMetadata,
+        file: UploadedFile,
+    ) -> dict:
+        return {
+            "file": file,
+            "uploaded_by": self.uploaded_by,
+            "purpose": self.purpose,
+            "visibility": self.visibility,
+            "mime_type": metadata.mime_type,
+            "size": metadata.size,
+            "original_filename": metadata.original_filename,
+            "width": metadata.width,
+            "height": metadata.height,
+        }
 
     @staticmethod
-    def update_metadata(upload: Upload) -> Upload:
-        """Utility to re-process metadata for an existing upload.
-
-        Destined for migrations or fixing corrupted data.
-        """
-        if not upload.file:
-            raise ValidationError("No file provided for metadata extraction.")
-        try:
-            processor = FileProcessor(file_obj=upload.file, file_name=upload.file.name)
-            meta = processor.process()
-
-            upload.mime_type = meta["mime_type"]
-            upload.hash_sha256 = meta["hash_sha256"]
-            upload.size = meta["size"]
-            upload.original_filename = meta["original_filename"]
-            upload.file_type = meta["file_type"]
-            upload.width = meta.get("width")
-            upload.height = meta.get("height")
-
-            upload.save()
-
-        except ValidationError:
-            raise
-        except Exception as e:
-            raise ValidationError(f"Unexpected error processing file: {e}")
-
-        return upload
+    def _apply_metadata(upload: Upload, metadata: FileMetadata) -> None:
+        upload.mime_type = metadata.mime_type
+        upload.hash_sha256 = metadata.hash_sha256
+        upload.size = metadata.size
+        upload.original_filename = metadata.original_filename
+        upload.width = metadata.width
+        upload.height = metadata.height
