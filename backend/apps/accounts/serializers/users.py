@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from rest_framework.exceptions import ValidationError
 from rest_framework_json_api import serializers
 
 User = get_user_model()
@@ -41,9 +42,12 @@ class UserCreateSerializer(BaseUserSerializer):
 
     class Meta(BaseUserSerializer.Meta):
         fields = BaseUserSerializer.Meta.fields + ("password",)
-        read_only_fields = ("id", "profile", "date_joined", "last_login") + (
-            "password",
-        )
+        read_only_fields = ("id", "profile", "date_joined", "last_login")
+
+    def create(self, validated_data):
+        password = validated_data.pop("password")
+        user = User.objects.create_user(password=password, **validated_data)
+        return user
 
 
 class UserDetailSerializer(BaseUserSerializer):
@@ -52,13 +56,29 @@ class UserDetailSerializer(BaseUserSerializer):
         read_only_fields = ("id", "profile", "role", "date_joined", "last_login")
 
 
+class ChangeRoleSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=User.Role.choices)
+
+
 class PasswordUpdateSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
+
+    def validate(self, attrs):
+        if attrs["old_password"] == attrs["new_password"]:
+            raise ValidationError(
+                {
+                    "new_password": "The new password must be different from the old password."
+                }
+            )
+
+        validate_password(attrs["new_password"])
+        return attrs
+
+
+class PasswordResetSerializer(serializers.Serializer):
     new_password = serializers.CharField(required=True)
 
     def validate_new_password(self, value):
         validate_password(value)
         return value
-
-    class JSONAPIMeta:
-        resource_name = "users"

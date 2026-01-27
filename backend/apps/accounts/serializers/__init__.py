@@ -1,5 +1,7 @@
 from .profiles import EditorProfileSerializer, SocialLinkSerializer
 from .users import (
+    ChangeRoleSerializer,
+    PasswordResetSerializer,
     PasswordUpdateSerializer,
     UserCreateSerializer,
     UserDetailSerializer,
@@ -13,4 +15,6 @@ __all__ = [
     "EditorProfileSerializer",
     "SocialLinkSerializer",
     "PasswordUpdateSerializer",
+    "PasswordResetSerializer",
+    "ChangeRoleSerializer",
 ]
