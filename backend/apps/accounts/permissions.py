@@ -1,32 +1,78 @@
 from apps.accounts.models import User
-from rest_framework import permissions
+from rest_framework.permissions import BasePermission
+
+ROLE_HIERARCHY = {
+    User.Role.EDITOR: 1,
+    User.Role.ADMIN: 2,
+}
 
 
-class IsEditor(permissions.BasePermission):
+class HasMinRole(BasePermission):
+    min_role: str | None = None
+
     def has_permission(self, request, view):
         if not request.user or not request.user.is_authenticated:
             return False
 
-        return request.user.role in [User.Role.EDITOR, User.Role.ADMIN]
+        if self.min_role is None:
+            return True
+
+        return ROLE_HIERARCHY.get(request.user.role, 0) >= ROLE_HIERARCHY.get(
+            self.min_role, 0
+        )
 
 
-class IsOwner(permissions.BasePermission):
+class IsEditor(HasMinRole):
+    min_role = User.Role.EDITOR
+
+
+class IsAdmin(HasMinRole):
+    min_role = User.Role.ADMIN
+
+
+class IsOwner(BasePermission):
+    OWNER_FIELDS = ("user", "owner", "author", "uploaded_by")
+
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated
+        return bool(request.user and request.user.is_authenticated)
 
     def has_object_permission(self, request, view, obj):
-        if not request.user or not request.user.is_authenticated:
-            return False
+        user = request.user
+
+        if user.role == User.Role.ADMIN:
+            return True
 
         if isinstance(obj, User):
-            return obj == request.user or request.user.role == User.Role.ADMIN
+            return obj == user
 
-        owner = getattr(obj, "user", None) or getattr(obj, "uploaded_by", None)
-        return (owner == request.user) or request.user.role == User.Role.ADMIN
+        for field in self.OWNER_FIELDS:
+            if getattr(obj, field, None) == user:
+                return True
+
+        return False
 
 
-class IsAdmin(permissions.BasePermission):
+class CanChangeUserRole(BasePermission):
     def has_permission(self, request, view):
-        if not request.user or not request.user.is_authenticated:
+        return bool(
+            request.user
+            and request.user.is_authenticated
+            and request.user.role == User.Role.ADMIN
+        )
+
+    def has_object_permission(self, request, view, obj):
+        if not isinstance(obj, User):
             return False
-        return request.user.role == User.Role.ADMIN
+
+        if obj == request.user:
+            return False
+
+        return True
+
+
+class CanCreateUpload(IsEditor):
+    pass
+
+
+class CanDeleteUpload(IsOwner):
+    pass
