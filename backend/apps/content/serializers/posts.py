@@ -15,12 +15,12 @@ class PostSerializer(serializers.ModelSerializer):
         queryset=Tag.objects.all(),
     )
     thumbnail = serializers.ResourceRelatedField(
-        queryset=Upload.objects.filter(purpose=Upload.Purpose.THUMBNAILS).all(),
+        queryset=Upload.objects.filter(purpose=Upload.Purpose.THUMBNAIL).all(),
         allow_null=True,
     )
     attachments = serializers.ResourceRelatedField(
         many=True,
-        queryset=Upload.objects.filter(purpose=Upload.Purpose.ATTACHMENTS).all(),
+        queryset=Upload.objects.filter(purpose=Upload.Purpose.ATTACHMENT).all(),
     )
     lookup_field = "slug"
 
