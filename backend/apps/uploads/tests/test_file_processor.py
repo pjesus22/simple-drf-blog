@@ -44,10 +44,7 @@ class TestValidateExtension:
             )
 
     def test_validate_extension_raises_unsupported_mime_type_error(self):
-        with pytest.raises(
-            UnsupportedMimeTypeError,
-            match="MIME type 'application/x-dosexec' is not allowed.",
-        ):
+        with pytest.raises(UnsupportedMimeTypeError, match="Unsupported MIME type."):
             validate_extension(
                 "application/x-dosexec",
                 filename=fake.file_path(
@@ -131,9 +128,7 @@ class TestFileProcessor:
         f = ff.create_mock_file(content=b"0" * (10 * 1024**2 + 1))
         processor = FileProcessor(file_obj=f)
 
-        with pytest.raises(
-            FileTooLargeError, match="The file exceeds the maximum size permitted."
-        ):
+        with pytest.raises(FileTooLargeError, match="File size exceeds the limit."):
             processor._stream_file()
 
     def test_file_processor_stream_file_raises_invalid_file_error_for_empty_file(self):
@@ -165,7 +160,7 @@ class TestFileProcessor:
         f = ff.create_mock_file(content=b"MZ...", name="app.exe")
         processor = FileProcessor(file_obj=f, use_magic=False)
 
-        with pytest.raises(UnsupportedMimeTypeError, match="is not allowed"):
+        with pytest.raises(UnsupportedMimeTypeError, match="Unsupported MIME type."):
             processor._detect_mime(b"MZ head")
 
     def test_file_processor_detect_mime_exception_fallback(self, monkeypatch):
@@ -198,7 +193,7 @@ class TestFileProcessor:
         assert result["original_filename"] == "test.pdf"
 
     def test_file_processor_process_no_file_raises_error(self):
-        with pytest.raises(InvalidFileError, match="No file provided."):
+        with pytest.raises(InvalidFileError, match="Invalid file provided."):
             FileProcessor(None).process()
 
     def test_file_processor_process_resets_file_pointer(self):
@@ -224,7 +219,7 @@ class TestFileProcessor:
         processor = FileProcessor(file_obj=f, max_size=max_size)
 
         if expected_error:
-            with pytest.raises(expected_error, match="maximum size permitted"):
+            with pytest.raises(expected_error, match="File size exceeds the limit."):
                 processor.process()
         else:
             result = processor.process()
