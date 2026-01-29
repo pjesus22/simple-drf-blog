@@ -38,7 +38,12 @@ class UserListSerializer(BaseUserSerializer):
 
 
 class UserCreateSerializer(BaseUserSerializer):
-    password = serializers.CharField(write_only=True, required=True)
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        validators=[validate_password],
+        min_length=8,
+    )
 
     class Meta(BaseUserSerializer.Meta):
         fields = BaseUserSerializer.Meta.fields + ("password",)
@@ -62,7 +67,11 @@ class ChangeRoleSerializer(serializers.Serializer):
 
 class PasswordUpdateSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(
+        required=True,
+        validators=[validate_password],
+        min_length=8,
+    )
 
     def validate(self, attrs):
         if attrs["old_password"] == attrs["new_password"]:
@@ -72,13 +81,12 @@ class PasswordUpdateSerializer(serializers.Serializer):
                 }
             )
 
-        validate_password(attrs["new_password"])
         return attrs
 
 
 class PasswordResetSerializer(serializers.Serializer):
-    new_password = serializers.CharField(required=True)
-
-    def validate_new_password(self, value):
-        validate_password(value)
-        return value
+    new_password = serializers.CharField(
+        required=True,
+        validators=[validate_password],
+        min_length=8,
+    )
