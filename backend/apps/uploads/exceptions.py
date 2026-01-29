@@ -1,22 +1,27 @@
-class UploadError(Exception):
+class UploadDomainError(Exception):
     """Base exception for upload domain errors"""
 
+    default_message = "Upload Domain Error"
 
-class InvalidFileError(UploadError):
-    pass
-
-
-class FileTooLargeError(UploadError):
-    pass
+    def __init__(self, message=None):
+        super().__init__(message or self.default_message)
 
 
-class InvalidPurposeError(UploadError):
-    pass
+class InvalidFileError(UploadDomainError):
+    default_message = "Invalid file provided."
 
 
-class UnsupportedMimeTypeError(UploadError):
-    pass
+class FileTooLargeError(UploadDomainError):
+    default_message = "File size exceeds the limit."
 
 
-class InvalidVisibilityError(UploadError):
-    pass
+class InvalidPurposeError(UploadDomainError):
+    default_message = "Invalid upload purpose."
+
+
+class UnsupportedMimeTypeError(UploadDomainError):
+    default_message = "Unsupported MIME type."
+
+
+class InvalidVisibilityError(UploadDomainError):
+    default_message = "Invalid visibility setting."
