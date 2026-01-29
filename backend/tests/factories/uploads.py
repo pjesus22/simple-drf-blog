@@ -1,4 +1,5 @@
 import hashlib
+import uuid
 
 import factory
 from apps.uploads.models import Upload
@@ -16,8 +17,11 @@ class UploadFactory(factory.django.DjangoModelFactory):
 
     @factory.lazy_attribute
     def file(self):
-        content = ContentFile(b"Fake", name="factory_test.txt")
-        return content
+        unique_id = uuid.uuid4().hex
+        return ContentFile(
+            f"Fake content for {unique_id}".encode(),
+            name=f"file_{unique_id}.txt",
+        )
 
     @factory.lazy_attribute
     def original_filename(self):
