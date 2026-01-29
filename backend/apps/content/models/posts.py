@@ -57,22 +57,26 @@ class Post(BaseModel):
 
     def clean(self):
         self.slug = slugify(self.slug) if self.slug else generate_slug(self, self.title)
-        if self.is_published() and self.published_at is None:
+        if self.is_published and self.published_at is None:
             self.published_at = timezone.now()
 
     def save(self, *args, **kwargs):
         self.clean()
         super().save(*args, **kwargs)
 
+    @property
     def is_published(self):
         return self.status == self.Status.PUBLISHED
 
+    @property
     def is_draft(self):
         return self.status == self.Status.DRAFT
 
+    @property
     def is_archived(self):
         return self.status == self.Status.ARCHIVED
 
+    @property
     def is_deleted(self):
         return self.status == self.Status.DELETED
 
