@@ -10,7 +10,7 @@ from apps.uploads.exceptions import (
     FileTooLargeError,
     InvalidFileError,
     UnsupportedMimeTypeError,
-    UploadError,
+    UploadDomainError,
 )
 from django.utils.text import get_valid_filename
 from PIL import Image, UnidentifiedImageError
@@ -108,7 +108,7 @@ class FileProcessor:
             hasher.update(chunk)
 
         if size > self.max_size:
-            raise FileTooLargeError("The file exceeds the maximum size permitted.")
+            raise FileTooLargeError()
 
         if size == 0:
             raise InvalidFileError("Empty or broken file.")
@@ -131,7 +131,7 @@ class FileProcessor:
         mime = (mime or "application/octet-stream").lower()
 
         if mime not in ALLOWED_MIME_EXTENSIONS:
-            raise UnsupportedMimeTypeError(f"MIME type '{mime}' is not allowed.")
+            raise UnsupportedMimeTypeError()
 
         return mime
 
@@ -142,7 +142,7 @@ class FileProcessor:
 
     def process(self) -> Dict[str, Any]:
         if not self.file:
-            raise InvalidFileError("No file provided.")
+            raise InvalidFileError()
 
         try:
             size, head, sha256 = self._stream_file()
@@ -164,7 +164,7 @@ class FileProcessor:
                 ),
                 **base_meta,
             }
-        except UploadError:
+        except UploadDomainError:
             raise
         finally:
             self.file.seek(0)
