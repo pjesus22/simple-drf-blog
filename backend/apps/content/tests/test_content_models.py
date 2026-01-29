@@ -105,10 +105,10 @@ class TestPostModel:
 
     def test_status_methods(self):
         post = Post(title="Test Post", status=Post.Status.PUBLISHED)
-        assert post.is_published() is True
-        assert post.is_draft() is False
-        assert post.is_archived() is False
-        assert post.is_deleted() is False
+        assert post.is_published is True
+        assert post.is_draft is False
+        assert post.is_archived is False
+        assert post.is_deleted is False
 
     @pytest.mark.parametrize(
         "initial_status, final_status",
@@ -166,13 +166,13 @@ class TestPostModel:
 
     def test_post_add_thumbnail(self, post_factory, upload_factory, clean_media):
         post = post_factory()
-        thumbnail = upload_factory()
+        thumbnail = upload_factory(purpose="thumbnail")
 
         post.thumbnail = thumbnail
         post.save()
 
         assert post.thumbnail == thumbnail
-        assert post.thumbnail.purpose == "test"
+        assert post.thumbnail.purpose == "thumbnail"
 
     def test_post_add_thumbnail_deletion_sets_null(
         self, post_factory, upload_factory, clean_media
