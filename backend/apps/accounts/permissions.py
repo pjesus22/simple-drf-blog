@@ -70,6 +70,14 @@ class CanChangeUserRole(BasePermission):
         return True
 
 
+class CanViewUser(BasePermission):
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated)
+
+    def has_object_permission(self, request, view, obj):
+        return request.user.role == User.Role.ADMIN or request.user == obj
+
+
 class CanCreateUpload(IsEditor):
     pass
 
