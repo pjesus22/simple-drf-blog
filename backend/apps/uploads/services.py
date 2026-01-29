@@ -101,7 +101,7 @@ class UploadService:
     @staticmethod
     def _validate_file(file: UploadedFile | None) -> None:
         if not file:
-            raise InvalidFileError("A file must be provided.")
+            raise InvalidFileError()
 
     @staticmethod
     def _process_file(
