@@ -1,7 +1,5 @@
-from apps.accounts.permissions import (
-    CanChangeUserRole,
-    IsAdmin,
-)
+from apps.accounts.exceptions import CannotDemoteLastAdmin, InvalidPassword
+from apps.accounts.permissions import CanChangeUserRole, CanViewUser, IsAdmin
 from apps.accounts.serializers import (
     ChangeRoleSerializer,
     PasswordResetSerializer,
@@ -10,7 +8,12 @@ from apps.accounts.serializers import (
     UserDetailSerializer,
     UserListSerializer,
 )
-from django.contrib.auth import get_user_model, update_session_auth_hash
+from apps.accounts.services import (
+    change_own_password,
+    change_user_role,
+    force_user_password_change,
+)
+from django.contrib.auth import get_user_model
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -30,7 +33,7 @@ class UserViewSet(ModelViewSet):
             "list": UserListSerializer,
             "create": UserCreateSerializer,
             "change_password": PasswordUpdateSerializer,
-            "reset_password": PasswordResetSerializer,
+            "force_password_change": PasswordResetSerializer,
             "change_role": ChangeRoleSerializer,
         }
         return serializer_map.get(self.action, self.serializer_class)
@@ -38,11 +41,14 @@ class UserViewSet(ModelViewSet):
     def get_permissions(self):
         permission_map = {
             "list": [IsAdmin],
-            "retrieve": [IsAdmin],
+            "retrieve": [CanViewUser],
             "create": [IsAdmin],
+            "update": [IsAdmin],
+            "partial_update": [IsAdmin],
+            "destroy": [IsAdmin],
             "me": [IsAuthenticated],
             "change_password": [IsAuthenticated],
-            "reset_password": [IsAdmin],
+            "force_password_change": [IsAdmin],
             "change_role": [CanChangeUserRole],
         }
         permission_classes = permission_map.get(self.action, self.permission_classes)
@@ -65,21 +71,16 @@ class UserViewSet(ModelViewSet):
     @action(detail=True, methods=["post"])
     def change_role(self, request, pk=None):
         user = self.get_object()
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         new_role = serializer.validated_data["role"]
 
-        if request.user == user and new_role != User.Role.ADMIN:
-            if User.objects.filter(role=User.Role.ADMIN).count() <= 1:
-                raise ValidationError(
-                    {
-                        "role": "You cannot demote yourself if you are the last administrator."
-                    }
-                )
-
-        user.role = new_role
-        user.save(update_fields=["role"])
+        try:
+            change_user_role(actor=request.user, target_user=user, new_role=new_role)
+        except CannotDemoteLastAdmin as exc:
+            raise ValidationError({"role": str(exc)})
 
         return Response(UserDetailSerializer(user).data)
 
@@ -90,22 +91,27 @@ class UserViewSet(ModelViewSet):
 
         user = request.user
 
-        if not user.check_password(serializer.validated_data["old_password"]):
+        try:
+            change_own_password(
+                user=user,
+                old_password=serializer.validated_data["old_password"],
+                new_password=serializer.validated_data["new_password"],
+            )
+        except InvalidPassword:
             raise ValidationError({"old_password": "Invalid password"})
-
-        user.set_password(serializer.validated_data["new_password"])
-        user.save()
-        update_session_auth_hash(request, user)
 
         return Response(status=204)
 
     @action(detail=True, methods=["post"])
-    def reset_password(self, request, pk=None):
+    def force_password_change(self, request, pk=None):
         user = self.get_object()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        user.set_password(serializer.validated_data["new_password"])
-        user.save()
+        force_user_password_change(
+            actor=request.user,
+            target_user=user,
+            new_password=serializer.validated_data["new_password"],
+        )
 
         return Response(status=204)
