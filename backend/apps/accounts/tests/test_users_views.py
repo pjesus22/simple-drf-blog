@@ -1,6 +1,7 @@
 import pytest
 from apps.accounts.permissions import (
     CanChangeUserRole,
+    CanViewUser,
     IsAdmin,
 )
 from apps.accounts.serializers import (
@@ -25,6 +26,9 @@ def viewset(mocker):
     return viewset
 
 
+pytestmark = pytest.mark.django_db
+
+
 class TestUserViewSetSerializerClass:
     def test_get_serializer_class_create_returns_create_serializer(self, viewset):
         viewset.action = "create"
@@ -40,10 +44,10 @@ class TestUserViewSetSerializerClass:
         viewset.action = "change_password"
         assert viewset.get_serializer_class() == PasswordUpdateSerializer
 
-    def test_get_serializer_class_reset_password_returns_password_reset_serializer(
+    def test_get_serializer_class_force_password_change_returns_password_reset_serializer(
         self, viewset
     ):
-        viewset.action = "reset_password"
+        viewset.action = "force_password_change"
         assert viewset.get_serializer_class() == PasswordResetSerializer
 
     def test_get_serializer_class_change_role_returns_role_serializer(self, viewset):
@@ -60,13 +64,14 @@ class TestUserViewSetPermissions:
         "action, expected_permissions",
         [
             ("list", [IsAdmin]),
+            ("retrieve", [CanViewUser]),
             ("create", [IsAdmin]),
-            ("retrieve", [IsAdmin]),
-            ("reset_password", [IsAdmin]),
-            ("destroy", [IsAuthenticated]),
-            ("partial_update", [IsAuthenticated]),
+            ("update", [IsAdmin]),
+            ("partial_update", [IsAdmin]),
+            ("destroy", [IsAdmin]),
             ("me", [IsAuthenticated]),
             ("change_password", [IsAuthenticated]),
+            ("force_password_change", [IsAdmin]),
             ("change_role", [CanChangeUserRole]),
         ],
     )
@@ -149,10 +154,11 @@ class TestUserViewSetActions:
         mock_serializer.validated_data = {"role": "editor"}
         mocker.patch.object(viewset, "get_serializer", return_value=mock_serializer)
 
-        mock_filter = mocker.Mock()
-        mock_filter.count.return_value = 1
+        from apps.accounts.exceptions import CannotDemoteLastAdmin
+
         mocker.patch(
-            "apps.accounts.views.users.User.objects.filter", return_value=mock_filter
+            "apps.accounts.views.users.change_user_role",
+            side_effect=CannotDemoteLastAdmin(),
         )
 
         with pytest.raises(ValidationError) as excinfo:
@@ -172,7 +178,6 @@ class TestUserViewSetActions:
         validated_data = {"old_password": "old", "new_password": "new"}
         mock_serializer = mocker.Mock(validated_data=validated_data)
         mocker.patch.object(viewset, "get_serializer", return_value=mock_serializer)
-        mocker.patch("apps.accounts.views.users.update_session_auth_hash")
 
         response = viewset.change_password(viewset.request)
 
@@ -183,12 +188,18 @@ class TestUserViewSetActions:
     def test_change_password_wrong_old_password_raises_error(self, viewset, mocker):
         viewset.action = "change_password"
         user = mocker.Mock()
-        user.check_password.return_value = False
         viewset.request.user = user
 
         validated_data = {"old_password": "wrong", "new_password": "new"}
         mock_serializer = mocker.Mock(validated_data=validated_data)
         mocker.patch.object(viewset, "get_serializer", return_value=mock_serializer)
+
+        from apps.accounts.exceptions import InvalidPassword
+
+        mocker.patch(
+            "apps.accounts.views.users.change_own_password",
+            side_effect=InvalidPassword(),
+        )
 
         with pytest.raises(ValidationError) as excinfo:
             viewset.change_password(viewset.request)
@@ -196,7 +207,7 @@ class TestUserViewSetActions:
         assert excinfo.value.detail["old_password"] == "Invalid password"
 
     def test_reset_password_success(self, viewset, mocker):
-        viewset.action = "reset_password"
+        viewset.action = "force_password_change"
         user = mocker.Mock()
         mocker.patch.object(viewset, "get_object", return_value=user)
 
@@ -204,7 +215,7 @@ class TestUserViewSetActions:
         mock_serializer = mocker.Mock(validated_data=validated_data)
         mocker.patch.object(viewset, "get_serializer", return_value=mock_serializer)
 
-        response = viewset.reset_password(viewset.request, pk=1)
+        response = viewset.force_password_change(viewset.request, pk=1)
 
         assert response.status_code == 204
         user.set_password.assert_called_once_with("new_secure_pass")
