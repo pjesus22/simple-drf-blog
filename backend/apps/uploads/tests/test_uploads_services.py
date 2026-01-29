@@ -101,5 +101,5 @@ def test_upload_service_validate_choice(
 
 
 def test_upload_service_validate_file(editor_factory):
-    with pytest.raises(InvalidFileError, match="A file must be provided"):
+    with pytest.raises(InvalidFileError, match="Invalid file provided."):
         UploadService._validate_file(file=None)
