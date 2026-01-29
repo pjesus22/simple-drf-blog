@@ -3,6 +3,7 @@ from apps.accounts.permissions import (
     CanChangeUserRole,
     CanCreateUpload,
     CanDeleteUpload,
+    CanViewUser,
     HasMinRole,
     IsAdmin,
     IsEditor,
@@ -277,3 +278,38 @@ class TestUploadPermissions:
         assert admin_allowed is True
         assert owner_allowed is True
         assert other_allowed is False
+
+
+@pytest.mark.django_db
+class TestCanViewUser:
+    def test_admin_can_view_any_user(self, rf, admin_factory, default_user_factory):
+        admin = admin_factory()
+        user = default_user_factory()
+        permission = CanViewUser()
+        request = rf.get("/")
+        request.user = admin
+
+        allowed = permission.has_object_permission(request, None, user)
+
+        assert allowed is True
+
+    def test_user_can_view_self(self, rf, default_user_factory):
+        user = default_user_factory()
+        permission = CanViewUser()
+        request = rf.get("/")
+        request.user = user
+
+        allowed = permission.has_object_permission(request, None, user)
+
+        assert allowed is True
+
+    def test_user_cannot_view_other_user(self, rf, default_user_factory):
+        user = default_user_factory(role="editor")
+        other_user = default_user_factory()
+        permission = CanViewUser()
+        request = rf.get("/")
+        request.user = user
+
+        allowed = permission.has_object_permission(request, None, other_user)
+
+        assert allowed is False
