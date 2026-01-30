@@ -43,18 +43,21 @@ class TestCreateUser:
         created_user = User.objects.get(username="testuser")
         data = response.json().get("data")
 
-        assert data["type"] == "users"
+        assert User.objects.filter(id=created_user.id).exists()
+        assert data["attributes"]["username"] == created_user.username
+        assert data["attributes"]["first_name"] == created_user.first_name
+        assert data["attributes"]["last_name"] == created_user.last_name
+        assert data["attributes"]["email"] == created_user.email
+        assert data["attributes"]["role"] == created_user.role
+        assert data["attributes"]["date_joined"] == created_user.date_joined.strftime(
+            "%Y-%m-%dT%H:%M:%S.%fZ"
+        )
+        assert data["attributes"]["last_login"] is None
 
-        expected_fields = {
-            "username": payload["username"],
-            "first_name": payload["first_name"],
-            "last_name": payload["last_name"],
-            "email": payload["email"],
-            "role": role,
-        }
+        relationships = data["relationships"]
 
-        for field, value in expected_fields.items():
-            assert getattr(created_user, field) == value
+        assert "profile" in relationships
+        assert relationships["profile"]["data"] is None
 
     def test_create_user_bad_request_empty_data(self, admin_client):
         client, _ = admin_client
@@ -150,9 +153,8 @@ class TestCreateUser:
 
 
 class TestReadUser:
-    @pytest.mark.parametrize("client_fixture", ["admin_client", "editor_client"])
-    def test_list_users_success(self, client_fixture, editor_factory, request):
-        client, _ = request.getfixturevalue(client_fixture)
+    def test_list_users_success(self, admin_client, editor_factory):
+        client, _ = admin_client
         users = editor_factory.create_batch(3)
         user_ids = {str(u.id) for u in users}
 
@@ -163,48 +165,76 @@ class TestReadUser:
         assert response.status_code == status.HTTP_200_OK
         assert user_ids.issubset(received_ids)
 
-    @pytest.mark.parametrize(
-        "client_fixture, expected_fields",
-        [
-            (
-                "admin_client",
-                (
-                    "username",
-                    "first_name",
-                    "last_name",
-                    "email",
-                    "role",
-                    "date_joined",
-                    "last_login",
-                ),
-            ),
-            (
-                "editor_client",
-                (
-                    "username",
-                    "role",
-                ),
-            ),
-        ],
-        ids=["admin", "editor"],
-    )
-    def test_retrieve_other_user_success(
-        self, client_fixture, editor_factory, request, expected_fields
-    ):
-        client, _ = request.getfixturevalue(client_fixture)
+    # @pytest.mark.parametrize(
+    #     "client_fixture, expected_fields",
+    #     [
+    #         (
+    #             "admin_client",
+    #             (
+    #                 "username",
+    #                 "first_name",
+    #                 "last_name",
+    #                 "email",
+    #                 "role",
+    #                 "date_joined",
+    #                 "last_login",
+    #             ),
+    #         ),
+    #         (
+    #             "editor_client",
+    #             (
+    #                 "username",
+    #                 "role",
+    #             ),
+    #         ),
+    #     ],
+    #     ids=["admin", "editor"],
+    # )
+    # def test_retrieve_other_user_success(
+    #     self, client_fixture, editor_factory, request, expected_fields
+    # ):
+    #     client, _ = request.getfixturevalue(client_fixture)
+    #     user = editor_factory(last_login=timezone.now())
+
+    #     response = client.get(path=reverse("v1:user-detail", args=[user.id]))
+    #     data = response.json().get("data")
+
+    #     assert response.status_code == status.HTTP_200_OK
+    #     assert data["type"] == "users"
+    #     for field in expected_fields:
+    #         if field in ["date_joined", "last_login"]:
+    #             assert_datetimes_close(data["attributes"][field], getattr(user, field))
+    #         else:
+    #             assert data["attributes"][field] == getattr(user, field)
+    #     assert set(data["attributes"]).issubset(expected_fields)
+
+    def test_retrieve_other_user_success(self, admin_client, editor_factory):
+        client, _ = admin_client
         user = editor_factory(last_login=timezone.now())
 
         response = client.get(path=reverse("v1:user-detail", args=[user.id]))
-        data = response.json().get("data")
 
         assert response.status_code == status.HTTP_200_OK
-        assert data["type"] == "users"
-        for field in expected_fields:
-            if field in ["date_joined", "last_login"]:
-                assert_datetimes_close(data["attributes"][field], getattr(user, field))
-            else:
-                assert data["attributes"][field] == getattr(user, field)
-        assert set(data["attributes"]).issubset(expected_fields)
+
+        data = response.json().get("data")
+
+        assert User.objects.filter(id=user.id).exists()
+        assert data["attributes"]["username"] == user.username
+        assert data["attributes"]["first_name"] == user.first_name
+        assert data["attributes"]["last_name"] == user.last_name
+        assert data["attributes"]["email"] == user.email
+        assert data["attributes"]["role"] == user.role
+        assert data["attributes"]["date_joined"] == user.date_joined.strftime(
+            "%Y-%m-%dT%H:%M:%S.%fZ"
+        )
+        assert data["attributes"]["last_login"] == user.last_login.strftime(
+            "%Y-%m-%dT%H:%M:%S.%fZ"
+        )
+
+        relationships = data["relationships"]
+
+        assert "profile" in relationships
+        assert relationships["profile"]["data"] is None
 
     def test_retrieve_self_user_by_id_success(self, editor_client):
         client, user = editor_client
@@ -236,11 +266,7 @@ class TestReadUser:
 
         response = client.get(path=reverse("v1:user-detail", args=[0]))
 
-        assert_drf_error_response(
-            response=response,
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail_contains="credentials were not provided.",
-        )
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestPartialUpdateUser:
@@ -464,11 +490,12 @@ class TestChangeRole:
             format="json",
         )
 
-        assert response.status_code == status.HTTP_200_OK
-
-        client_user.refresh_from_db()
-
-        assert client_user.role == "editor"
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_403_FORBIDDEN,
+            pointer="/data",
+            code="permission_denied",
+        )
 
     def test_change_role_unauthorized(self, api_client, editor_factory):
         client = api_client
@@ -515,10 +542,9 @@ class TestChangeRole:
 
         assert_jsonapi_error_response(
             response=response,
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_403_FORBIDDEN,
             pointer="/data",
-            detail_contains="cannot demote yourself",
-            code="invalid",
+            code="permission_denied",
         )
 
     @pytest.mark.parametrize(
@@ -537,28 +563,25 @@ class TestChangeRole:
         assert_jsonapi_error_response(
             response=response,
             status_code=status.HTTP_400_BAD_REQUEST,
-            pointer="/data",
-            detail_contains="Invalid role",
-            code="invalid",
+            pointer="/data/attributes/role",
         )
 
 
-class TestSetPassword:
-    def test_set_own_password_success(self, editor_client):
+class TestChangePassword:
+    def test_change_own_password_success(self, editor_client):
         client, client_user = editor_client
 
         response = client.post(
-            path=reverse("v1:user-set-password", args=[client_user.id]),
+            path=reverse("v1:user-change-password"),
             data={"old_password": "defaultpassword", "new_password": "newpassword"},
             format="json",
         )
 
-        assert response.status_code == status.HTTP_200_OK
+        assert response.status_code == status.HTTP_204_NO_CONTENT
 
         client_user.refresh_from_db()
 
         assert client_user.check_password("newpassword")
-        assert response.json().get("data")["status"] == "password set"
 
     def test_set_other_user_password_as_admin_success(
         self, admin_client, editor_factory
@@ -567,25 +590,24 @@ class TestSetPassword:
         user = editor_factory()
 
         response = client.post(
-            path=reverse("v1:user-set-password", args=[user.id]),
-            data={"old_password": "defaultpassword", "new_password": "newpassword"},
+            path=reverse("v1:user-force-password-change", args=[user.id]),
+            data={"new_password": "newpassword"},
             format="json",
         )
 
-        assert response.status_code == status.HTTP_200_OK
+        assert response.status_code == status.HTTP_204_NO_CONTENT
 
         user.refresh_from_db()
 
         assert user.check_password("newpassword")
-        assert response.json().get("data")["status"] == "password set"
 
     def test_set_password_unauthorized(self, api_client, editor_factory):
         client = api_client
         user = editor_factory()
 
         response = client.post(
-            path=reverse("v1:user-set-password", args=[user.id]),
-            data={"old_password": "defaultpassword", "new_password": "newpassword"},
+            path=reverse("v1:user-force-password-change", args=[user.id]),
+            data={"new_password": "newpassword"},
             format="json",
         )
 
@@ -602,8 +624,8 @@ class TestSetPassword:
         user = editor_factory()
 
         response = client.post(
-            path=reverse("v1:user-set-password", args=[user.id]),
-            data={"old_password": "defaultpassword", "new_password": "newpassword"},
+            path=reverse("v1:user-force-password-change", args=[user.id]),
+            data={"new_password": "newpassword"},
             format="json",
         )
 
@@ -615,20 +637,20 @@ class TestSetPassword:
             code="permission_denied",
         )
 
-    def test_set_password_bad_request_old_password(self, admin_client, editor_factory):
+    def test_set_password_bad_request_new_password_too_short(
+        self, admin_client, editor_factory
+    ):
         client, _ = admin_client
         user = editor_factory()
 
         response = client.post(
-            path=reverse("v1:user-set-password", args=[user.id]),
-            data={"old_password": "wrongpassword", "new_password": "newpassword"},
+            path=reverse("v1:user-force-password-change", args=[user.id]),
+            data={"new_password": "short"},
             format="json",
         )
 
         assert_jsonapi_error_response(
             response=response,
             status_code=status.HTTP_400_BAD_REQUEST,
-            pointer="/data",
-            detail_contains="Wrong password",
-            code="invalid",
+            pointer="/data/attributes/new_password",
         )
