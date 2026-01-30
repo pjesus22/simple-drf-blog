@@ -13,7 +13,6 @@ from tests.factories import (
     UploadFactory,
 )
 
-# Factory Registration
 register(EditorFactory)
 register(AdminFactory)
 register(DefaultUserFactory)
@@ -61,3 +60,13 @@ def admin_client(admin_factory, auth_client):
     user = admin_factory()
     client = auth_client(user)
     return client, user
+
+
+@pytest.fixture(autouse=True)
+def clean_media(tmp_path, settings):
+    """
+    Automatically override MEDIA_ROOT for every test to a unique
+    temporary directory provided by pytest.
+    """
+    settings.MEDIA_ROOT = tmp_path
+    yield
