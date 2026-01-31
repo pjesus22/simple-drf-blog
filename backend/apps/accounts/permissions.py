@@ -76,11 +76,3 @@ class CanViewUser(BasePermission):
 
     def has_object_permission(self, request, view, obj):
         return request.user.role == User.Role.ADMIN or request.user == obj
-
-
-class CanCreateUpload(IsEditor):
-    pass
-
-
-class CanDeleteUpload(IsOwner):
-    pass
