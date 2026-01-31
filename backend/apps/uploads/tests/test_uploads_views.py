@@ -1,25 +1,19 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from apps.accounts.permissions import (
-    CanCreateUpload,
-    CanDeleteUpload,
-    IsEditor,
-    IsOwner,
-)
+from apps.accounts.permissions import IsEditor, IsOwner
 from apps.uploads.models import Upload
 from apps.uploads.views import UploadViewSet
-from rest_framework.permissions import IsAuthenticated
 
 
 @pytest.mark.parametrize(
     "action, expected_permissions",
     [
-        ("retrieve", [IsAuthenticated]),
-        ("create", [CanCreateUpload]),
-        ("update", [IsEditor, IsOwner]),
-        ("partial_update", [IsEditor, IsOwner]),
-        ("destroy", [CanDeleteUpload, IsOwner]),
+        ("retrieve", [IsOwner]),
+        ("create", [IsEditor]),
+        ("update", [IsOwner]),
+        ("partial_update", [IsOwner]),
+        ("destroy", [IsOwner]),
     ],
     ids=("retrieve", "create", "update", "partial_update", "destroy"),
 )
