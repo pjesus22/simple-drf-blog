@@ -44,7 +44,7 @@ class TestValidateExtension:
             )
 
     def test_validate_extension_raises_unsupported_mime_type_error(self):
-        with pytest.raises(UnsupportedMimeTypeError, match="Unsupported MIME type."):
+        with pytest.raises(UnsupportedMimeTypeError, match="not allowed"):
             validate_extension(
                 "application/x-dosexec",
                 filename=fake.file_path(
