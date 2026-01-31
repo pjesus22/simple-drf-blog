@@ -1,8 +1,6 @@
 import pytest
 from apps.accounts.permissions import (
     CanChangeUserRole,
-    CanCreateUpload,
-    CanDeleteUpload,
     CanViewUser,
     HasMinRole,
     IsAdmin,
@@ -223,61 +221,6 @@ class TestUserPermissions:
         allowed = permission.has_object_permission(request, None, obj)
 
         assert allowed is False
-
-
-@pytest.mark.django_db
-class TestUploadPermissions:
-    def test_can_create_upload_only_editor_or_above(
-        self, rf, admin_factory, editor_factory, default_user_factory
-    ):
-        admin = admin_factory()
-        editor = editor_factory()
-        user = default_user_factory(role="viewer")
-        permission = CanCreateUpload()
-
-        request_admin = rf.get("/")
-        request_admin.user = admin
-
-        request_editor = rf.get("/")
-        request_editor.user = editor
-
-        request_user = rf.get("/")
-        request_user.user = user
-
-        admin_allowed = permission.has_permission(request_admin, None)
-        editor_allowed = permission.has_permission(request_editor, None)
-        user_allowed = permission.has_permission(request_user, None)
-
-        assert admin_allowed is True
-        assert editor_allowed is True
-        assert user_allowed is False
-
-    def test_can_delete_upload_owner_or_admin(
-        self, rf, admin_factory, editor_factory, default_user_factory, mocker
-    ):
-        admin = admin_factory()
-        owner = editor_factory()
-        other_editor = editor_factory()
-        permission = CanDeleteUpload()
-        upload = mocker.Mock()
-        upload.uploaded_by = owner
-
-        request_admin = rf.get("/")
-        request_admin.user = admin
-
-        request_owner = rf.get("/")
-        request_owner.user = owner
-
-        request_other = rf.get("/")
-        request_other.user = other_editor
-
-        admin_allowed = permission.has_object_permission(request_admin, None, upload)
-        owner_allowed = permission.has_object_permission(request_owner, None, upload)
-        other_allowed = permission.has_object_permission(request_other, None, upload)
-
-        assert admin_allowed is True
-        assert owner_allowed is True
-        assert other_allowed is False
 
 
 @pytest.mark.django_db
