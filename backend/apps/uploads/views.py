@@ -1,36 +1,36 @@
-from apps.accounts.permissions import (
-    CanCreateUpload,
-    CanDeleteUpload,
-    IsEditor,
-    IsOwner,
-)
+from apps.accounts.permissions import IsEditor, IsOwner
 from apps.uploads.models import Upload
-from apps.uploads.serializers import UploadSerializer
+from apps.uploads.serializers import UploadCreateSerializer, UploadSerializer
 from apps.uploads.services import UploadService
-from rest_framework import mixins, viewsets
-from rest_framework.permissions import IsAuthenticated
+from django.contrib.auth import get_user_model
+from rest_framework.viewsets import ModelViewSet
+
+User = get_user_model()
 
 
-class UploadViewSet(
-    mixins.CreateModelMixin,
-    mixins.RetrieveModelMixin,
-    mixins.UpdateModelMixin,
-    mixins.DestroyModelMixin,
-    viewsets.GenericViewSet,
-):
-    queryset = Upload.objects.all()
+class UploadViewSet(ModelViewSet):
+    queryset = Upload.objects.none()
     serializer_class = UploadSerializer
+    permission_classes = [IsOwner]
+    http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.role == User.Role.ADMIN:
+            return Upload.objects.all()
+
+        return Upload.objects.filter(uploaded_by=user)
 
     def get_permissions(self):
-        permission_map = {
-            "retrieve": [IsAuthenticated],
-            "create": [CanCreateUpload],
-            "update": [IsEditor, IsOwner],
-            "partial_update": [IsEditor, IsOwner],
-            "destroy": [CanDeleteUpload, IsOwner],
-        }
-        permission_classes = permission_map.get(self.action, [])
-        return [p() for p in permission_classes]
+        if self.action == "create":
+            return [IsEditor()]
+        return super().get_permissions()
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return UploadCreateSerializer
+        return UploadSerializer
 
     def perform_create(self, serializer):
         service = UploadService(
