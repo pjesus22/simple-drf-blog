@@ -1,18 +1,20 @@
 import pytest
 from pytest_factoryboy import register
-from tests.factories.accounts import EditorFactory
-from tests.factories.content import (
+from tests.factories import (
+    AdminFactory,
     CategoryFactory,
+    EditorFactory,
     PostFactory,
     TagFactory,
+    UploadFactory,
 )
-from tests.factories.uploads import UploadFactory
 
 register(CategoryFactory)
 register(TagFactory)
 register(PostFactory)
 register(EditorFactory)
 register(UploadFactory)
+register(AdminFactory)
 
 
 @pytest.fixture(autouse=True)
