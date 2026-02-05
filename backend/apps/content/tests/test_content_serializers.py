@@ -1,5 +1,17 @@
+import uuid
+
 import pytest
-from apps.content.serializers import CategorySerializer, PostSerializer, TagSerializer
+from apps.content.serializers import (
+    CategorySerializer,
+    PostAttachmentAddSerializer,
+    PostAttachmentRemoveSerializer,
+    PostCreateSerializer,
+    PostSerializer,
+    PostStatusSerializer,
+    PostThumbnailSerializer,
+    PostUpdateSerializer,
+    TagSerializer,
+)
 from rest_framework.fields import DateTimeField
 
 pytestmark = pytest.mark.django_db
@@ -118,3 +130,199 @@ class TestPostSerializer:
             item in serializer.data["attachments"] for item in expected["attachments"]
         )
         assert expected["thumbnail"] == serializer.data["thumbnail"]
+
+
+class TestPostStatusSerializer:
+    def test_serializer_validates_valid_status(self, post_factory):
+        post = post_factory(status="draft")
+        data = {"status": "published"}
+
+        serializer = PostStatusSerializer(post, data=data)
+
+        assert serializer.is_valid()
+        assert serializer.validated_data["status"] == "published"
+
+    def test_serializer_rejects_invalid_status(self, post_factory):
+        post = post_factory(status="draft")
+        data = {"status": "invalid_status"}
+
+        serializer = PostStatusSerializer(post, data=data)
+
+        assert not serializer.is_valid()
+        assert "status" in serializer.errors
+
+    def test_serializer_requires_status_field(self, post_factory):
+        post = post_factory(status="draft")
+        data = {}
+
+        serializer = PostStatusSerializer(post, data=data)
+
+        assert not serializer.is_valid()
+        assert "status" in serializer.errors
+
+
+class TestPostCreateSerializer:
+    def test_serializer_validates_valid_creation_data(
+        self, category_factory, tag_factory
+    ):
+        category = category_factory()
+        tags = tag_factory.create_batch(size=2)
+        data = {
+            "title": "New Post",
+            "content": "Post content",
+            "category": {"type": "categories", "id": str(category.id)},
+            "tags": [{"type": "tags", "id": str(tag.id)} for tag in tags],
+        }
+
+        serializer = PostCreateSerializer(data=data)
+
+        assert serializer.is_valid()
+        assert serializer.validated_data["title"] == "New Post"
+        assert serializer.validated_data["category"] == category
+        assert len(serializer.validated_data["tags"]) == 2
+
+    def test_serializer_requires_mandatory_fields(self):
+        data = {}
+        serializer = PostCreateSerializer(data=data)
+
+        assert not serializer.is_valid()
+        assert "title" in serializer.errors
+        assert "content" in serializer.errors
+        assert "category" in serializer.errors
+
+
+class TestPostUpdateSerializer:
+    def test_serializer_validates_partial_update(self, post_factory):
+        post = post_factory()
+        data = {"title": "Updated Title", "content": "Updated content"}
+
+        serializer = PostUpdateSerializer(post, data=data, partial=True)
+
+        assert serializer.is_valid()
+        assert serializer.validated_data["title"] == "Updated Title"
+        assert serializer.validated_data["content"] == "Updated content"
+
+    def test_serializer_allows_optional_fields(self, post_factory):
+        post = post_factory()
+        data = {"title": "Only Title Update"}
+
+        serializer = PostUpdateSerializer(post, data=data, partial=True)
+
+        assert serializer.is_valid()
+        assert "category" not in serializer.validated_data
+        assert "tags" not in serializer.validated_data
+
+
+class TestPostThumbnailSerializer:
+    def test_serializer_validates_valid_thumbnail_id(self, upload_factory, clean_media):
+        thumbnail = upload_factory(purpose="thumbnail")
+        data = {"id": str(thumbnail.id)}
+
+        serializer = PostThumbnailSerializer(data=data)
+
+        assert serializer.is_valid()
+        assert serializer.validated_data["id"] == thumbnail
+
+    def test_serializer_rejects_invalid_thumbnail_id(self):
+        data = {"id": str(uuid.uuid4())}
+
+        serializer = PostThumbnailSerializer(data=data)
+
+        assert not serializer.is_valid()
+        assert "id" in serializer.errors
+        assert "Invalid thumbnail upload" in str(serializer.errors["id"])
+
+    def test_serializer_rejects_non_thumbnail_upload(self, upload_factory, clean_media):
+        attachment = upload_factory(purpose="attachment")
+        data = {"id": str(attachment.id)}
+
+        serializer = PostThumbnailSerializer(data=data)
+
+        assert not serializer.is_valid()
+        assert "id" in serializer.errors
+
+
+class TestPostAttachmentAddSerializer:
+    def test_serializer_validates_valid_attachment_ids(
+        self, upload_factory, clean_media
+    ):
+        attachments = upload_factory.create_batch(size=2, purpose="attachment")
+        data = {"attachments": [str(att.id) for att in attachments]}
+
+        serializer = PostAttachmentAddSerializer(data=data)
+
+        assert serializer.is_valid()
+        assert len(serializer.validated_data["attachments"]) == 2
+
+    def test_serializer_rejects_invalid_attachment_ids(self):
+        import uuid
+
+        data = {"attachments": [str(uuid.uuid4()), str(uuid.uuid4())]}
+
+        serializer = PostAttachmentAddSerializer(data=data)
+
+        assert not serializer.is_valid()
+        assert "attachments" in serializer.errors
+        assert "One or more attachments are invalid" in str(
+            serializer.errors["attachments"]
+        )
+
+    def test_serializer_rejects_empty_list(self):
+        data = {"attachments": []}
+
+        serializer = PostAttachmentAddSerializer(data=data)
+
+        assert not serializer.is_valid()
+        assert "attachments" in serializer.errors
+
+    def test_serializer_rejects_non_attachment_uploads(
+        self, upload_factory, clean_media
+    ):
+        thumbnail = upload_factory(purpose="thumbnail")
+        data = {"attachments": [str(thumbnail.id)]}
+
+        serializer = PostAttachmentAddSerializer(data=data)
+
+        assert not serializer.is_valid()
+        assert "attachments" in serializer.errors
+
+
+class TestPostAttachmentRemoveSerializer:
+    def test_serializer_validates_valid_attachment_in_post(
+        self, post_factory, upload_factory, clean_media
+    ):
+        post = post_factory()
+        attachment = upload_factory(purpose="attachment")
+        post.attachments.add(attachment)
+
+        data = {"attachment_id": str(attachment.id)}
+
+        serializer = PostAttachmentRemoveSerializer(data=data, context={"post": post})
+
+        assert serializer.is_valid()
+        assert serializer.validated_data["attachment_id"] == attachment
+
+    def test_serializer_rejects_attachment_not_in_post(
+        self, post_factory, upload_factory, clean_media
+    ):
+        post = post_factory()
+        attachment = upload_factory(purpose="attachment")
+
+        data = {"attachment_id": str(attachment.id)}
+
+        serializer = PostAttachmentRemoveSerializer(data=data, context={"post": post})
+
+        assert not serializer.is_valid()
+        assert "attachment_id" in serializer.errors
+        assert "Attachment not found in this post" in str(
+            serializer.errors["attachment_id"]
+        )
+
+    def test_serializer_rejects_invalid_uuid(self, post_factory):
+        post = post_factory()
+        data = {"attachment_id": "invalid-uuid"}
+
+        serializer = PostAttachmentRemoveSerializer(data=data, context={"post": post})
+
+        assert not serializer.is_valid()
+        assert "attachment_id" in serializer.errors
