@@ -74,6 +74,10 @@ class TestPostModel:
         post.status = Post.Status.ARCHIVED
         post.save()
 
+        # Must go back to draft first, then republish
+        post.status = Post.Status.DRAFT
+        post.save()
+
         post.status = Post.Status.PUBLISHED
         post.save()
         assert post.published_at == original_published_at
@@ -143,6 +147,10 @@ class TestPostModel:
         post.status = Post.Status.ARCHIVED
         post.save()
 
+        # Must go back to draft first, then republish
+        post.status = Post.Status.DRAFT
+        post.save()
+
         post.status = Post.Status.PUBLISHED
         post.save()
 
@@ -188,3 +196,259 @@ class TestPostModel:
         post.refresh_from_db()
         assert post.thumbnail is None
         assert Post.objects.filter(id=post.id).exists()
+
+
+class TestPostChangeStatus:
+    def test_change_status_from_draft_to_published(self, post_factory):
+        post = post_factory(status=Post.Status.DRAFT)
+        assert post.published_at is None
+
+        post.change_status(Post.Status.PUBLISHED)
+
+        post.refresh_from_db()
+        assert post.status == Post.Status.PUBLISHED
+        assert post.published_at is not None
+
+    def test_change_status_from_published_to_archived(self, post_factory):
+        post = post_factory(status=Post.Status.PUBLISHED)
+        original_published_at = post.published_at
+
+        post.change_status(Post.Status.ARCHIVED)
+
+        post.refresh_from_db()
+        assert post.status == Post.Status.ARCHIVED
+        assert post.published_at == original_published_at
+
+    def test_change_status_from_archived_to_draft(self, post_factory):
+        post = post_factory(status=Post.Status.PUBLISHED)
+        original_published_at = post.published_at
+
+        post.status = Post.Status.ARCHIVED
+        post.save()
+
+        post.change_status(Post.Status.DRAFT)
+
+        post.refresh_from_db()
+        assert post.status == Post.Status.DRAFT
+        assert post.published_at == original_published_at
+
+    def test_change_status_raises_error_when_post_is_deleted(self, post_factory):
+        post = post_factory(status=Post.Status.DELETED)
+
+        from django.core.exceptions import ValidationError
+
+        with pytest.raises(
+            ValidationError, match="Cannot change status of a deleted post"
+        ):
+            post.change_status(Post.Status.DRAFT)
+
+    def test_change_status_updates_fields(self, post_factory):
+        post = post_factory(status=Post.Status.DRAFT)
+        original_updated_at = post.updated_at
+
+        post.change_status(Post.Status.PUBLISHED)
+
+        post.refresh_from_db()
+        assert post.updated_at > original_updated_at
+
+    def test_change_status_invalid_transition_raises_error(self, post_factory):
+        post = post_factory(status=Post.Status.DRAFT)
+
+        from django.core.exceptions import ValidationError
+
+        with pytest.raises(
+            ValidationError, match="Cannot transition from draft to archived"
+        ):
+            post.change_status(Post.Status.ARCHIVED)
+
+    def test_change_status_invalid_status_raises_error(self, post_factory):
+        post = post_factory(status=Post.Status.DRAFT)
+
+        from django.core.exceptions import ValidationError
+
+        with pytest.raises(ValidationError, match="Invalid status"):
+            post.change_status("invalid_status")
+
+
+class TestPostPublishArchive:
+    def test_publish_from_draft(self, post_factory):
+        post = post_factory(status=Post.Status.DRAFT)
+        assert post.published_at is None
+
+        post.publish()
+
+        post.refresh_from_db()
+        assert post.status == Post.Status.PUBLISHED
+        assert post.published_at is not None
+
+    def test_publish_deleted_post_raises_error(self, post_factory):
+        post = post_factory(status=Post.Status.DELETED)
+
+        from django.core.exceptions import ValidationError
+
+        with pytest.raises(ValidationError, match="Cannot publish a deleted post"):
+            post.publish()
+
+    def test_archive_from_published(self, post_factory):
+        post = post_factory(status=Post.Status.PUBLISHED)
+        original_published_at = post.published_at
+
+        post.archive()
+
+        post.refresh_from_db()
+        assert post.status == Post.Status.ARCHIVED
+        assert post.published_at == original_published_at
+
+    def test_archive_deleted_post_raises_error(self, post_factory):
+        post = post_factory(status=Post.Status.DELETED)
+
+        from django.core.exceptions import ValidationError
+
+        with pytest.raises(ValidationError, match="Cannot archive a deleted post"):
+            post.archive()
+
+
+class TestPostSoftDelete:
+    def test_soft_delete_changes_status_to_deleted(self, post_factory):
+        post = post_factory(status=Post.Status.DRAFT)
+
+        post.soft_delete()
+
+        post.refresh_from_db()
+        assert post.status == Post.Status.DELETED
+
+    def test_soft_delete_from_published_post(self, post_factory):
+        post = post_factory(status=Post.Status.PUBLISHED)
+        published_at = post.published_at
+
+        post.soft_delete()
+
+        post.refresh_from_db()
+        assert post.status == Post.Status.DELETED
+        assert post.published_at == published_at
+
+    def test_soft_delete_raises_error_when_already_deleted(self, post_factory):
+        post = post_factory(status=Post.Status.DELETED)
+
+        from django.core.exceptions import ValidationError
+
+        with pytest.raises(ValidationError, match="This post is already deleted"):
+            post.soft_delete()
+
+    def test_soft_delete_updates_timestamp(self, post_factory):
+        post = post_factory(status=Post.Status.DRAFT)
+        original_updated_at = post.updated_at
+
+        post.soft_delete()
+
+        post.refresh_from_db()
+        assert post.updated_at > original_updated_at
+
+
+class TestPostRestore:
+    def test_restore_to_draft_from_deleted(self, post_factory):
+        post = post_factory(status=Post.Status.DELETED)
+
+        post.restore()
+
+        post.refresh_from_db()
+        assert post.status == Post.Status.DRAFT
+
+    def test_restore_raises_error_when_not_deleted(self, post_factory):
+        post = post_factory(status=Post.Status.DRAFT)
+
+        from django.core.exceptions import ValidationError
+
+        with pytest.raises(ValidationError, match="Only deleted posts can be restored"):
+            post.restore()
+
+    def test_restore_from_published_raises_error(self, post_factory):
+        post = post_factory(status=Post.Status.PUBLISHED)
+
+        from django.core.exceptions import ValidationError
+
+        with pytest.raises(ValidationError, match="Only deleted posts can be restored"):
+            post.restore()
+
+    def test_restore_updates_timestamp(self, post_factory):
+        post = post_factory(status=Post.Status.DELETED)
+        original_updated_at = post.updated_at
+
+        post.restore()
+
+        post.refresh_from_db()
+        assert post.updated_at > original_updated_at
+
+
+class TestPostQueryset:
+    def test_with_deleted_returns_all_posts(self, post_factory):
+        post_factory(status=Post.Status.DRAFT)
+        post_factory(status=Post.Status.PUBLISHED)
+        post_factory(status=Post.Status.DELETED)
+
+        posts = Post.objects.with_deleted()
+
+        assert posts.count() == 3
+
+    def test_only_deleted_returns_deleted_posts(self, post_factory):
+        post_factory(status=Post.Status.DRAFT)
+        post_factory(status=Post.Status.PUBLISHED)
+        deleted_post = post_factory(status=Post.Status.DELETED)
+
+        posts = Post.objects.only_deleted()
+
+        assert posts.count() == 1
+        assert posts.first() == deleted_post
+
+    def test_visible_for_unauthenticated_excludes_deleted(
+        self, post_factory, django_user_model
+    ):
+        from django.contrib.auth.models import AnonymousUser
+
+        post_factory(status=Post.Status.PUBLISHED)
+        post_factory(status=Post.Status.DRAFT)
+        post_factory(status=Post.Status.DELETED)
+
+        user = AnonymousUser()
+        posts = Post.objects.visible_for(user)
+
+        assert posts.count() == 1
+        assert posts.first().status == Post.Status.PUBLISHED
+
+    def test_visible_for_editor_excludes_deleted(self, post_factory, editor_factory):
+        editor = editor_factory()
+        post_factory(status=Post.Status.PUBLISHED, author=editor)
+        post_factory(status=Post.Status.DRAFT, author=editor)
+        post_factory(status=Post.Status.DELETED, author=editor)
+
+        posts = Post.objects.visible_for(editor)
+
+        assert posts.count() == 2
+        assert all(post.status != Post.Status.DELETED for post in posts)
+
+    def test_visible_for_admin_excludes_deleted(self, post_factory, django_user_model):
+        admin = django_user_model.objects.create_user(
+            username="admin", email="admin@example.com", role="admin"
+        )
+        post_factory(status=Post.Status.PUBLISHED)
+        post_factory(status=Post.Status.DRAFT)
+        post_factory(status=Post.Status.ARCHIVED)
+        post_factory(status=Post.Status.DELETED)
+
+        posts = Post.objects.visible_for(admin)
+
+        assert posts.count() == 3
+        assert all(post.status != Post.Status.DELETED for post in posts)
+
+    def test_visible_for_editor_sees_own_drafts(self, post_factory, editor_factory):
+        editor1 = editor_factory()
+        editor2 = editor_factory()
+
+        post_factory(status=Post.Status.PUBLISHED, author=editor1)
+        own_draft = post_factory(status=Post.Status.DRAFT, author=editor1)
+        post_factory(status=Post.Status.DRAFT, author=editor2)
+
+        posts = Post.objects.visible_for(editor1)
+
+        assert posts.count() == 2
+        assert own_draft in posts
