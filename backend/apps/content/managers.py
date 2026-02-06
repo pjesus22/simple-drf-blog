@@ -3,33 +3,39 @@ from django.db.models import Q
 
 
 class PostQueryset(models.QuerySet):
-    def visible_for(self, user):
-        qs = self.exclude(status="deleted")
+    def alive(self):
+        return self.exclude(status=self.model.Status.DELETED)
 
-        if user.is_authenticated and user.is_staff:
+    def deleted(self):
+        return self.filter(status=self.model.Status.DELETED)
+
+    def visible_for(self, user):
+        qs = self.alive()
+
+        if not user.is_authenticated:
+            return qs.filter(status=self.model.Status.PUBLISHED)
+
+        if user.is_staff:
             return qs
 
-        if user.is_authenticated:
-            return qs.filter(Q(status="published") | Q(author=user))
+        return qs.filter(Q(status=self.model.Status.PUBLISHED) | Q(author=user))
 
-        return qs.filter(status="published")
-
-    def with_deleted(self):
-        return self.all()
-
-    def only_deleted(self):
-        return self.filter(status="deleted")
+    def owned_by(self, user):
+        return self.filter(author=user)
 
 
 class PostManager(models.Manager):
     def get_queryset(self):
+        return PostQueryset(self.model, using=self._db).alive()
+
+    def with_deleted(self):
         return PostQueryset(self.model, using=self._db)
+
+    def only_deleted(self):
+        return self.with_deleted().deleted()
 
     def visible_for(self, user):
         return self.get_queryset().visible_for(user)
 
-    def with_deleted(self):
-        return self.get_queryset().with_deleted()
-
-    def only_deleted(self):
-        return self.get_queryset().only_deleted()
+    def owned_by(self, user):
+        return self.get_queryset().owned_by(user)
