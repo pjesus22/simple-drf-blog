@@ -1,56 +1,58 @@
+from apps.accounts.managers import ProfileManager
 from django.core.validators import RegexValidator
 from django.db import models
 from utils.base_models import BaseModel
 
 
-class EditorProfile(BaseModel):
+class Profile(BaseModel):
+    objects = ProfileManager()
     user = models.OneToOneField(
         to="accounts.User",
         on_delete=models.CASCADE,
         related_name="profile",
     )
     biography = models.TextField(blank=True)
-    location = models.CharField(max_length=100, blank=True)
-    occupation = models.CharField(max_length=100, blank=True)
+    location = models.CharField(blank=True)
+    occupation = models.CharField(blank=True)
     skills = models.TextField(blank=True)
     experience_years = models.PositiveIntegerField(default=0)
 
+    is_public = models.BooleanField(default=True)
+
     def __str__(self):
-        return f"EditorProfile (ID: {self.id})"
+        return f"Profile(user={self.user.id})"
 
 
-class SocialLink(BaseModel):
+class SocialMediaProfile(BaseModel):
+    class Platform(models.TextChoices):
+        FACEBOOK = "facebook", "Facebook"
+        GITHUB = "github", "GitHub"
+        INSTAGRAM = "instagram", "Instagram"
+        LINKEDIN = "linkedin", "LinkedIn"
+        TIKTOK = "tiktok", "TikTok"
+        TWITTER = "twitter", "Twitter"
+        X = "x", "X"
+        YOUTUBE = "youtube", "YouTube"
+
     profile = models.ForeignKey(
-        to=EditorProfile,
+        to=Profile,
         on_delete=models.CASCADE,
-        related_name="social_links",
+        related_name="social_media",
     )
-    name = models.CharField(
-        max_length=64,
-        choices=[
-            ("facebook", "Facebook"),
-            ("github", "GitHub"),
-            ("instagram", "Instagram"),
-            ("linkedin", "LinkedIn"),
-            ("tiktok", "TikTok"),
-            ("twitter", "Twitter"),
-            ("x", "X"),
-            ("youtube", "YouTube"),
-        ],
-    )
+    platform = models.CharField(choices=Platform.choices)
     url = models.URLField(
         validators=[
             RegexValidator(
                 regex=r"^https://(www\.)?(github\.com|twitter\.com|x\.com|linkedin\.com|instagram\.com|facebook\.com|youtube\.com|tiktok\.com)/.+$",
-            ),
-        ],
+            )
+        ]
     )
-
-    def __str__(self):
-        return f"{self.name} - {self.url}"
 
     class Meta:
         unique_together = [["profile", "url"]]
-        indexes = [
-            models.Index(fields=["profile", "name"]),
-        ]
+        indexes = [models.Index(fields=["profile", "platform"])]
+
+    def __str__(self):
+        return (
+            f"SocialMediaProfile(profile={self.profile.id}, platform={self.platform})"
+        )
