@@ -46,13 +46,14 @@ class ProfileViewSet(
         queryset = Profile.objects.me(request.user)
         profile = get_object_or_404(queryset)
 
-        serializer = self.get_serializer(
-            profile,
-            data=request.data if request.method != "GET" else None,
-            partial=request.method == "PATCH",
-        )
-
-        if request.method != "GET":
+        if request.method == "GET":
+            serializer = self.get_serializer(profile)
+        else:
+            serializer = self.get_serializer(
+                profile,
+                data=request.data,
+                partial=request.method == "PATCH",
+            )
             serializer.is_valid(raise_exception=True)
             serializer.save()
 
