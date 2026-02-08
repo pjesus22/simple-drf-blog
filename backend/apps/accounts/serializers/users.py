@@ -9,7 +9,7 @@ User = get_user_model()
 class BaseUserSerializer(serializers.ModelSerializer):
     profile = serializers.ResourceRelatedField(read_only=True)
     included_serializers = {
-        "profile": "apps.accounts.serializers.profiles.EditorProfileSerializer"
+        "profile": "apps.accounts.serializers.profiles.PrivateProfileSerializer"
     }
 
     class Meta:
