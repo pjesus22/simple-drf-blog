@@ -17,17 +17,14 @@ fake = Faker()
 
 class TestValidateExtension:
     def test_validate_extension_success(self):
-        try:
-            validate_extension(
-                "image/jpeg",
-                filename=fake.file_path(
-                    extension="jpg",
-                    file_system_rule="linux",
-                    depth=2,
-                ),
-            )
-        except Exception as e:
-            pytest.fail(str(e))
+        validate_extension(
+            "image/jpeg",
+            filename=fake.file_path(
+                extension="jpg",
+                file_system_rule="linux",
+                depth=2,
+            ),
+        )
 
     def test_validate_extension_raises_invalid_file_error_file_without_extension(self):
         with pytest.raises(
