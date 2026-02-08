@@ -8,7 +8,8 @@ from tests.factories import (
     DefaultUserFactory,
     EditorFactory,
     PostFactory,
-    SocialLinkFactory,
+    ProfileFactory,
+    SocialMediaProfileFactory,
     TagFactory,
     UploadFactory,
 )
@@ -19,8 +20,9 @@ register(DefaultUserFactory)
 register(CategoryFactory)
 register(PostFactory)
 register(TagFactory)
-register(SocialLinkFactory)
 register(UploadFactory)
+register(ProfileFactory)
+register(SocialMediaProfileFactory)
 
 
 @pytest.fixture

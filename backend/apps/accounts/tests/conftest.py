@@ -4,11 +4,11 @@ from tests.factories import (
     DefaultUserFactory,
     EditorFactory,
     ProfileFactory,
-    SocialLinkFactory,
+    SocialMediaProfileFactory,
 )
 
 register(DefaultUserFactory)
 register(EditorFactory)
 register(ProfileFactory)
 register(AdminFactory)
-register(SocialLinkFactory)
+register(SocialMediaProfileFactory)

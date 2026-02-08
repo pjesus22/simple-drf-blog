@@ -38,8 +38,10 @@ def test_private_profile_serializer_serializes_object(
     assert serializer.data == expected
 
 
-def test_social_media_profile_serializer_serializes_object(db, social_link_factory):
-    socials = social_link_factory()
+def test_social_media_profile_serializer_serializes_object(
+    db, social_media_profile_factory
+):
+    socials = social_media_profile_factory()
     serializer = SocialMediaProfileSerializer(socials)
     expected = {
         "id": socials.id,
@@ -157,7 +159,7 @@ def test_private_profile_serializer_creates_profile_without_social_media(
 
 
 def test_private_profile_serializer_creates_profile_with_social_media(
-    db, editor_profile_data, editor_factory, social_link_factory
+    db, editor_profile_data, editor_factory, social_media_profile_factory
 ):
     user = editor_factory()
     links = [
