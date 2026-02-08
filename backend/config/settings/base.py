@@ -19,6 +19,7 @@ THIRD_PARTY_APPS = [
     "rest_framework_simplejwt",
     "django_extensions",
     "django_filters",
+    "drf_spectacular",
 ]
 
 LOCAL_APPS = [
@@ -140,6 +141,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 SIMPLE_JWT = {
@@ -147,4 +149,17 @@ SIMPLE_JWT = {
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "REFRESH_TOKEN_TYPE": "refresh",
     "ACCESS_TOKEN_TYPE": "access",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Simple DRF Blog API",
+    "DESCRIPTION": "API for managing blog content and user profiles",
+    "VERSION": "0.1.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SCHEMA_PATH_PREFIX": "/api/v1/",
+    "SCHEMA_COERCE_PATH_PK_SUFFIX": True,
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+    ],
 }

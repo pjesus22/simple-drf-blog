@@ -12,6 +12,9 @@ class APIRootView(APIView):
             {
                 "admin": reverse("admin:index", request=request),
                 "api_v1": reverse("v1:api-root", request=request, format=format),
+                "schema": reverse("schema", request=request, format=format),
+                "docs": reverse("swagger-ui", request=request, format=format),
+                "redoc": reverse("redoc", request=request, format=format),
                 "health": reverse("health", request=request, format=format),
                 "token_obtain_pair": reverse(
                     "token_obtain_pair", request=request, format=format
