@@ -157,10 +157,10 @@ def test_profile_viewset_me_action_get_returns_user_profile(mocker):
 
     mock_manager.me.assert_called_once_with(mock_user)
     mock_get_object_or_404.assert_called_once_with(mock_queryset)
-    # Verify serializer was called (context is added automatically by get_serializer)
+    # Verify serializer was called without data/partial for GET requests
     call_kwargs = mock_serializer_class.return_value.call_args[1]
-    assert call_kwargs["data"] is None
-    assert call_kwargs["partial"] is False
+    assert "data" not in call_kwargs
+    assert "partial" not in call_kwargs
     assert "context" in call_kwargs
     assert response.data == mock_serializer_instance.data
 
