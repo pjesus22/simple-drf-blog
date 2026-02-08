@@ -6,7 +6,9 @@ from apps.content.serializers import (
     PostAttachmentAddSerializer,
     PostAttachmentRemoveSerializer,
     PostCreateSerializer,
+    PostRestoreSerializer,
     PostSerializer,
+    PostSoftDeleteSerializer,
     PostStatusSerializer,
     PostThumbnailSerializer,
     PostUpdateSerializer,
@@ -326,3 +328,89 @@ class TestPostAttachmentRemoveSerializer:
 
         assert not serializer.is_valid()
         assert "attachment_id" in serializer.errors
+
+
+class TestPostSoftDeleteSerializer:
+    def test_serializer_validates_with_confirm_true(self, post_factory):
+        """Test serializer validates when confirm=True"""
+        post = post_factory(status="draft")
+        data = {"confirm": True, "reason": "Test deletion"}
+
+        serializer = PostSoftDeleteSerializer(post, data=data)
+
+        assert serializer.is_valid()
+        assert serializer.validated_data["confirm"] is True
+
+    def test_serializer_rejects_when_confirm_false(self, post_factory):
+        """Test serializer raises ValidationError when confirm=False"""
+        post = post_factory(status="draft")
+        data = {"confirm": False}
+
+        serializer = PostSoftDeleteSerializer(post, data=data)
+
+        assert not serializer.is_valid()
+        assert "non_field_errors" in serializer.errors
+        assert "Must confirm deletion" in str(serializer.errors)
+
+    def test_serializer_rejects_when_confirm_missing(self, post_factory):
+        """Test serializer raises ValidationError when confirm is not provided"""
+        post = post_factory(status="draft")
+        data = {}
+
+        serializer = PostSoftDeleteSerializer(post, data=data)
+
+        assert not serializer.is_valid()
+        assert "confirm" in serializer.errors or "non_field_errors" in serializer.errors
+
+    def test_serializer_rejects_already_deleted_post(self, post_factory):
+        """Test serializer raises ValidationError for already deleted posts"""
+        post = post_factory(status="deleted")
+        data = {"confirm": True}
+
+        serializer = PostSoftDeleteSerializer(post, data=data)
+
+        assert not serializer.is_valid()
+        assert "This post is already deleted" in str(serializer.errors)
+
+
+class TestPostRestoreSerializer:
+    def test_serializer_validates_with_confirm_true(self, post_factory):
+        """Test serializer validates when confirm=True"""
+        post = post_factory(status="deleted")
+        data = {"confirm": True}
+
+        serializer = PostRestoreSerializer(post, data=data)
+
+        assert serializer.is_valid()
+        assert serializer.validated_data["confirm"] is True
+
+    def test_serializer_rejects_when_confirm_false(self, post_factory):
+        """Test serializer raises ValidationError when confirm=False"""
+        post = post_factory(status="deleted")
+        data = {"confirm": False}
+
+        serializer = PostRestoreSerializer(post, data=data)
+
+        assert not serializer.is_valid()
+        assert "non_field_errors" in serializer.errors
+        assert "Must confirm restoration" in str(serializer.errors)
+
+    def test_serializer_rejects_when_confirm_missing(self, post_factory):
+        """Test serializer raises ValidationError when confirm is not provided"""
+        post = post_factory(status="deleted")
+        data = {}
+
+        serializer = PostRestoreSerializer(post, data=data)
+
+        assert not serializer.is_valid()
+        assert "confirm" in serializer.errors or "non_field_errors" in serializer.errors
+
+    def test_serializer_rejects_non_deleted_post(self, post_factory):
+        """Test serializer raises ValidationError for non-deleted posts"""
+        post = post_factory(status="draft")
+        data = {"confirm": True}
+
+        serializer = PostRestoreSerializer(post, data=data)
+
+        assert not serializer.is_valid()
+        assert "Only deleted posts can be restored" in str(serializer.errors)
