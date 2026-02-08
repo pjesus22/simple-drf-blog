@@ -467,4 +467,27 @@ class TestPostViewSet:
         post.refresh_from_db()
         assert post.status == "draft"
 
+    def test_post_viewset_trash_action_returns_deleted_posts(
+        self, rf, post_factory, admin_factory
+    ):
+        admin = admin_factory()
+        post_factory(status="draft", author=admin)
+        deleted_post = post_factory(status="deleted", author=admin)
+        wsgi_request = rf.get("/posts/trash/")
+        wsgi_request.user = admin
 
+        # Wrap with DRF Request to provide query_params
+        from rest_framework.request import Request
+
+        request = Request(wsgi_request)
+        request.user = admin  # Explicitly set user on DRF Request
+
+        viewset = PostViewSet(request=request, action="trash")
+        viewset.format_kwarg = None
+        viewset.get_serializer_context = Mock(return_value={"request": request})
+
+        response = viewset.trash(request)
+
+        assert response.status_code == 200
+        assert len(response.data) == 1
+        assert response.data[0]["id"] == deleted_post.id
