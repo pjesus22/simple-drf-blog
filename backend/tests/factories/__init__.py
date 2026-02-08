@@ -2,10 +2,9 @@ from .accounts import (
     AdminFactory,
     DefaultUserFactory,
     EditorFactory,
-    ProfileFactory,
-    SocialLinkFactory,
 )
 from .content import CategoryFactory, PostFactory, TagFactory
+from .profiles import ProfileFactory, SocialMediaProfileFactory
 from .uploads import UploadFactory
 
 __all__ = [
@@ -13,7 +12,7 @@ __all__ = [
     "EditorFactory",
     "ProfileFactory",
     "AdminFactory",
-    "SocialLinkFactory",
+    "SocialMediaProfileFactory",
     "CategoryFactory",
     "TagFactory",
     "PostFactory",
