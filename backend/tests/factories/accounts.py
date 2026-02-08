@@ -63,8 +63,6 @@ class EditorFactory(BaseUserFactory):
 
     @factory.post_generation
     def profile(self, create, extracted, **kwargs):
-        if not create:
-            return
         if extracted is True:
             ProfileFactory(user=self)
 
@@ -81,12 +79,12 @@ class ProfileFactory(factory.django.DjangoModelFactory):
     experience_years = factory.Faker("random_int", min=0, max=40)
 
     class Meta:
-        model = "accounts.EditorProfile"
+        model = "accounts.Profile"
 
 
 class SocialLinkFactory(factory.django.DjangoModelFactory):
     profile = factory.SubFactory(ProfileFactory)
-    name = factory.Faker(
+    platform = factory.Faker(
         provider="random_element",
         elements=(
             "facebook",
@@ -100,8 +98,8 @@ class SocialLinkFactory(factory.django.DjangoModelFactory):
     )
 
     class Meta:
-        model = "accounts.SocialLink"
+        model = "accounts.SocialMediaProfile"
 
     @factory.lazy_attribute
     def url(self):
-        return f"https://{self.name}.com/{_fake.user_name()}"
+        return f"https://{self.platform}.com/{_fake.user_name()}"
