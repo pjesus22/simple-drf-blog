@@ -68,7 +68,7 @@ class Post(BaseModel):
             self.published_at = timezone.now()
 
         if self.status == self.Status.PUBLISHED and self._state.adding is False:
-            old_status = Post.objects.get(pk=self.pk).status
+            old_status = Post.objects.with_deleted().get(pk=self.pk).status
             if old_status in [self.Status.ARCHIVED, self.Status.DELETED]:
                 raise ValidationError(
                     f"Cannot publish a post from {old_status} status."
