@@ -1,6 +1,7 @@
 import pytest
 from apps.accounts.models import Editor
 from apps.content.models import Category, Post, Tag
+from django.core.exceptions import ValidationError
 
 pytestmark = pytest.mark.django_db
 
@@ -452,3 +453,21 @@ class TestPostQueryset:
 
         assert posts.count() == 2
         assert own_draft in posts
+
+    def test_post_clean_raises_error_when_publishing_from_archived(self, post_factory):
+        post = post_factory(status=Post.Status.ARCHIVED)
+        post.status = Post.Status.PUBLISHED
+
+        with pytest.raises(
+            ValidationError, match="Cannot publish a post from archived status"
+        ):
+            post.clean()
+
+    def test_post_clean_raises_error_when_publishing_from_deleted(self, post_factory):
+        post = post_factory(status=Post.Status.DELETED)
+        post.status = Post.Status.PUBLISHED
+
+        with pytest.raises(
+            ValidationError, match="Cannot publish a post from deleted status"
+        ):
+            post.clean()
