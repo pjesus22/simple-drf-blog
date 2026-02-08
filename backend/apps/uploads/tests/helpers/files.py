@@ -37,11 +37,6 @@ class FileFactory:
         size: Tuple[int, int] = (64, 64),
         name: str | None = None,
     ) -> SimpleUploadedFile:
-        if format not in _IMAGE_FORMATS:
-            raise ValueError(
-                f"Unsupported image format '{format}'."
-                f"Supported formats: {', '.join(_IMAGE_FORMATS)}"
-            )
         mime, ext = _IMAGE_FORMATS[format]
         filename = name or f"test_image.{ext}"
 
@@ -58,15 +53,9 @@ class FileFactory:
         name: str = "test.txt",
         content: bytes = b"valid text content\n",
     ) -> SimpleUploadedFile:
-        if not name.endswith(".txt"):
-            raise ValueError("Text files must have a .txt extension")
-
         return SimpleUploadedFile(name, content, _TEXT_MIME)
 
     def create_real_pdf_file(name: str = "test.pdf") -> SimpleUploadedFile:
-        if not name.endswith(".pdf"):
-            raise ValueError("PDF files must have a .pdf extension")
-
         content = (
             b"%PDF-1.4\n"
             b"1 0 obj\n<< /Type /Catalog >>\nendobj\n"
