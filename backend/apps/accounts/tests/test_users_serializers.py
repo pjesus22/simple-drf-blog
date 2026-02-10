@@ -1,3 +1,4 @@
+import pytest
 from apps.accounts.serializers.users import (
     ChangeRoleSerializer,
     PasswordResetSerializer,
@@ -8,16 +9,13 @@ from apps.accounts.serializers.users import (
 )
 from django.contrib.auth import get_user_model
 from django.utils import timezone
-from rest_framework.fields import DateTimeField
 
 User = get_user_model()
-field = DateTimeField()
 
 
+@pytest.mark.django_db
 class TestUserListSerializer:
-    def test_user_list_serializer_serializes_object_successfully(
-        self, db, editor_factory
-    ):
+    def test_user_list_serializer_serializes_object_successfully(self, editor_factory):
         user = editor_factory(profile=True)
         serializer = UserListSerializer(user)
         expected = {
@@ -33,9 +31,10 @@ class TestUserListSerializer:
         assert serializer.data == expected
 
 
+@pytest.mark.django_db
 class TestUserDetailSerializer:
     def test_user_detail_serializer_serializes_object_successfully(
-        self, db, editor_factory
+        self, editor_factory, drf_datetime
     ):
         user = editor_factory(last_login=timezone.now(), profile=True)
         serializer = UserDetailSerializer(user)
@@ -47,8 +46,8 @@ class TestUserDetailSerializer:
             "last_name": user.last_name,
             "email": user.email,
             "role": user.role,
-            "date_joined": field.to_representation(user.date_joined),
-            "last_login": field.to_representation(user.last_login),
+            "date_joined": drf_datetime.to_representation(user.date_joined),
+            "last_login": drf_datetime.to_representation(user.last_login),
             "profile": {
                 "type": "profiles",
                 "id": str(user.profile.id),
@@ -58,8 +57,11 @@ class TestUserDetailSerializer:
         assert serializer.data == expected
 
 
+@pytest.mark.django_db
 class TestUserCreateSerializer:
-    def test_create_serializer_serializes_object_successfully(self, db, editor_factory):
+    def test_create_serializer_serializes_object_successfully(
+        self, editor_factory, drf_datetime
+    ):
         user = editor_factory(last_login=timezone.now(), profile=True)
         serializer = UserCreateSerializer(user)
 
@@ -70,8 +72,8 @@ class TestUserCreateSerializer:
             "last_name": user.last_name,
             "email": user.email,
             "role": user.role,
-            "date_joined": field.to_representation(user.date_joined),
-            "last_login": field.to_representation(user.last_login),
+            "date_joined": drf_datetime.to_representation(user.date_joined),
+            "last_login": drf_datetime.to_representation(user.last_login),
             "profile": {
                 "type": "profiles",
                 "id": str(user.profile.id),
@@ -80,7 +82,7 @@ class TestUserCreateSerializer:
 
         assert serializer.data == expected
 
-    def test_create_serializers_creates_object(self, db):
+    def test_create_serializer_creates_object(self):
         data = {
             "username": "newuser",
             "first_name": "New",
@@ -101,11 +103,12 @@ class TestUserCreateSerializer:
 
 
 class TestChangeRoleSerializer:
-    def test_change_role_serializer_validates_object_successfully(self):
-        data = {"role": User.Role.ADMIN}
+    @pytest.mark.parametrize("role", [User.Role.ADMIN, User.Role.EDITOR])
+    def test_change_role_serializer_validates_object_successfully(self, role):
+        data = {"role": role}
         serializer = ChangeRoleSerializer(data=data)
         assert serializer.is_valid()
-        assert serializer.validated_data["role"] == User.Role.ADMIN
+        assert serializer.validated_data["role"] == role
 
     def test_change_role_serializer_raises_error_for_invalid_role(self):
         data = {"role": "invalid_role"}

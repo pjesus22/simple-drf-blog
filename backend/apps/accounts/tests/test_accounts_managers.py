@@ -6,133 +6,120 @@ pytestmark = pytest.mark.django_db
 
 
 class TestProfileQuerySet:
-    def test_is_admin_returns_true_for_staff_user(self, admin_factory):
-        """Test _is_admin returns True for staff users"""
-        admin = admin_factory()
+    @pytest.mark.parametrize(
+        "user_fixture, expected",
+        [
+            ("admin_factory", True),
+            ("editor_factory", False),
+            (lambda: AnonymousUser(), False),
+        ],
+        ids=("admin", "editor", "anonymous"),
+    )
+    def test_is_admin_detects_user_permissions(self, request, user_fixture, expected):
+        user = (
+            request.getfixturevalue(user_fixture)()
+            if isinstance(user_fixture, str)
+            else user_fixture()
+        )
         qs = Profile.objects.all()
-        assert qs._is_admin(admin) is True
+        assert qs._is_admin(user) is expected
 
-    def test_is_admin_returns_false_for_regular_user(self, editor_factory):
-        """Test _is_admin returns False for non-staff users"""
-        editor = editor_factory()
-        qs = Profile.objects.all()
-        assert qs._is_admin(editor) is False
-
-    def test_is_admin_returns_false_for_anonymous_user(self):
-        """Test _is_admin returns False for anonymous users"""
-        user = AnonymousUser()
-        qs = Profile.objects.all()
-        assert qs._is_admin(user) is False
-
-    def test_visible_for_admin_returns_all_profiles(
-        self, admin_factory, profile_factory
+    @pytest.mark.parametrize(
+        "user_fixture, expected_count",
+        [
+            ("admin_factory", 2),
+            ("editor_factory", 2),
+            (lambda: AnonymousUser(), 1),
+        ],
+        ids=("admin", "editor", "anonymous"),
+    )
+    def test_visible_for_filters_by_user_visibility(
+        self, request, user_fixture, expected_count, profile_factory
     ):
-        """Test visible_for returns all profiles for admin users"""
-        admin = admin_factory()
+        user = (
+            request.getfixturevalue(user_fixture)()
+            if isinstance(user_fixture, str)
+            else user_fixture()
+        )
+
         profile_factory(is_public=True)
         profile_factory(is_public=False)
 
-        profiles = Profile.objects.visible_for(admin)
-        assert profiles.count() == 2
-
-    def test_visible_for_authenticated_user_returns_public_and_own(
-        self, editor_factory, profile_factory
-    ):
-        """Test visible_for returns public profiles and user's own profile"""
-        editor = editor_factory()
-        # Explicitly create profile for editor (signal doesn't run in tests)
-        profile_factory(user=editor, is_public=True)
-        profile_factory(is_public=True)  # Another public profile
-        profile_factory(is_public=False)  # Private profile (not visible)
-
-        profiles = Profile.objects.visible_for(editor)
-        # Should see: editor's own profile (public) + the other public profile = 2
-        assert profiles.count() == 2
-
-    def test_visible_for_anonymous_returns_only_public(self, profile_factory):
-        """Test visible_for returns only public profiles for anonymous users"""
-        user = AnonymousUser()
-        profile_factory(is_public=True)
-        profile_factory(is_public=False)
+        if user.is_authenticated and not user.is_staff:
+            Profile.objects.filter(is_public=False).update(user=user)
 
         profiles = Profile.objects.visible_for(user)
-        assert profiles.count() == 1
+        assert profiles.count() == expected_count
 
-    def test_editable_by_admin_returns_all_profiles(
-        self, admin_factory, profile_factory
+    @pytest.mark.parametrize(
+        "user_fixture, expected_count",
+        [
+            ("admin_factory", 2),
+            ("editor_factory", 1),
+            (lambda: AnonymousUser(), 0),
+        ],
+        ids=("admin", "editor", "anonymous"),
+    )
+    def test_editable_by_filters_by_edit_permissions(
+        self, request, user_fixture, expected_count, profile_factory
     ):
-        """Test editable_by returns all profiles for admin users"""
-        admin = admin_factory()
+        user = (
+            request.getfixturevalue(user_fixture)()
+            if isinstance(user_fixture, str)
+            else user_fixture()
+        )
+
+        p1 = profile_factory()
         profile_factory()
-        profile_factory()
 
-        profiles = Profile.objects.editable_by(admin)
-        assert profiles.count() == 2
-
-    def test_editable_by_authenticated_user_returns_own_only(
-        self, editor_factory, profile_factory
-    ):
-        """Test editable_by returns only user's own profile"""
-        editor = editor_factory()
-        # Explicitly create profile for editor (signal doesn't run in tests)
-        profile_factory(user=editor)
-        profile_factory()  # Another editor's profile (not editable by first editor)
-
-        profiles = Profile.objects.editable_by(editor)
-        assert profiles.count() == 1
-        assert profiles.first().user == editor
-
-    def test_editable_by_anonymous_returns_none(self, profile_factory):
-        """Test editable_by returns empty queryset for anonymous users"""
-        user = AnonymousUser()
-        profile_factory()
+        if user.is_authenticated and not user.is_staff:
+            p1.user = user
+            p1.save()
 
         profiles = Profile.objects.editable_by(user)
-        assert profiles.count() == 0
+        assert profiles.count() == expected_count
+        if expected_count == 1 and not user.is_staff:
+            assert profiles.first().user == user
 
-    def test_me_authenticated_returns_user_profile(
-        self, editor_factory, profile_factory
+    @pytest.mark.parametrize(
+        "user_fixture, expected_count",
+        [
+            ("editor_factory", 1),
+            (lambda: AnonymousUser(), 0),
+        ],
+        ids=("editor", "anonymous"),
+    )
+    def test_me_returns_users_own_profile(
+        self, request, user_fixture, expected_count, profile_factory
     ):
-        """Test me returns authenticated user's profile"""
-        editor = editor_factory()
-        # Explicitly create profile for editor (signal doesn't run in tests)
-        profile_factory(user=editor)
+        user = (
+            request.getfixturevalue(user_fixture)()
+            if isinstance(user_fixture, str)
+            else user_fixture()
+        )
 
-        profiles = Profile.objects.me(editor)
-        assert profiles.count() == 1
-        assert profiles.first().user == editor
-
-    def test_me_anonymous_returns_none(self):
-        """Test me returns empty queryset for anonymous users"""
-        user = AnonymousUser()
+        if user.is_authenticated:
+            profile_factory(user=user)
 
         profiles = Profile.objects.me(user)
-        assert profiles.count() == 0
+        assert profiles.count() == expected_count
+        if expected_count == 1:
+            assert profiles.first().user == user
 
 
 class TestProfileManager:
-    def test_visible_for_delegates_to_queryset(self, editor_factory, profile_factory):
-        """Test visible_for manager method delegates to queryset"""
+    @pytest.mark.parametrize(
+        "method_name",
+        ["visible_for", "editable_by", "me"],
+        ids=("visible_for", "editable_by", "me"),
+    )
+    def test_manager_delegates_to_queryset_methods(
+        self, method_name, editor_factory, profile_factory
+    ):
         editor = editor_factory()
-        profile_factory(is_public=True)
+        profile_factory(user=editor, is_public=True)
 
-        profiles = Profile.objects.visible_for(editor)
-        assert profiles.count() >= 1
+        manager_method = getattr(Profile.objects, method_name)
+        qs_method = getattr(Profile.objects.all(), method_name)
 
-    def test_editable_by_delegates_to_queryset(self, editor_factory, profile_factory):
-        """Test editable_by manager method delegates to queryset"""
-        editor = editor_factory()
-        # Explicitly create profile for editor (signal doesn't run in tests)
-        profile_factory(user=editor)
-
-        profiles = Profile.objects.editable_by(editor)
-        assert profiles.count() == 1
-
-    def test_me_delegates_to_queryset(self, editor_factory, profile_factory):
-        """Test me manager method delegates to queryset"""
-        editor = editor_factory()
-        # Explicitly create profile for editor (signal doesn't run in tests)
-        profile_factory(user=editor)
-
-        profiles = Profile.objects.me(editor)
-        assert profiles.count() == 1
+        assert manager_method(editor).count() == qs_method(editor).count()

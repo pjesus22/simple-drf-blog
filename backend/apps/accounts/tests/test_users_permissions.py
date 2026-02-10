@@ -9,250 +9,186 @@ from apps.accounts.permissions import (
 )
 
 
+@pytest.fixture
+def auth_request(rf, mocker):
+    def _make_request(user=None, is_authenticated=True):
+        request = rf.get("/")
+        if user:
+            request.user = user
+        else:
+            request.user = mocker.Mock(is_authenticated=is_authenticated)
+        return request
+
+    return _make_request
+
+
 @pytest.mark.django_db
 class TestHasMinRole:
-    def test_unauthenticated_user_denied(self, rf, mocker):
-        request = rf.get("/")
-        request.user = mocker.Mock(is_authenticated=False)
+    def test_unauthenticated_user_denied(self, auth_request):
+        request = auth_request(is_authenticated=False)
         permission = HasMinRole()
+        assert permission.has_permission(request, None) is False
 
-        allowed = permission.has_permission(request, None)
+    @pytest.mark.parametrize(
+        "permission_class, role, expected",
+        [
+            (HasMinRole, "viewer", True),
+            (HasMinRole, "editor", True),
+            (HasMinRole, "admin", True),
+            (IsEditor, "viewer", False),
+            (IsEditor, "editor", True),
+            (IsEditor, "admin", True),
+            (IsAdmin, "viewer", False),
+            (IsAdmin, "editor", False),
+            (IsAdmin, "admin", True),
+        ],
+        ids=(
+            "has_min_role_viewer",
+            "has_min_role_editor",
+            "has_min_role_admin",
+            "is_editor_viewer",
+            "is_editor_editor",
+            "is_editor_admin",
+            "is_admin_viewer",
+            "is_admin_editor",
+            "is_admin_admin",
+        ),
+    )
+    def test_role_based_permissions(
+        self, auth_request, default_user_factory, permission_class, role, expected
+    ):
+        user = default_user_factory(role=role)
+        request = auth_request(user=user)
+        permission = permission_class()
 
-        assert allowed is False
-
-    def test_no_min_role_granted_to_authenticated(self, rf, default_user_factory):
-        user = default_user_factory()
-        request = rf.get("/")
-        request.user = user
-        permission = HasMinRole()
-
-        allowed = permission.has_permission(request, None)
-
-        assert allowed is True
-
-    def test_editor_role_granted_access(self, rf, editor_factory):
-        user = editor_factory()
-        request = rf.get("/")
-        request.user = user
-        permission = IsEditor()
-
-        allowed = permission.has_permission(request, None)
-
-        assert allowed is True
-
-    def test_admin_role_granted_access_to_editor_required(self, rf, admin_factory):
-        user = admin_factory()
-        request = rf.get("/")
-        request.user = user
-        permission = IsEditor()
-
-        allowed = permission.has_permission(request, None)
-
-        assert allowed is True
-
-    def test_regular_user_denied_editor_required(self, rf, default_user_factory):
-        user = default_user_factory(role="viewer")
-        request = rf.get("/")
-        request.user = user
-        permission = IsEditor()
-
-        allowed = permission.has_permission(request, None)
-
-        assert allowed is False
-
-    def test_admin_role_granted_access_to_admin_required(self, rf, admin_factory):
-        user = admin_factory()
-        request = rf.get("/")
-        request.user = user
-        permission = IsAdmin()
-
-        allowed = permission.has_permission(request, None)
-
-        assert allowed is True
-
-    def test_editor_denied_admin_required(self, rf, editor_factory):
-        user = editor_factory()
-        request = rf.get("/")
-        request.user = user
-        permission = IsAdmin()
-
-        allowed = permission.has_permission(request, None)
-
-        assert allowed is False
+        assert permission.has_permission(request, None) is expected
 
 
 @pytest.mark.django_db
 class TestIsOwner:
-    def test_admin_granted_permission(self, rf, admin_factory, default_user_factory):
-        admin = admin_factory()
-        user = default_user_factory(role="")
-        request = rf.get("/")
-        request.user = admin
+    @pytest.mark.parametrize(
+        "user_role, is_owner, expected",
+        [
+            ("admin", False, True),
+            ("editor", True, True),
+            ("editor", False, False),
+            ("viewer", True, True),
+            ("viewer", False, False),
+        ],
+        ids=(
+            "is_owner_admin_not_owner",
+            "is_owner_editor_owner",
+            "is_owner_editor_not_owner",
+            "is_owner_viewer_owner",
+            "is_owner_viewer_not_owner",
+        ),
+    )
+    def test_object_ownership_permissions(
+        self, auth_request, default_user_factory, user_role, is_owner, expected
+    ):
+        user = default_user_factory(role=user_role)
+        owner_user = user if is_owner else default_user_factory()
+
+        request = auth_request(user=user)
         permission = IsOwner()
 
-        allowed = permission.has_object_permission(request, None, user)
+        assert permission.has_object_permission(request, None, owner_user) is expected
 
-        assert allowed is True
-
-    def test_user_self_granted_permission(self, rf, default_user_factory):
-        user = default_user_factory()
-        request = rf.get("/")
-        request.user = user
-        permission = IsOwner()
-
-        allowed = permission.has_object_permission(request, None, user)
-
-        assert allowed is True
-
-    def test_other_user_denied_permission(self, rf, default_user_factory):
-        user = default_user_factory(role="viewer")
-        other_user = default_user_factory(role="viewer")
-        request = rf.get("/")
-        request.user = user
-        permission = IsOwner()
-
-        allowed = permission.has_object_permission(request, None, other_user)
-
-        assert allowed is False
-
-    @pytest.mark.parametrize("field", ["user", "owner", "author", "uploaded_by"])
+    @pytest.mark.parametrize(
+        "field",
+        ["user", "owner", "author", "uploaded_by"],
+        ids=("user", "owner", "author", "uploaded_by"),
+    )
     def test_ownership_fields_granted_permission(
-        self, rf, default_user_factory, field, mocker
+        self, auth_request, default_user_factory, field, mocker
     ):
         user = default_user_factory()
-        request = rf.get("/")
-        request.user = user
+        request = auth_request(user=user)
         permission = IsOwner()
         obj = mocker.Mock()
         setattr(obj, field, user)
 
-        allowed = permission.has_object_permission(request, None, obj)
+        assert permission.has_object_permission(request, None, obj) is True
 
-        assert allowed is True
-
-    def test_non_owner_denied_permission(self, rf, default_user_factory, mocker):
-        user = default_user_factory(role="viewer")
-        other_user = default_user_factory(role="viewer")
-        request = rf.get("/")
-        request.user = user
+    def test_has_permission_authenticated_logic(self, auth_request):
+        request = auth_request(is_authenticated=True)
         permission = IsOwner()
-        obj = mocker.Mock()
-        obj.user = other_user
+        assert permission.has_permission(request, None) is True
 
-        allowed = permission.has_object_permission(request, None, obj)
-
-        assert allowed is False
-
-    def test_has_permission_authenticated(self, rf, default_user_factory):
-        user = default_user_factory()
-        request = rf.get("/")
-        request.user = user
-        permission = IsOwner()
-
-        allowed = permission.has_permission(request, None)
-
-        assert allowed is True
-
-    def test_has_permission_unauthenticated(self, rf, mocker):
-        request = rf.get("/")
-        request.user = mocker.Mock(is_authenticated=False)
-        permission = IsOwner()
-
-        allowed = permission.has_permission(request, None)
-
-        assert allowed is False
+        request_unauth = auth_request(is_authenticated=False)
+        assert permission.has_permission(request_unauth, None) is False
 
 
 @pytest.mark.django_db
-class TestUserPermissions:
-    def test_can_change_user_role_only_admin_has_permission(
-        self, rf, admin_factory, editor_factory
+class TestCanChangeUserRole:
+    @pytest.mark.parametrize(
+        "requester_role, expected",
+        [("admin", True), ("editor", False), ("viewer", False)],
+        ids=("admin", "editor", "viewer"),
+    )
+    def test_permission_only_for_admin(
+        self, auth_request, default_user_factory, requester_role, expected
+    ):
+        user = default_user_factory(role=requester_role)
+        request = auth_request(user=user)
+        permission = CanChangeUserRole()
+
+        assert permission.has_permission(request, None) is expected
+
+    def test_admin_cannot_change_self(self, auth_request, admin_factory):
+        admin = admin_factory()
+        request = auth_request(user=admin)
+        permission = CanChangeUserRole()
+
+        assert permission.has_object_permission(request, None, admin) is False
+
+    def test_admin_can_change_others(
+        self, auth_request, admin_factory, default_user_factory
     ):
         admin = admin_factory()
-        editor = editor_factory()
+        other_user = default_user_factory()
+        request = auth_request(user=admin)
         permission = CanChangeUserRole()
 
-        request_admin = rf.get("/")
-        request_admin.user = admin
+        assert permission.has_object_permission(request, None, other_user) is True
 
-        request_editor = rf.get("/")
-        request_editor.user = editor
-
-        admin_allowed = permission.has_permission(request_admin, None)
-        editor_allowed = permission.has_permission(request_editor, None)
-
-        assert admin_allowed is True
-        assert editor_allowed is False
-
-    def test_can_change_user_role_only_admin_can_change_other(
-        self, rf, admin_factory, editor_factory, default_user_factory
-    ):
+    def test_non_user_object_denied(self, auth_request, admin_factory, mocker):
         admin = admin_factory()
-        user = default_user_factory()
+        request = auth_request(user=admin)
         permission = CanChangeUserRole()
+        obj = mocker.Mock()
 
-        request_admin = rf.get("/")
-        request_admin.user = admin
-
-        allowed = permission.has_object_permission(request_admin, None, user)
-
-        assert allowed is True
-
-    def test_can_change_user_role_admin_cannot_change_self(self, rf, admin_factory):
-        admin = admin_factory()
-        permission = CanChangeUserRole()
-
-        request_admin = rf.get("/")
-        request_admin.user = admin
-
-        allowed = permission.has_object_permission(request_admin, None, admin)
-
-        assert allowed is False
-
-    def test_can_change_user_role_non_user_object_denied(
-        self, rf, admin_factory, mocker
-    ):
-        admin = admin_factory()
-        permission = CanChangeUserRole()
-        request = rf.get("/")
-        request.user = admin
-        obj = mocker.Mock()  # Not a User instance
-
-        allowed = permission.has_object_permission(request, None, obj)
-
-        assert allowed is False
+        assert permission.has_object_permission(request, None, obj) is False
 
 
 @pytest.mark.django_db
 class TestCanViewUser:
-    def test_admin_can_view_any_user(self, rf, admin_factory, default_user_factory):
-        admin = admin_factory()
-        user = default_user_factory()
+    @pytest.mark.parametrize(
+        "requester_role, is_self, expected",
+        [
+            ("admin", False, True),
+            ("admin", True, True),
+            ("editor", True, True),
+            ("editor", False, False),
+            ("viewer", True, True),
+            ("viewer", False, False),
+        ],
+        ids=(
+            "can_view_user_admin_not_self",
+            "can_view_user_admin_self",
+            "can_view_user_editor_self",
+            "can_view_user_editor_not_self",
+            "can_view_user_viewer_self",
+            "can_view_user_viewer_not_self",
+        ),
+    )
+    def test_view_user_permissions(
+        self, auth_request, default_user_factory, requester_role, is_self, expected
+    ):
+        user = default_user_factory(role=requester_role)
+        target_user = user if is_self else default_user_factory()
+
+        request = auth_request(user=user)
         permission = CanViewUser()
-        request = rf.get("/")
-        request.user = admin
 
-        allowed = permission.has_object_permission(request, None, user)
-
-        assert allowed is True
-
-    def test_user_can_view_self(self, rf, default_user_factory):
-        user = default_user_factory()
-        permission = CanViewUser()
-        request = rf.get("/")
-        request.user = user
-
-        allowed = permission.has_object_permission(request, None, user)
-
-        assert allowed is True
-
-    def test_user_cannot_view_other_user(self, rf, default_user_factory):
-        user = default_user_factory(role="editor")
-        other_user = default_user_factory()
-        permission = CanViewUser()
-        request = rf.get("/")
-        request.user = user
-
-        allowed = permission.has_object_permission(request, None, other_user)
-
-        assert allowed is False
+        assert permission.has_object_permission(request, None, target_user) is expected
