@@ -8,70 +8,100 @@ from apps.uploads.exceptions import (
 )
 from apps.uploads.models import Upload
 from apps.uploads.services import UploadService
-from apps.uploads.tests.helpers import FileFactory as ff
 
 pytestmark = pytest.mark.django_db
 
 
-def test_upload_service_initialize_service_successfully(editor_factory):
+@pytest.mark.parametrize(
+    "purpose, visibility, expected_purpose, expected_visibility",
+    [
+        (None, None, Upload.Purpose.ATTACHMENT, Upload.Visibility.INHERIT),
+        (
+            Upload.Purpose.ATTACHMENT,
+            Upload.Visibility.PUBLIC,
+            Upload.Purpose.ATTACHMENT,
+            Upload.Visibility.PUBLIC,
+        ),
+    ],
+    ids=("defaults", "explicit"),
+)
+def test_upload_service_initialization(
+    editor_factory, purpose, visibility, expected_purpose, expected_visibility
+):
     user = editor_factory()
+    kwargs = {"uploaded_by": user}
+    if purpose:
+        kwargs["purpose"] = purpose
+    if visibility:
+        kwargs["visibility"] = visibility
 
-    service = UploadService(
-        uploaded_by=user,
-        purpose=Upload.Purpose.ATTACHMENT,
-        visibility=Upload.Visibility.PUBLIC,
-    )
+    service = UploadService(**kwargs)
 
     assert service.uploaded_by == user
-    assert service.purpose == Upload.Purpose.ATTACHMENT
-    assert service.visibility == Upload.Visibility.PUBLIC
+    assert service.purpose == expected_purpose
+    assert service.visibility == expected_visibility
 
 
-def test_upload_service_initialize_service_with_defaults(editor_factory):
+def test_upload_service_creates_upload_object_successfully(
+    editor_factory, file_factory
+):
     user = editor_factory()
-
+    file = file_factory.create_real_text_file()
     service = UploadService(uploaded_by=user)
 
-    assert service.purpose == Upload.Purpose.ATTACHMENT
-    assert service.visibility == Upload.Visibility.INHERIT
-
-
-def test_upload_service_creates_upload_object_successfully(editor_factory):
-    user = editor_factory()
-    f = ff.create_real_text_file()
-    service = UploadService(uploaded_by=user)
-
-    upload = service.create_or_get_upload(file=f)
+    upload = service.create_or_get_upload(file=file)
 
     assert isinstance(upload, Upload)
     assert Upload.objects.filter(pk=upload.pk).exists()
     assert upload.uploaded_by == user
     assert upload.purpose == Upload.Purpose.ATTACHMENT
     assert upload.visibility == Upload.Visibility.INHERIT
-    assert upload.size == f.size
-    assert upload.original_filename == f.name
+    assert upload.size == file.size
+    assert upload.original_filename == file.name
     assert Upload.objects.count() == 1
 
 
-def test_upload_service_updates_metadata_successfully(upload_factory, clean_media):
-    f = ff.create_real_image_file()
-    expected_hash = hashlib.sha256(f.read()).hexdigest()
+def test_upload_service_reuses_existing_upload(editor_factory, file_factory):
+    user = editor_factory()
+    file = file_factory.create_real_text_file()
+    service = UploadService(uploaded_by=user)
+
+    upload1 = service.create_or_get_upload(file=file)
+
+    file.seek(0)
+    upload2 = service.create_or_get_upload(file=file)
+
+    assert upload1.pk == upload2.pk
+    assert Upload.objects.count() == 1
+
+
+def test_upload_service_updates_metadata_successfully(
+    upload_factory, file_factory, clean_media
+):
+    file = file_factory.create_real_image_file()
+    file_content = file.read()
+    expected_hash = hashlib.sha256(file_content).hexdigest()
+
     upload = upload_factory(
-        file=f,
+        file=file,
         size=10240,
         hash_sha256=hashlib.sha256(b"wrong").hexdigest(),
         mime_type="text/plain",
         width=100,
         height=100,
     )
-    service = UploadService(uploaded_by=upload.uploaded_by)
 
+    service = UploadService(uploaded_by=upload.uploaded_by)
     updated_upload = service.update_metadata(upload)
 
-    assert updated_upload.size == f.size
+    assert updated_upload.size == len(file_content)
     assert updated_upload.hash_sha256 == expected_hash
     assert updated_upload.mime_type == "image/png"
-    assert upload.width, upload.height == (64, 64)
+    assert (updated_upload.width, updated_upload.height) == (64, 64)
+
+    upload.refresh_from_db()
+    assert upload.hash_sha256 == expected_hash
+    assert upload.size == len(file_content)
 
 
 @pytest.mark.parametrize(
@@ -90,9 +120,9 @@ def test_upload_service_updates_metadata_successfully(upload_factory, clean_medi
             "is not a valid visibility",
         ),
     ],
-    ids=["invalid_purpose", "invalid_visibility"],
+    ids=("invalid_purpose", "invalid_visibility"),
 )
-def test_upload_service_validate_choice(
+def test_upload_service_validate_choices(
     editor_factory, purpose, visibility, error, detail
 ):
     user = editor_factory()
@@ -100,6 +130,6 @@ def test_upload_service_validate_choice(
         UploadService(uploaded_by=user, purpose=purpose, visibility=visibility)
 
 
-def test_upload_service_validate_file(editor_factory):
+def test_upload_service_validate_file_raises_error_on_missing_file():
     with pytest.raises(InvalidFileError, match="Invalid file provided."):
         UploadService._validate_file(file=None)
