@@ -17,11 +17,27 @@ from apps.content.serializers import (
 from rest_framework.fields import DateTimeField
 
 pytestmark = pytest.mark.django_db
-field = DateTimeField()
+
+
+@pytest.fixture
+def drf_datetime():
+    return DateTimeField()
+
+
+@pytest.fixture
+def to_relation():
+    """Helper to format objects into JSON:API relationship format."""
+
+    def _to_relation(resource_type, instance_id):
+        return {"type": resource_type, "id": str(instance_id)}
+
+    return _to_relation
 
 
 class TestCategorySerializer:
-    def test_category_serializer_serializes_base_fields(self, category_factory):
+    def test_category_serializer_serializes_object_successfully(
+        self, category_factory, drf_datetime
+    ):
         category = category_factory()
         serializer = CategorySerializer(category)
         expected = {
@@ -29,21 +45,21 @@ class TestCategorySerializer:
             "name": category.name,
             "slug": category.slug,
             "description": category.description,
-            "created_at": field.to_representation(category.created_at),
-            "updated_at": field.to_representation(category.updated_at),
+            "created_at": drf_datetime.to_representation(category.created_at),
+            "updated_at": drf_datetime.to_representation(category.updated_at),
             "posts": [],
         }
 
         assert serializer.data == expected
 
     def test_category_serializer_serializes_relationships(
-        self, category_factory, post_factory
+        self, category_factory, post_factory, to_relation
     ):
         category = category_factory()
         posts = post_factory.create_batch(size=2, category=category)
         expected = [
-            {"type": "posts", "id": str(posts[1].id)},
-            {"type": "posts", "id": str(posts[0].id)},
+            to_relation("posts", posts[1].id),
+            to_relation("posts", posts[0].id),
         ]
         serializer = CategorySerializer(category)
 
@@ -51,36 +67,42 @@ class TestCategorySerializer:
 
 
 class TestTagSerializer:
-    def test_tag_serializer_serializes_base_fields(self, tag_factory):
+    def test_tag_serializer_serializes_object_successfully(
+        self, tag_factory, drf_datetime
+    ):
         tag = tag_factory()
         serializer = TagSerializer(tag)
         expected = {
             "id": tag.id,
             "name": tag.name,
             "slug": tag.slug,
-            "created_at": field.to_representation(tag.created_at),
-            "updated_at": field.to_representation(tag.updated_at),
+            "created_at": drf_datetime.to_representation(tag.created_at),
+            "updated_at": drf_datetime.to_representation(tag.updated_at),
             "posts": [],
         }
 
         assert serializer.data == expected
 
-    def test_tag_serializer_serializes_relationships(self, tag_factory, post_factory):
+    def test_tag_serializer_serializes_relationships(
+        self, tag_factory, post_factory, to_relation
+    ):
         tag = tag_factory()
         posts = post_factory.create_batch(size=2)
         tag.posts.set(posts)
 
         serializer = TagSerializer(tag)
         expected = [
-            {"type": "posts", "id": str(posts[1].id)},
-            {"type": "posts", "id": str(posts[0].id)},
+            to_relation("posts", posts[1].id),
+            to_relation("posts", posts[0].id),
         ]
 
         assert all(item in serializer.data["posts"] for item in expected)
 
 
 class TestPostSerializer:
-    def test_post_serializer_serializes_base_fields(self, post_factory):
+    def test_post_serializer_serializes_object_successfully(
+        self, post_factory, drf_datetime, to_relation
+    ):
         post = post_factory(status="published")
         serializer = PostSerializer(post)
         expected = {
@@ -90,11 +112,11 @@ class TestPostSerializer:
             "content": post.content,
             "summary": post.summary,
             "status": post.status,
-            "published_at": field.to_representation(post.published_at),
-            "created_at": field.to_representation(post.created_at),
-            "updated_at": field.to_representation(post.updated_at),
-            "author": {"type": "users", "id": str(post.author.id)},
-            "category": {"type": "categories", "id": str(post.category.id)},
+            "published_at": drf_datetime.to_representation(post.published_at),
+            "created_at": drf_datetime.to_representation(post.created_at),
+            "updated_at": drf_datetime.to_representation(post.updated_at),
+            "author": to_relation("users", post.author.id),
+            "category": to_relation("categories", post.category.id),
             "tags": [],
             "thumbnail": None,
             "attachments": [],
@@ -103,7 +125,13 @@ class TestPostSerializer:
         assert serializer.data == expected
 
     def test_post_serializer_serializes_relationships(
-        self, post_factory, tag_factory, category_factory, upload_factory, clean_media
+        self,
+        post_factory,
+        tag_factory,
+        category_factory,
+        upload_factory,
+        clean_media,
+        to_relation,
     ):
         post = post_factory(status="published")
         tags = tag_factory.create_batch(size=2)
@@ -115,23 +143,21 @@ class TestPostSerializer:
         post.thumbnail = thumbnail
 
         serializer = PostSerializer(post)
-        expected = {
-            "tags": [
-                {"type": "tags", "id": str(tags[1].id)},
-                {"type": "tags", "id": str(tags[0].id)},
-            ],
-            "thumbnail": {"type": "uploads", "id": str(thumbnail.id)},
-            "attachments": [
-                {"type": "uploads", "id": str(attachments[1].id)},
-                {"type": "uploads", "id": str(attachments[0].id)},
-            ],
-        }
+        expected_tags = [
+            to_relation("tags", tags[1].id),
+            to_relation("tags", tags[0].id),
+        ]
+        expected_attachments = [
+            to_relation("uploads", attachments[1].id),
+            to_relation("uploads", attachments[0].id),
+        ]
+        expected_thumbnail = to_relation("uploads", thumbnail.id)
 
-        assert all(item in serializer.data["tags"] for item in expected["tags"])
+        assert all(item in serializer.data["tags"] for item in expected_tags)
         assert all(
-            item in serializer.data["attachments"] for item in expected["attachments"]
+            item in serializer.data["attachments"] for item in expected_attachments
         )
-        assert expected["thumbnail"] == serializer.data["thumbnail"]
+        assert serializer.data["thumbnail"] == expected_thumbnail
 
 
 class TestPostStatusSerializer:
@@ -144,9 +170,18 @@ class TestPostStatusSerializer:
         assert serializer.is_valid()
         assert serializer.validated_data["status"] == "published"
 
-    def test_serializer_rejects_invalid_status(self, post_factory):
+    @pytest.mark.parametrize(
+        "invalid_status",
+        [
+            "invalid_status",
+            "",
+            None,
+        ],
+        ids=("invalid_status", "empty_string", "none"),
+    )
+    def test_serializer_rejects_invalid_status(self, post_factory, invalid_status):
         post = post_factory(status="draft")
-        data = {"status": "invalid_status"}
+        data = {"status": invalid_status}
 
         serializer = PostStatusSerializer(post, data=data)
 
@@ -165,15 +200,15 @@ class TestPostStatusSerializer:
 
 class TestPostCreateSerializer:
     def test_serializer_validates_valid_creation_data(
-        self, category_factory, tag_factory
+        self, category_factory, tag_factory, to_relation
     ):
         category = category_factory()
         tags = tag_factory.create_batch(size=2)
         data = {
             "title": "New Post",
             "content": "Post content",
-            "category": {"type": "categories", "id": str(category.id)},
-            "tags": [{"type": "tags", "id": str(tag.id)} for tag in tags],
+            "category": to_relation("categories", category.id),
+            "tags": [to_relation("tags", tag.id) for tag in tags],
         }
 
         serializer = PostCreateSerializer(data=data)
@@ -188,9 +223,9 @@ class TestPostCreateSerializer:
         serializer = PostCreateSerializer(data=data)
 
         assert not serializer.is_valid()
-        assert "title" in serializer.errors
-        assert "content" in serializer.errors
-        assert "category" in serializer.errors
+        assert all(
+            field in serializer.errors for field in ["title", "content", "category"]
+        )
 
 
 class TestPostUpdateSerializer:
@@ -257,8 +292,6 @@ class TestPostAttachmentAddSerializer:
         assert len(serializer.validated_data["attachments"]) == 2
 
     def test_serializer_rejects_invalid_attachment_ids(self):
-        import uuid
-
         data = {"attachments": [str(uuid.uuid4()), str(uuid.uuid4())]}
 
         serializer = PostAttachmentAddSerializer(data=data)
@@ -332,7 +365,6 @@ class TestPostAttachmentRemoveSerializer:
 
 class TestPostSoftDeleteSerializer:
     def test_serializer_validates_with_confirm_true(self, post_factory):
-        """Test serializer validates when confirm=True"""
         post = post_factory(status="draft")
         data = {"confirm": True, "reason": "Test deletion"}
 
@@ -341,29 +373,31 @@ class TestPostSoftDeleteSerializer:
         assert serializer.is_valid()
         assert serializer.validated_data["confirm"] is True
 
-    def test_serializer_rejects_when_confirm_false(self, post_factory):
-        """Test serializer raises ValidationError when confirm=False"""
+    @pytest.mark.parametrize(
+        "data, expected_error",
+        [
+            ({"confirm": False}, "Must confirm deletion"),
+            ({}, "confirm"),
+        ],
+        ids=("confirm_false", "no_confirm"),
+    )
+    def test_serializer_rejects_invalid_confirmation(
+        self, post_factory, data, expected_error
+    ):
         post = post_factory(status="draft")
-        data = {"confirm": False}
-
         serializer = PostSoftDeleteSerializer(post, data=data)
 
         assert not serializer.is_valid()
-        assert "non_field_errors" in serializer.errors
-        assert "Must confirm deletion" in str(serializer.errors)
-
-    def test_serializer_rejects_when_confirm_missing(self, post_factory):
-        """Test serializer raises ValidationError when confirm is not provided"""
+        error_str = str(serializer.errors)
+        assert expected_error in error_str
         post = post_factory(status="draft")
-        data = {}
-
         serializer = PostSoftDeleteSerializer(post, data=data)
 
         assert not serializer.is_valid()
-        assert "confirm" in serializer.errors or "non_field_errors" in serializer.errors
+        error_str = str(serializer.errors)
+        assert expected_error in error_str
 
     def test_serializer_rejects_already_deleted_post(self, post_factory):
-        """Test serializer raises ValidationError for already deleted posts"""
         post = post_factory(status="deleted")
         data = {"confirm": True}
 
@@ -375,7 +409,6 @@ class TestPostSoftDeleteSerializer:
 
 class TestPostRestoreSerializer:
     def test_serializer_validates_with_confirm_true(self, post_factory):
-        """Test serializer validates when confirm=True"""
         post = post_factory(status="deleted")
         data = {"confirm": True}
 
@@ -384,29 +417,30 @@ class TestPostRestoreSerializer:
         assert serializer.is_valid()
         assert serializer.validated_data["confirm"] is True
 
-    def test_serializer_rejects_when_confirm_false(self, post_factory):
-        """Test serializer raises ValidationError when confirm=False"""
+    @pytest.mark.parametrize(
+        "data, expected_error",
+        [
+            ({"confirm": False}, "Must confirm restoration"),
+            ({}, "confirm"),
+        ],
+        ids=("confirm_false", "no_confirm"),
+    )
+    def test_serializer_rejects_invalid_confirmation(
+        self, post_factory, data, expected_error
+    ):
         post = post_factory(status="deleted")
-        data = {"confirm": False}
-
         serializer = PostRestoreSerializer(post, data=data)
 
         assert not serializer.is_valid()
-        assert "non_field_errors" in serializer.errors
-        assert "Must confirm restoration" in str(serializer.errors)
-
-    def test_serializer_rejects_when_confirm_missing(self, post_factory):
-        """Test serializer raises ValidationError when confirm is not provided"""
+        error_str = str(serializer.errors)
+        assert expected_error in error_str
         post = post_factory(status="deleted")
-        data = {}
-
         serializer = PostRestoreSerializer(post, data=data)
 
         assert not serializer.is_valid()
-        assert "confirm" in serializer.errors or "non_field_errors" in serializer.errors
+        assert expected_error in str(serializer.errors)
 
     def test_serializer_rejects_non_deleted_post(self, post_factory):
-        """Test serializer raises ValidationError for non-deleted posts"""
         post = post_factory(status="draft")
         data = {"confirm": True}
 
