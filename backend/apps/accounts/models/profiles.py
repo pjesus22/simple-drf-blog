@@ -19,6 +19,9 @@ class Profile(BaseModel):
 
     is_public = models.BooleanField(default=True)
 
+    class Meta:
+        ordering = ["-created_at"]
+
     def __str__(self):
         return f"Profile(user={self.user.id})"
 
@@ -50,6 +53,13 @@ class SocialMediaProfile(BaseModel):
 
     class Meta:
         unique_together = [["profile", "url"]]
+        ordering = ["platform"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["profile", "platform"],
+                name="unique_profile_platform",
+            )
+        ]
         indexes = [models.Index(fields=["profile", "platform"])]
 
     def __str__(self):
