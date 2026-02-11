@@ -132,8 +132,9 @@ class PrivateProfileSerializer(ProfileSerializer):
                         to_update, ["platform", "url"]
                     )
 
-                for sid, obj in existing.items():
-                    if sid not in incoming_ids:
-                        obj.delete()
+                to_delete_ids = set(existing.keys()) - incoming_ids
+
+                if to_delete_ids:
+                    SocialMediaProfile.objects.filter(id__in=to_delete_ids).delete()
 
             return instance
