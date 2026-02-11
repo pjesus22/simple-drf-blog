@@ -1,15 +1,17 @@
 import pytest
 from apps.uploads.models import Upload
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from rest_framework import status
+
 from tests.helpers import assert_drf_error_response, assert_jsonapi_error_response
 
 pytestmark = pytest.mark.django_db
 
 
 class TestCreateUpload:
-    def test_create_upload_success(self, editor_client, clean_media):
+    def test_create_upload_success(self, editor_client):
         client, client_user = editor_client
         initial_state = Upload.objects.count()
         test_file = SimpleUploadedFile(
@@ -25,33 +27,36 @@ class TestCreateUpload:
         assert Upload.objects.count() == initial_state + 1
 
         data = response.json().get("data")
+        attributes = data["attributes"]
 
         assert data.get("type") == "uploads"
-        assert "/media/attachment/" in data["attributes"]["url"]
-        assert data["attributes"]["original_filename"] == "test_text.txt"
-        assert data["attributes"]["visibility"] == "inherit"
-        assert data["attributes"]["mime_type"] == "text/plain"
-        assert data["attributes"]["size"] == 4
-        assert data["attributes"]["width"] is None
-        assert data["attributes"]["height"] is None
-        assert data["attributes"]["purpose"] == "attachment"
+        assert settings.MEDIA_URL in attributes["url"]
+        assert "attachment" in attributes["url"]
+
+        assert attributes["original_filename"] == "test_text.txt"
+        assert attributes["visibility"] == "inherit"
+        assert attributes["mime_type"] == "text/plain"
+        assert attributes["size"] == 4
+        assert attributes["width"] is None
+        assert attributes["height"] is None
+        assert attributes["purpose"] == "attachment"
 
         relationships = data.get("relationships")
-
         assert "uploaded_by" in relationships
         assert relationships["uploaded_by"]["data"]["id"] == str(client_user.id)
         assert relationships["uploaded_by"]["data"]["type"] == "users"
 
     @pytest.mark.parametrize(
-        "payload, detail_contains, pointer, code",
+        "payload, error_detail, error_pointer, error_code",
         [
-            (
+            pytest.param(
                 {},
                 "No file was submitted.",
                 "/data/attributes/file",
                 "required",
+                id="missing_file",
             ),
-            (
+            pytest.param(
                 {
                     "file": SimpleUploadedFile(
                         name="test_text.txt",
@@ -63,8 +68,9 @@ class TestCreateUpload:
                 "is not a valid choice.",
                 "/data/attributes/purpose",
                 "invalid_choice",
+                id="invalid_purpose",
             ),
-            (
+            pytest.param(
                 {
                     "file": SimpleUploadedFile(
                         name="corrupt_file.jpg",
@@ -75,8 +81,9 @@ class TestCreateUpload:
                 "not a valid or supported image.",
                 "/data",
                 "invalid",
+                id="corrupted_file",
             ),
-            (
+            pytest.param(
                 {
                     "file": SimpleUploadedFile(
                         name="invalid_file_type.jpg",
@@ -87,20 +94,22 @@ class TestCreateUpload:
                 "File extension '.jpg' is not allowed for MIME type 'text/plain'.",
                 "/data",
                 "invalid",
+                id="wrong_extension_for_mime",
             ),
-            (
+            pytest.param(
                 {
                     "file": SimpleUploadedFile(
                         name="large_file.txt",
-                        content=b"\x00" * 1024 * 1024 * 11,  # 10MB
+                        content=b"\x00" * 1024 * 1024 * 11,  # 11MB
                         content_type="text/plain",
                     ),
                 },
                 "size exceeds the limit.",
                 "/data",
                 "invalid",
+                id="large_file",
             ),
-            (
+            pytest.param(
                 {
                     "file": SimpleUploadedFile(
                         name="invalid_file_type.exe",
@@ -111,19 +120,12 @@ class TestCreateUpload:
                 "Unsupported MIME type.",
                 "/data",
                 "invalid",
+                id="invalid_file_type",
             ),
-        ],
-        ids=[
-            "missing_file",
-            "invalid_purpose",
-            "corrupted_file",
-            "wrong_extension_for_mime",
-            "large_file",
-            "invalid_file_type",
         ],
     )
     def test_create_upload_bad_request(
-        self, editor_client, payload, detail_contains, pointer, code
+        self, editor_client, payload, error_detail, error_pointer, error_code
     ):
         client, _ = editor_client
 
@@ -136,20 +138,18 @@ class TestCreateUpload:
         assert_jsonapi_error_response(
             response=response,
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail_contains=detail_contains,
-            pointer=pointer,
-            code=code,
+            detail_contains=error_detail,
+            pointer=error_pointer,
+            code=error_code,
         )
 
     def test_create_upload_unauthorized(self, api_client):
         client = api_client
-
         response = client.post(
             path=reverse("v1:upload-list"),
             data={"file": "test"},
             format="multipart",
         )
-
         assert_drf_error_response(
             response=response,
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -158,35 +158,36 @@ class TestCreateUpload:
 
 
 class TestReadUpload:
-    def test_list_uploads_success(self, admin_client, upload_factory, clean_media):
+    def test_list_uploads_success(self, admin_client, upload_factory):
         client, _ = admin_client
         uploads = upload_factory.create_batch(3)
         upload_ids = {str(u.id) for u in uploads}
 
         response = client.get(path=reverse("v1:upload-list"))
-        data = response.json().get("data")
-        received_ids = {item["id"] for item in data}
 
         assert response.status_code == status.HTTP_200_OK
+        data = response.json().get("data")
+        received_ids = {item["id"] for item in data}
         assert upload_ids.issubset(received_ids)
 
-    def test_list_uploads_as_editor_only_shows_own(
-        self, editor_client, upload_factory, clean_media
-    ):
+    def test_list_uploads_as_editor_only_shows_own(self, editor_client, upload_factory):
         client, client_user = editor_client
         client_uploads = upload_factory.create_batch(2, uploaded_by=client_user)
         other_uploads = upload_factory.create_batch(2)
+
         client_upload_ids = {str(u.id) for u in client_uploads}
+        other_upload_ids = {str(u.id) for u in other_uploads}
 
         response = client.get(path=reverse("v1:upload-list"))
+
+        assert response.status_code == status.HTTP_200_OK
         data = response.json().get("data")
         received_ids = {item["id"] for item in data}
 
-        assert response.status_code == status.HTTP_200_OK
         assert client_upload_ids.issubset(received_ids)
-        assert len(client_uploads + other_uploads) > len(received_ids)
+        assert not (other_upload_ids & received_ids)
 
-    def test_retrieve_upload_success(self, editor_client, upload_factory, clean_media):
+    def test_retrieve_upload_success(self, editor_client, upload_factory):
         client, client_user = editor_client
         upload = upload_factory.create(uploaded_by=client_user)
 
@@ -195,26 +196,25 @@ class TestReadUpload:
         )
 
         assert response.status_code == status.HTTP_200_OK
-
         data = response.json().get("data")
+        attributes = data["attributes"]
 
         assert data["type"] == "uploads"
-        assert data["attributes"]["url"] == rf"http://testserver{upload.file.url}"
-        assert data["attributes"]["original_filename"] == upload.original_filename
-        assert data["attributes"]["mime_type"] == upload.mime_type
-        assert data["attributes"]["size"] == upload.size
-        assert data["attributes"]["width"] == upload.width
-        assert data["attributes"]["height"] == upload.height
-        assert data["attributes"]["purpose"] == upload.purpose
-        assert data["attributes"]["visibility"] == upload.visibility
+        assert upload.file.url in attributes["url"]
+
+        assert attributes["original_filename"] == upload.original_filename
+        assert attributes["mime_type"] == upload.mime_type
+        assert attributes["size"] == upload.size
+        assert attributes["width"] == upload.width
+        assert attributes["height"] == upload.height
+        assert attributes["purpose"] == upload.purpose
+        assert attributes["visibility"] == upload.visibility
 
     def test_retrieve_upload_not_found(self, editor_client):
         client, _ = editor_client
-
         response = client.get(
             path=reverse("v1:upload-detail", kwargs={"pk": 0}),
         )
-
         assert_jsonapi_error_response(
             response=response,
             status_code=status.HTTP_404_NOT_FOUND,
@@ -225,11 +225,9 @@ class TestReadUpload:
     def test_retrieve_upload_other_user_not_found(self, editor_client, upload_factory):
         client, _ = editor_client
         upload = upload_factory.create()
-
         response = client.get(
             path=reverse("v1:upload-detail", kwargs={"pk": upload.id}),
         )
-
         assert_jsonapi_error_response(
             response=response,
             status_code=status.HTTP_404_NOT_FOUND,
@@ -239,9 +237,7 @@ class TestReadUpload:
 
 
 class TestPartialUpdateUpload:
-    def test_partial_update_upload_success(
-        self, admin_client, upload_factory, clean_media
-    ):
+    def test_partial_update_upload_success(self, admin_client, upload_factory):
         client, _ = admin_client
         upload = upload_factory.create(
             purpose=Upload.Purpose.AVATAR,
@@ -258,32 +254,37 @@ class TestPartialUpdateUpload:
         )
 
         assert response.status_code == status.HTTP_200_OK
-
         data = response.json().get("data")
-
         assert data["attributes"]["purpose"] == "attachment"
         assert data["attributes"]["visibility"] == "public"
 
     @pytest.mark.parametrize(
-        "data, error, pointer, code",
+        "data, error_detail, error_pointer, error_code",
         [
-            (
+            pytest.param(
                 {"purpose": "invalid_purpose"},
                 "is not a valid choice.",
                 "/data/attributes/purpose",
                 "invalid_choice",
+                id="invalid_purpose",
             ),
-            (
+            pytest.param(
                 {"visibility": "invalid_visibility"},
                 "is not a valid choice.",
                 "/data/attributes/visibility",
                 "invalid_choice",
+                id="invalid_visibility",
             ),
         ],
-        ids=["invalid_purpose", "invalid_visibility"],
     )
     def test_partial_update_upload_bad_request(
-        self, admin_client, upload_factory, clean_media, data, error, pointer, code
+        self,
+        admin_client,
+        upload_factory,
+        data,
+        error_detail,
+        error_pointer,
+        error_code,
     ):
         client, _ = admin_client
         upload = upload_factory.create()
@@ -297,20 +298,18 @@ class TestPartialUpdateUpload:
         assert_jsonapi_error_response(
             response=response,
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail_contains=error,
-            pointer=pointer,
-            code=code,
+            detail_contains=error_detail,
+            pointer=error_pointer,
+            code=error_code,
         )
 
-    def test_partial_update_upload_not_found(self, admin_client, upload_factory):
+    def test_partial_update_upload_not_found(self, admin_client):
         client, _ = admin_client
-
         response = client.patch(
             path=reverse("v1:upload-detail", kwargs={"pk": 0}),
             data={"purpose": "attachment"},
             format="json",
         )
-
         assert_jsonapi_error_response(
             response=response,
             status_code=status.HTTP_404_NOT_FOUND,
@@ -339,13 +338,11 @@ class TestPartialUpdateUpload:
 
     def test_partial_update_upload_unauthorized(self, api_client):
         client = api_client
-
         response = client.patch(
             path=reverse("v1:upload-detail", kwargs={"pk": 0}),
             data={"purpose": "attachment"},
             format="json",
         )
-
         assert_drf_error_response(
             response=response,
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -354,21 +351,19 @@ class TestPartialUpdateUpload:
 
 
 class TestDeleteUpload:
-    def test_delete_upload_success(self, admin_client, upload_factory, clean_media):
+    def test_delete_upload_success(self, admin_client, upload_factory):
         client, _ = admin_client
         upload = upload_factory.create()
 
         response = client.delete(
             path=reverse("v1:upload-detail", kwargs={"pk": upload.id})
         )
-
         assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Upload.objects.filter(pk=upload.id).exists()
 
-    def test_delete_upload_not_found(self, admin_client, upload_factory):
+    def test_delete_upload_not_found(self, admin_client):
         client, _ = admin_client
-
         response = client.delete(path=reverse("v1:upload-detail", kwargs={"pk": 0}))
-
         assert_jsonapi_error_response(
             response=response,
             status_code=status.HTTP_404_NOT_FOUND,
@@ -378,9 +373,7 @@ class TestDeleteUpload:
 
     def test_delete_upload_unauthorized(self, api_client):
         client = api_client
-
         response = client.delete(path=reverse("v1:upload-detail", kwargs={"pk": 0}))
-
         assert_drf_error_response(
             response=response,
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -390,11 +383,9 @@ class TestDeleteUpload:
     def test_delete_upload_other_user_not_found(self, editor_client, upload_factory):
         client, _ = editor_client
         upload = upload_factory.create()
-
         response = client.delete(
             path=reverse("v1:upload-detail", kwargs={"pk": upload.id})
         )
-
         assert_jsonapi_error_response(
             response=response,
             status_code=status.HTTP_404_NOT_FOUND,

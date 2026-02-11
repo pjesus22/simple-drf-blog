@@ -3,6 +3,7 @@ from apps.accounts.models import User
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
+
 from tests.helpers import (
     assert_datetimes_close,
     assert_drf_error_response,
@@ -49,13 +50,13 @@ class TestCreateUser:
         assert data["attributes"]["last_name"] == created_user.last_name
         assert data["attributes"]["email"] == created_user.email
         assert data["attributes"]["role"] == created_user.role
-        assert data["attributes"]["date_joined"] == created_user.date_joined.strftime(
-            "%Y-%m-%dT%H:%M:%S.%fZ"
+
+        assert_datetimes_close(
+            data["attributes"]["date_joined"], created_user.date_joined
         )
         assert data["attributes"]["last_login"] is None
 
         relationships = data["relationships"]
-
         assert "profile" in relationships
         assert relationships["profile"]["data"] is None
 
@@ -165,76 +166,59 @@ class TestReadUser:
         assert response.status_code == status.HTTP_200_OK
         assert user_ids.issubset(received_ids)
 
-    # @pytest.mark.parametrize(
-    #     "client_fixture, expected_fields",
-    #     [
-    #         (
-    #             "admin_client",
-    #             (
-    #                 "username",
-    #                 "first_name",
-    #                 "last_name",
-    #                 "email",
-    #                 "role",
-    #                 "date_joined",
-    #                 "last_login",
-    #             ),
-    #         ),
-    #         (
-    #             "editor_client",
-    #             (
-    #                 "username",
-    #                 "role",
-    #             ),
-    #         ),
-    #     ],
-    #     ids=["admin", "editor"],
-    # )
-    # def test_retrieve_other_user_success(
-    #     self, client_fixture, editor_factory, request, expected_fields
-    # ):
-    #     client, _ = request.getfixturevalue(client_fixture)
-    #     user = editor_factory(last_login=timezone.now())
+    def test_list_users_forbidden(self, editor_client):
+        client, _ = editor_client
 
-    #     response = client.get(path=reverse("v1:user-detail", args=[user.id]))
-    #     data = response.json().get("data")
+        response = client.get(path=reverse("v1:user-list"))
 
-    #     assert response.status_code == status.HTTP_200_OK
-    #     assert data["type"] == "users"
-    #     for field in expected_fields:
-    #         if field in ["date_joined", "last_login"]:
-    #             assert_datetimes_close(data["attributes"][field], getattr(user, field))
-    #         else:
-    #             assert data["attributes"][field] == getattr(user, field)
-    #     assert set(data["attributes"]).issubset(expected_fields)
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_403_FORBIDDEN,
+            pointer="/data",
+            detail_contains="do not have permission to perform this action.",
+            code="permission_denied",
+        )
 
     def test_retrieve_other_user_success(self, admin_client, editor_factory):
         client, _ = admin_client
         user = editor_factory(last_login=timezone.now())
+        expected_fields = (
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "role",
+            "date_joined",
+            "last_login",
+        )
 
         response = client.get(path=reverse("v1:user-detail", args=[user.id]))
-
-        assert response.status_code == status.HTTP_200_OK
-
         data = response.json().get("data")
 
-        assert User.objects.filter(id=user.id).exists()
-        assert data["attributes"]["username"] == user.username
-        assert data["attributes"]["first_name"] == user.first_name
-        assert data["attributes"]["last_name"] == user.last_name
-        assert data["attributes"]["email"] == user.email
-        assert data["attributes"]["role"] == user.role
-        assert data["attributes"]["date_joined"] == user.date_joined.strftime(
-            "%Y-%m-%dT%H:%M:%S.%fZ"
-        )
-        assert data["attributes"]["last_login"] == user.last_login.strftime(
-            "%Y-%m-%dT%H:%M:%S.%fZ"
-        )
+        assert response.status_code == status.HTTP_200_OK
+        assert data["type"] == "users"
 
-        relationships = data["relationships"]
+        for field in expected_fields:
+            if field in ["date_joined", "last_login"]:
+                assert_datetimes_close(data["attributes"][field], getattr(user, field))
+            else:
+                assert data["attributes"][field] == getattr(user, field)
 
-        assert "profile" in relationships
-        assert relationships["profile"]["data"] is None
+        assert set(data["attributes"].keys()).issubset(set(expected_fields))
+
+    def test_retrieve_other_user_forbidden(self, editor_client, editor_factory):
+        client, _ = editor_client
+        other_user = editor_factory()
+
+        response = client.get(path=reverse("v1:user-detail", args=[other_user.id]))
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_403_FORBIDDEN,
+            pointer="/data",
+            detail_contains="do not have permission to perform this action.",
+            code="permission_denied",
+        )
 
     def test_retrieve_self_user_by_id_success(self, editor_client):
         client, user = editor_client
@@ -252,7 +236,6 @@ class TestReadUser:
         client, _ = editor_client
 
         response = client.get(path=reverse("v1:user-detail", args=[0]))
-        print(response.json())
 
         assert_jsonapi_error_response(
             response=response,
@@ -275,14 +258,16 @@ class TestPartialUpdateUser:
     ):
         client, _ = admin_client
         user = editor_factory()
+        payload = {
+            "username": "new_username",
+            "first_name": "new_name",
+            "last_name": "new_last_name",
+            "email": "new_email@example.com",
+        }
+
         response = client.patch(
             path=reverse("v1:user-detail", args=[user.id]),
-            data={
-                "username": "new_username",
-                "first_name": "new_name",
-                "last_name": "new_last_name",
-                "email": "new_email@example.com",
-            },
+            data=payload,
             format="json",
         )
 
@@ -305,23 +290,24 @@ class TestPartialUpdateUser:
     @pytest.mark.parametrize(
         "data, expected_error, pointer",
         [
-            (
+            pytest.param(
                 {"username": "new_testuser"},
                 "user with this username already exists.",
                 "/data/attributes/username",
+                id="duplicate_username",
             ),
-            (
+            pytest.param(
                 {"email": "new_testuser@example.com"},
                 "user with this email already exists.",
                 "/data/attributes/email",
+                id="duplicate_email",
             ),
         ],
-        ids=["duplicate_username", "duplicate_email"],
     )
     def test_partial_update_self_bad_request(
-        self, editor_client, data, expected_error, pointer, user_data, editor_factory
+        self, editor_client, data, expected_error, pointer, editor_factory
     ):
-        client, client_user = editor_client
+        client, _ = editor_client
         editor_factory(username="new_testuser", email="new_testuser@example.com")
 
         response = client.patch(path=reverse("v1:user-me"), data=data, format="json")
@@ -424,14 +410,15 @@ class TestUserMe:
 
     def test_patch_me_success(self, editor_client):
         client, user = editor_client
+        payload = {
+            "username": "new_username",
+            "first_name": "new_name",
+            "last_name": "new_last_name",
+            "email": "new_email@example.com",
+        }
         response = client.patch(
             path=reverse("v1:user-me"),
-            data={
-                "username": "new_username",
-                "first_name": "new_name",
-                "last_name": "new_last_name",
-                "email": "new_email@example.com",
-            },
+            data=payload,
             format="json",
         )
 
@@ -480,7 +467,7 @@ class TestChangeRole:
 
         assert user.role == "admin"
 
-    def test_change_role_self_demotion_success(self, admin_client, admin_factory):
+    def test_change_role_self_demotion_forbidden(self, admin_client, admin_factory):
         client, client_user = admin_client
         admin_factory()
 
@@ -548,7 +535,7 @@ class TestChangeRole:
         )
 
     @pytest.mark.parametrize(
-        "payload", [{"role": "invalid_role"}, {}], ids=["invalid_role", "missing_role"]
+        "payload", [{"role": "invalid_role"}, {}], ids=("invalid_role", "missing_role")
     )
     def test_change_role_bad_request(self, admin_client, editor_factory, payload):
         client, _ = admin_client

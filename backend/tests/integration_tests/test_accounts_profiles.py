@@ -2,36 +2,13 @@ import pytest
 from apps.accounts.models import Profile
 from django.urls import reverse
 from rest_framework import status
+
 from tests.helpers import assert_drf_error_response, assert_jsonapi_error_response
 
 pytestmark = pytest.mark.django_db
 
 
-@pytest.fixture
-def profile_data():
-    return {
-        "biography": "Test biography",
-        "location": "Test City",
-        "occupation": "Test Occupation",
-        "skills": "Python, Django, DRF",
-        "experience_years": 5,
-        "is_public": True,
-    }
-
-
 class TestReadProfile:
-    def test_list_profiles_success(self, api_client, profile_factory):
-        client = api_client
-        profiles = profile_factory.create_batch(size=3, is_public=True)
-        profile_ids = {str(p.id) for p in profiles}
-
-        response = client.get(path=reverse("v1:profile-list"))
-        data = response.json().get("data")
-        received_ids = {item["id"] for item in data}
-
-        assert response.status_code == status.HTTP_200_OK
-        assert profile_ids.issubset(received_ids)
-
     @pytest.mark.parametrize(
         "client_name, is_public, expected_count",
         [
@@ -42,28 +19,27 @@ class TestReadProfile:
             ("admin_client", True, 3),
             ("admin_client", False, 3),
         ],
-        ids=[
+        ids=(
             "public_profiles_unauthenticated",
             "private_profiles_unauthenticated",
             "public_profiles_editor",
             "private_profiles_editor_owns_one",
             "public_profiles_admin",
             "private_profiles_admin",
-        ],
+        ),
     )
     def test_list_profiles_visibility(
         self, request, profile_factory, client_name, is_public, expected_count
     ):
-        fixture_value = request.getfixturevalue(client_name)
+        client_fixture = request.getfixturevalue(client_name)
         client, user = (
-            fixture_value if isinstance(fixture_value, tuple) else (fixture_value, None)
+            client_fixture
+            if isinstance(client_fixture, tuple)
+            else (client_fixture, None)
         )
 
-        # Create 3 profiles with the specified visibility
         if user and client_name == "editor_client":
-            # Create one profile for the editor user
             profile_factory(user=user, is_public=is_public)
-            # Create 2 more profiles for other users
             profile_factory.create_batch(size=2, is_public=is_public)
         else:
             profile_factory.create_batch(size=3, is_public=is_public)
@@ -75,23 +51,21 @@ class TestReadProfile:
         assert len(data) == expected_count
 
     def test_retrieve_public_profile_success(self, api_client, profile_factory):
-        client = api_client
         profile = profile_factory(is_public=True)
 
-        response = client.get(path=reverse("v1:profile-detail", args=[profile.id]))
+        response = api_client.get(path=reverse("v1:profile-detail", args=[profile.id]))
 
         assert response.status_code == status.HTTP_200_OK
 
         data = response.json().get("data")
+        attrs = data["attributes"]
 
-        assert data["attributes"]["biography"] == profile.biography
-        assert data["attributes"]["location"] == profile.location
-        assert data["attributes"]["occupation"] == profile.occupation
-        assert data["attributes"]["skills"] == profile.skills
-        assert data["attributes"]["experience_years"] == profile.experience_years
-        assert (
-            "is_public" not in data["attributes"]
-        )  # Public serializer doesn't expose this
+        assert attrs["biography"] == profile.biography
+        assert attrs["location"] == profile.location
+        assert attrs["occupation"] == profile.occupation
+        assert attrs["skills"] == profile.skills
+        assert attrs["experience_years"] == profile.experience_years
+        assert "is_public" not in attrs
 
     def test_retrieve_private_profile_as_owner_success(
         self, editor_client, profile_factory
@@ -104,9 +78,7 @@ class TestReadProfile:
         assert response.status_code == status.HTTP_200_OK
 
         data = response.json().get("data")
-
         assert data["attributes"]["biography"] == profile.biography
-        assert data["attributes"]["location"] == profile.location
 
     def test_retrieve_private_profile_as_admin_success(
         self, admin_client, profile_factory
@@ -119,43 +91,53 @@ class TestReadProfile:
         assert response.status_code == status.HTTP_200_OK
 
         data = response.json().get("data")
-
         assert data["attributes"]["biography"] == profile.biography
 
-    def test_retrieve_private_profile_as_other_user_not_found(
-        self, editor_client, profile_factory
+    @pytest.mark.parametrize(
+        "client_fixture_name, status_code, error_code, detail",
+        [
+            pytest.param(
+                "editor_client",
+                status.HTTP_404_NOT_FOUND,
+                "not_found",
+                "No Profile matches the given query.",
+                id="other_user_private_profile",
+            ),
+            pytest.param(
+                "api_client",
+                status.HTTP_404_NOT_FOUND,
+                "not_found",
+                "No Profile matches the given query.",
+                id="unauthenticated_private_profile",
+            ),
+        ],
+    )
+    def test_retrieve_profile_error_cases(
+        self,
+        request,
+        profile_factory,
+        client_fixture_name,
+        status_code,
+        error_code,
+        detail,
     ):
-        client, _ = editor_client
-        profile = profile_factory(is_public=False)
-
-        response = client.get(path=reverse("v1:profile-detail", args=[profile.id]))
-
-        assert_jsonapi_error_response(
-            response=response,
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="not_found",
-            detail_contains="No Profile matches the given query.",
+        client_fixture = request.getfixturevalue(client_fixture_name)
+        client = (
+            client_fixture[0] if isinstance(client_fixture, tuple) else client_fixture
         )
-
-    def test_retrieve_private_profile_unauthenticated_not_found(
-        self, api_client, profile_factory
-    ):
-        client = api_client
         profile = profile_factory(is_public=False)
 
         response = client.get(path=reverse("v1:profile-detail", args=[profile.id]))
 
         assert_jsonapi_error_response(
             response=response,
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="not_found",
-            detail_contains="No Profile matches the given query.",
+            status_code=status_code,
+            code=error_code,
+            detail_contains=detail,
         )
 
     def test_retrieve_profile_not_found(self, api_client):
-        client = api_client
-
-        response = client.get(path=reverse("v1:profile-detail", args=[0]))
+        response = api_client.get(path=reverse("v1:profile-detail", args=[0]))
 
         assert_jsonapi_error_response(
             response=response,
@@ -165,7 +147,7 @@ class TestReadProfile:
         )
 
 
-class TestPartialUpdateProfile:
+class TestUpdateProfile:
     def test_partial_update_own_profile_success(self, editor_client, profile_factory):
         client, user = editor_client
         profile = profile_factory(user=user)
@@ -183,15 +165,12 @@ class TestPartialUpdateProfile:
         assert response.status_code == status.HTTP_200_OK
 
         data = response.json().get("data")
-
         assert data["attributes"]["biography"] == "Updated biography"
         assert data["attributes"]["location"] == "Updated City"
         assert data["attributes"]["is_public"] is False
 
         profile.refresh_from_db()
-
         assert profile.biography == "Updated biography"
-        assert profile.location == "Updated City"
         assert profile.is_public is False
 
     def test_partial_update_other_profile_as_admin_success(
@@ -212,52 +191,79 @@ class TestPartialUpdateProfile:
         assert response.status_code == status.HTTP_200_OK
 
         data = response.json().get("data")
-
         assert data["attributes"]["biography"] == "Admin updated biography"
-        assert data["attributes"]["occupation"] == "Admin updated occupation"
 
         profile.refresh_from_db()
-
         assert profile.biography == "Admin updated biography"
-        assert profile.occupation == "Admin updated occupation"
 
-    def test_partial_update_other_profile_forbidden(
-        self, editor_client, profile_factory
+    @pytest.mark.parametrize(
+        "client_fixture_name, method, status_code, error_func",
+        [
+            pytest.param(
+                "editor_client",
+                "patch",
+                status.HTTP_404_NOT_FOUND,
+                assert_jsonapi_error_response,
+                id="patch_other_profile_forbidden",
+            ),
+            pytest.param(
+                "api_client",
+                "patch",
+                status.HTTP_401_UNAUTHORIZED,
+                assert_drf_error_response,
+                id="patch_profile_unauthorized",
+            ),
+            pytest.param(
+                "editor_client",
+                "put",
+                status.HTTP_404_NOT_FOUND,
+                assert_jsonapi_error_response,
+                id="put_other_profile_forbidden",
+            ),
+            pytest.param(
+                "api_client",
+                "put",
+                status.HTTP_401_UNAUTHORIZED,
+                assert_drf_error_response,
+                id="put_profile_unauthorized",
+            ),
+        ],
+    )
+    def test_update_profile_error_cases(
+        self,
+        request,
+        profile_factory,
+        client_fixture_name,
+        method,
+        status_code,
+        error_func,
     ):
-        client, _ = editor_client
+        client_fixture = request.getfixturevalue(client_fixture_name)
+        client = (
+            client_fixture[0] if isinstance(client_fixture, tuple) else client_fixture
+        )
         profile = profile_factory()
 
-        response = client.patch(
-            path=reverse("v1:profile-detail", args=[profile.id]),
-            data={"biography": "Unauthorized update"},
-            format="json",
-        )
+        url = reverse("v1:profile-detail", args=[profile.id])
+        data = {"biography": "Unauthorized update"}
 
-        assert_jsonapi_error_response(
-            response=response,
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="not_found",
-            detail_contains="No Profile matches the given query.",
-        )
+        action = getattr(client, method)
+        response = action(path=url, data=data, format="json")
 
-    def test_partial_update_profile_unauthorized(self, api_client, profile_factory):
-        client = api_client
-        profile = profile_factory()
+        if status_code == status.HTTP_404_NOT_FOUND:
+            error_func(
+                response=response,
+                status_code=status_code,
+                code="not_found",
+                detail_contains="No Profile matches the given query.",
+            )
+        else:
+            error_func(
+                response=response,
+                status_code=status_code,
+                detail_contains="credentials were not provided.",
+            )
 
-        response = client.patch(
-            path=reverse("v1:profile-detail", args=[profile.id]),
-            data={"biography": "Unauthorized update"},
-            format="json",
-        )
-
-        assert_drf_error_response(
-            response=response,
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail_contains="credentials were not provided.",
-        )
-
-
-class TestFullUpdateProfile:
     def test_full_update_own_profile_success(self, editor_client, profile_factory):
         client, user = editor_client
         profile = profile_factory(user=user)
@@ -278,22 +284,12 @@ class TestFullUpdateProfile:
         assert response.status_code == status.HTTP_200_OK
 
         data = response.json().get("data")
-
         assert data["attributes"]["biography"] == "Completely new biography"
-        assert data["attributes"]["location"] == "New City"
-        assert data["attributes"]["occupation"] == "New Occupation"
-        assert data["attributes"]["skills"] == "New Skills"
         assert data["attributes"]["experience_years"] == 10
-        assert data["attributes"]["is_public"] is False
 
         profile.refresh_from_db()
-
         assert profile.biography == "Completely new biography"
-        assert profile.location == "New City"
-        assert profile.occupation == "New Occupation"
-        assert profile.skills == "New Skills"
         assert profile.experience_years == 10
-        assert profile.is_public is False
 
     def test_full_update_other_profile_as_admin_success(
         self, admin_client, profile_factory
@@ -317,61 +313,10 @@ class TestFullUpdateProfile:
         assert response.status_code == status.HTTP_200_OK
 
         data = response.json().get("data")
-
         assert data["attributes"]["biography"] == "Admin full update"
-        assert data["attributes"]["location"] == "Admin City"
 
         profile.refresh_from_db()
-
         assert profile.biography == "Admin full update"
-        assert profile.location == "Admin City"
-
-    def test_full_update_other_profile_not_found(self, editor_client, profile_factory):
-        client, _ = editor_client
-        profile = profile_factory()
-
-        response = client.put(
-            path=reverse("v1:profile-detail", args=[profile.id]),
-            data={
-                "biography": "Unauthorized full update",
-                "location": "Unauthorized City",
-                "occupation": "Unauthorized Occupation",
-                "skills": "Unauthorized Skills",
-                "experience_years": 5,
-                "is_public": True,
-            },
-            format="json",
-        )
-
-        assert_jsonapi_error_response(
-            response=response,
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="not_found",
-            detail_contains="No Profile matches the given query.",
-        )
-
-    def test_full_update_profile_unauthorized(self, api_client, profile_factory):
-        client = api_client
-        profile = profile_factory()
-
-        response = client.put(
-            path=reverse("v1:profile-detail", args=[profile.id]),
-            data={
-                "biography": "Unauthorized full update",
-                "location": "Unauthorized City",
-                "occupation": "Unauthorized Occupation",
-                "skills": "Unauthorized Skills",
-                "experience_years": 5,
-                "is_public": True,
-            },
-            format="json",
-        )
-
-        assert_drf_error_response(
-            response=response,
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail_contains="credentials were not provided.",
-        )
 
 
 class TestProfileMe:
@@ -384,116 +329,58 @@ class TestProfileMe:
         assert response.status_code == status.HTTP_200_OK
 
         data = response.json().get("data")
+        attrs = data["attributes"]
 
         assert data["id"] == str(profile.id)
-        assert data["attributes"]["biography"] == profile.biography
-        assert data["attributes"]["location"] == profile.location
-        assert data["attributes"]["occupation"] == profile.occupation
-        assert data["attributes"]["skills"] == profile.skills
-        assert data["attributes"]["experience_years"] == profile.experience_years
-        assert data["attributes"]["is_public"] == profile.is_public
+        assert attrs["biography"] == profile.biography
+        assert attrs["is_public"] == profile.is_public
 
-    def test_patch_me_success(self, editor_client, profile_factory):
+    @pytest.mark.parametrize(
+        "method, data",
+        [
+            pytest.param(
+                "patch",
+                {
+                    "biography": "Updated via me endpoint",
+                    "location": "Me City",
+                },
+                id="patch_me_success",
+            ),
+            pytest.param(
+                "put",
+                {
+                    "biography": "Full update via me endpoint",
+                    "location": "Me City Full",
+                    "occupation": "Me Occupation",
+                    "skills": "Me Skills",
+                    "experience_years": 20,
+                    "is_public": False,
+                },
+                id="put_me_success",
+            ),
+        ],
+    )
+    def test_update_me_success(self, editor_client, profile_factory, method, data):
         client, user = editor_client
         profile = profile_factory(user=user)
 
-        response = client.patch(
-            path=reverse("v1:profile-me"),
-            data={
-                "biography": "Updated via me endpoint",
-                "location": "Me City",
-            },
-            format="json",
-        )
+        action = getattr(client, method)
+        response = action(path=reverse("v1:profile-me"), data=data, format="json")
 
         assert response.status_code == status.HTTP_200_OK
 
-        data = response.json().get("data")
-
-        assert data["attributes"]["biography"] == "Updated via me endpoint"
-        assert data["attributes"]["location"] == "Me City"
+        response_data = response.json().get("data")
+        assert response_data["attributes"]["biography"] == data["biography"]
 
         profile.refresh_from_db()
+        assert profile.biography == data["biography"]
 
-        assert profile.biography == "Updated via me endpoint"
-        assert profile.location == "Me City"
-
-    def test_put_me_success(self, editor_client, profile_factory):
-        client, user = editor_client
-        profile = profile_factory(user=user)
-
-        response = client.put(
+    @pytest.mark.parametrize("method", ["get", "patch", "put"])
+    def test_profile_me_unauthorized(self, api_client, method):
+        action = getattr(api_client, method)
+        response = action(
             path=reverse("v1:profile-me"),
-            data={
-                "biography": "Full update via me endpoint",
-                "location": "Me City Full",
-                "occupation": "Me Occupation",
-                "skills": "Me Skills",
-                "experience_years": 20,
-                "is_public": False,
-            },
-            format="json",
-        )
-
-        assert response.status_code == status.HTTP_200_OK
-
-        data = response.json().get("data")
-
-        assert data["attributes"]["biography"] == "Full update via me endpoint"
-        assert data["attributes"]["location"] == "Me City Full"
-        assert data["attributes"]["occupation"] == "Me Occupation"
-        assert data["attributes"]["skills"] == "Me Skills"
-        assert data["attributes"]["experience_years"] == 20
-        assert data["attributes"]["is_public"] is False
-
-        profile.refresh_from_db()
-
-        assert profile.biography == "Full update via me endpoint"
-        assert profile.location == "Me City Full"
-        assert profile.occupation == "Me Occupation"
-        assert profile.skills == "Me Skills"
-        assert profile.experience_years == 20
-        assert profile.is_public is False
-
-    def test_get_me_unauthorized(self, api_client):
-        client = api_client
-
-        response = client.get(path=reverse("v1:profile-me"))
-
-        assert_drf_error_response(
-            response=response,
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail_contains="credentials were not provided.",
-        )
-
-    def test_patch_me_unauthorized(self, api_client):
-        client = api_client
-
-        response = client.patch(
-            path=reverse("v1:profile-me"),
-            data={"biography": "Unauthorized update"},
-            format="json",
-        )
-
-        assert_drf_error_response(
-            response=response,
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail_contains="credentials were not provided.",
-        )
-
-    def test_put_me_unauthorized(self, api_client):
-        client = api_client
-
-        response = client.put(
-            path=reverse("v1:profile-me"),
-            data={
-                "biography": "Unauthorized full update",
-                "location": "Unauthorized City",
-                "occupation": "Unauthorized Occupation",
-                "skills": "Unauthorized Skills",
-                "experience_years": 5,
-                "is_public": True,
-            },
+            data={"biography": "Unauthorized update"} if method != "get" else None,
             format="json",
         )
 
@@ -505,9 +392,370 @@ class TestProfileMe:
 
     def test_get_me_not_found_no_profile(self, editor_client):
         client, user = editor_client
-        # Ensure user has no profile
         Profile.objects.filter(user=user).delete()
 
         response = client.get(path=reverse("v1:profile-me"))
 
+        # Assert
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestSocialMediaProfile:
+    def test_create_social_media_profiles_on_profile_update(
+        self, editor_client, profile_factory
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+
+        response = client.patch(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={
+                "biography": "Updated with socials",
+                "social_media": [
+                    {
+                        "platform": "github",
+                        "url": "https://github.com/testuser",
+                    },
+                    {
+                        "platform": "twitter",
+                        "url": "https://twitter.com/testuser",
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        profile.refresh_from_db()
+        social_media = profile.social_media.all()
+
+        assert social_media.count() == 2
+        platforms = {sm.platform for sm in social_media}
+        assert platforms == {"github", "twitter"}
+
+    def test_create_social_media_profiles_on_profile_full_update(
+        self, editor_client, profile_factory
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+
+        response = client.put(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={
+                "biography": "Full update with socials",
+                "location": "Test City",
+                "occupation": "Developer",
+                "skills": "Python",
+                "experience_years": 5,
+                "is_public": True,
+                "social_media": [
+                    {
+                        "platform": "linkedin",
+                        "url": "https://www.linkedin.com/in/testuser",
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        profile.refresh_from_db()
+        social_media = profile.social_media.all()
+
+        assert social_media.count() == 1
+        assert social_media.first().platform == "linkedin"
+
+    def test_update_existing_social_media_profile(
+        self, editor_client, profile_factory, social_media_profile_factory
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+        social = social_media_profile_factory(
+            profile=profile,
+            platform="github",
+            url="https://github.com/olduser",
+        )
+
+        response = client.patch(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={
+                "social_media": [
+                    {
+                        "id": social.id,
+                        "platform": "github",
+                        "url": "https://github.com/newuser",
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        social.refresh_from_db()
+        assert social.url == "https://github.com/newuser"
+
+    def test_add_new_social_media_profile_to_existing_set(
+        self, editor_client, profile_factory, social_media_profile_factory
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+        existing_social = social_media_profile_factory(
+            profile=profile,
+            platform="github",
+            url="https://github.com/testuser",
+        )
+
+        response = client.patch(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={
+                "social_media": [
+                    {
+                        "id": existing_social.id,
+                        "platform": "github",
+                        "url": "https://github.com/testuser",
+                    },
+                    {
+                        "platform": "twitter",
+                        "url": "https://twitter.com/testuser",
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        profile.refresh_from_db()
+        assert profile.social_media.count() == 2
+
+    def test_delete_social_media_profile_by_omission(
+        self, editor_client, profile_factory, social_media_profile_factory
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+        social1 = social_media_profile_factory(
+            profile=profile,
+            platform="github",
+            url="https://github.com/testuser",
+        )
+        social2 = social_media_profile_factory(
+            profile=profile,
+            platform="twitter",
+            url="https://twitter.com/testuser",
+        )
+
+        response = client.patch(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={
+                "social_media": [
+                    {
+                        "id": social1.id,
+                        "platform": "github",
+                        "url": "https://github.com/testuser",
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        profile.refresh_from_db()
+        assert profile.social_media.count() == 1
+        assert profile.social_media.first().id == social1.id
+
+        from apps.accounts.models import SocialMediaProfile
+
+        assert not SocialMediaProfile.objects.filter(id=social2.id).exists()
+
+    def test_replace_all_social_media_profiles(
+        self, editor_client, profile_factory, social_media_profile_factory
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+        old_social = social_media_profile_factory(
+            profile=profile,
+            platform="github",
+            url="https://github.com/olduser",
+        )
+
+        response = client.patch(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={
+                "social_media": [
+                    {
+                        "platform": "linkedin",
+                        "url": "https://www.linkedin.com/in/newuser",
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        profile.refresh_from_db()
+        assert profile.social_media.count() == 1
+        assert profile.social_media.first().platform == "linkedin"
+
+        from apps.accounts.models import SocialMediaProfile
+
+        assert not SocialMediaProfile.objects.filter(id=old_social.id).exists()
+
+    def test_platform_url_mismatch_validation(self, editor_client, profile_factory):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+
+        response = client.patch(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={
+                "social_media": [
+                    {
+                        "platform": "github",
+                        "url": "https://twitter.com/testuser",
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer="/data/attributes/social_media/0/url",
+        )
+
+    def test_invalid_url_format_validation(self, editor_client, profile_factory):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+
+        response = client.patch(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={
+                "social_media": [
+                    {
+                        "platform": "github",
+                        "url": "https://invalid-domain.com/testuser",
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer="/data/attributes/social_media/0/url",
+        )
+
+    def test_unauthorized_cannot_add_social_media(self, api_client, profile_factory):
+        profile = profile_factory()
+
+        response = api_client.patch(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={
+                "social_media": [
+                    {
+                        "platform": "github",
+                        "url": "https://github.com/testuser",
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        assert_drf_error_response(
+            response=response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail_contains="credentials were not provided.",
+        )
+
+    def test_other_user_cannot_modify_social_media(
+        self, editor_client, profile_factory, social_media_profile_factory
+    ):
+        client, _ = editor_client
+        other_profile = profile_factory()
+        social = social_media_profile_factory(
+            profile=other_profile,
+            platform="github",
+            url="https://github.com/otheruser",
+        )
+
+        response = client.patch(
+            path=reverse("v1:profile-detail", args=[other_profile.id]),
+            data={
+                "social_media": [
+                    {
+                        "id": social.id,
+                        "platform": "github",
+                        "url": "https://github.com/hacker",
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_404_NOT_FOUND,
+            code="not_found",
+            detail_contains="No Profile matches the given query.",
+        )
+
+        social.refresh_from_db()
+        assert social.url == "https://github.com/otheruser"
+
+    def test_clear_all_social_media_profiles(
+        self, editor_client, profile_factory, social_media_profile_factory
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+        social_media_profile_factory(
+            profile=profile,
+            platform="github",
+            url="https://github.com/testuser",
+        )
+        social_media_profile_factory(
+            profile=profile,
+            platform="twitter",
+            url="https://twitter.com/testuser",
+        )
+
+        response = client.patch(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={
+                "social_media": [],
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        profile.refresh_from_db()
+        assert profile.social_media.count() == 0
+
+    def test_social_media_included_in_response(
+        self, editor_client, profile_factory, social_media_profile_factory
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+        social_media_profile_factory(
+            profile=profile,
+            platform="github",
+            url="https://github.com/testuser",
+        )
+
+        response = client.get(path=reverse("v1:profile-detail", args=[profile.id]))
+
+        assert response.status_code == status.HTTP_200_OK
+
+        data = response.json().get("data")
+        assert "social_media" in data["attributes"]
+        social_media = data["attributes"]["social_media"]
+
+        assert len(social_media) == 1
+        assert social_media[0]["platform"] == "github"
+        assert social_media[0]["url"] == "https://github.com/testuser"

@@ -1,6 +1,8 @@
 import pytest
 from django.urls import reverse
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from tests.helpers import (
     assert_drf_error_response,
     assert_jsonapi_error_pointers,
@@ -13,10 +15,9 @@ class TestObtainJWTPair:
     def test_post_obtain_jwt_pair_success(
         self, db, default_user_factory, role, api_client
     ):
-        client = api_client
         default_user_factory(username="testuser", password="defaultpassword", role=role)
 
-        response = client.post(
+        response = api_client.post(
             path=reverse("token_obtain_pair"),
             data={"username": "testuser", "password": "defaultpassword"},
             format="json",
@@ -27,8 +28,7 @@ class TestObtainJWTPair:
         assert "refresh" in response.data
 
     def test_post_obtain_jwt_pair_bad_request_empty_payload(self, db, api_client):
-        client = api_client
-        response = client.post(
+        response = api_client.post(
             path=reverse("token_obtain_pair"),
             data={},
             format="json",
@@ -43,20 +43,21 @@ class TestObtainJWTPair:
     @pytest.mark.parametrize(
         "data, pointer, code, detail_contains",
         (
-            (
+            pytest.param(
                 {"username": "testuser"},
                 "/data/attributes/password",
                 "required",
                 "required",
+                id="missing_username",
             ),
-            (
+            pytest.param(
                 {"password": "defaultpassword"},
                 "/data/attributes/username",
                 "required",
                 "required",
+                id="missing_password",
             ),
         ),
-        ids=("missing_username", "missing_password"),
     )
     def test_post_obtain_jwt_pair_bad_request_missing_fields(
         self,
@@ -67,8 +68,7 @@ class TestObtainJWTPair:
         detail_contains,
         api_client,
     ):
-        client = api_client
-        response = client.post(
+        response = api_client.post(
             path=reverse("token_obtain_pair"),
             data=data,
             format="json",
@@ -103,8 +103,7 @@ class TestObtainJWTPair:
         detail_contains,
         api_client,
     ):
-        client = api_client
-        response = client.post(
+        response = api_client.post(
             path=reverse("token_obtain_pair"),
             data=data,
             format="json",
@@ -119,10 +118,9 @@ class TestObtainJWTPair:
     def test_post_obtain_jwt_pair_unauthorized_inactive_user_cannot_login(
         self, db, editor_factory, api_client
     ):
-        client = api_client
         editor_factory(username="testuser", password="defaultpassword", is_active=False)
 
-        response = client.post(
+        response = api_client.post(
             path=reverse("token_obtain_pair"),
             data={"username": "testuser", "password": "defaultpassword"},
             format="json",
@@ -137,34 +135,25 @@ class TestObtainJWTPair:
 
 class TestRefreshJWTPair:
     def test_jwt_refresh_success(self, db, api_client, test_user):
-        client = api_client
-        login_response = client.post(
-            path=reverse("token_obtain_pair"),
-            data={"username": "testuser", "password": "defaultpassword"},
-            format="json",
-        )
-        refresh_token = login_response.data["refresh"]
+        refresh = RefreshToken.for_user(test_user)
+        refresh_token = str(refresh)
 
-        refresh_response = client.post(
+        response = api_client.post(
             path=reverse("token_refresh"),
             data={"refresh": refresh_token},
             format="json",
         )
 
-        assert refresh_response.status_code == status.HTTP_200_OK
-        assert login_response.data["access"] != refresh_response.data["access"]
+        assert response.status_code == status.HTTP_200_OK
+        assert "access" in response.data
+        assert str(refresh.access_token) != response.data["access"]
 
-    def test_jwt_refresh_unauthorized_invalid_token(self, db, api_client, test_user):
-        client = api_client
-        refresh_token = "invalid_token"
-
-        response = client.post(
+    def test_jwt_refresh_unauthorized_invalid_token(self, db, api_client):
+        response = api_client.post(
             path=reverse("token_refresh"),
-            data={"refresh": refresh_token},
+            data={"refresh": "invalid_token"},
             format="json",
         )
-
-        print(response.json())
 
         assert_drf_error_response(
             response=response,
@@ -176,33 +165,22 @@ class TestRefreshJWTPair:
 
 class TestVerifyJWTPair:
     def test_jwt_verify_success(self, db, test_user, api_client):
-        client = api_client
-        login_response = client.post(
-            path=reverse("token_obtain_pair"),
-            data={"username": "testuser", "password": "defaultpassword"},
-            format="json",
-        )
-        access_token = login_response.data["access"]
+        access_token = str(RefreshToken.for_user(test_user).access_token)
 
-        verify_response = client.post(
+        response = api_client.post(
             path=reverse("token_verify"),
             data={"token": access_token},
             format="json",
         )
 
-        assert verify_response.status_code == status.HTTP_200_OK
+        assert response.status_code == status.HTTP_200_OK
 
-    def test_jwt_verify_unauthorized_invalid_token(self, db, test_user, api_client):
-        client = api_client
-        access_token = "invalid_token"
-
-        response = client.post(
+    def test_jwt_verify_unauthorized_invalid_token(self, db, api_client):
+        response = api_client.post(
             path=reverse("token_verify"),
-            data={"token": access_token},
+            data={"token": "invalid_token"},
             format="json",
         )
-
-        print(response.json())
 
         assert_drf_error_response(
             response=response,

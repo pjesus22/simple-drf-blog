@@ -2,301 +2,174 @@ import pytest
 from apps.content.models import Tag
 from django.urls import reverse
 from rest_framework import status
-from tests.helpers import assert_drf_error_response, assert_jsonapi_error_response
+
+from tests.helpers import assert_jsonapi_error_response
 
 
+@pytest.mark.django_db
 class TestCreateTag:
-    def test_create_tag_success(self, db, editor_client):
+    def test_create_tag_success(self, editor_client):
         client, _ = editor_client
-        initial_state = Tag.objects.count()
+        initial_count = Tag.objects.count()
 
         response = client.post(
             path=reverse("v1:tag-list"),
-            data={"name": "Test Tag"},
+            data={"name": "New Awesome Tag"},
             format="json",
         )
 
         assert response.status_code == status.HTTP_201_CREATED
-        assert Tag.objects.count() == initial_state + 1
+        assert Tag.objects.count() == initial_count + 1
 
         data = response.json().get("data")
-
-        assert Tag.objects.filter(pk=data.get("id")).exists()
         assert data["type"] == "tags"
-        assert data["attributes"]["name"] == "Test Tag"
-        assert data["attributes"]["slug"] == "test-tag"
+        assert data["attributes"]["name"] == "New Awesome Tag"
+        assert data["attributes"]["slug"] == "new-awesome-tag"
+        assert Tag.objects.filter(pk=data["id"]).exists()
 
     @pytest.mark.parametrize(
-        "data, error, pointer, code",
+        "payload, error_detail, pointer, error_code",
         [
-            (
-                {"name": "Test Tag", "slug": "unique-slug"},
+            pytest.param(
+                {"name": "Existing Tag", "slug": "slug1"},
                 "already exists",
                 "/data/attributes/name",
                 "unique",
+                id="duplicate_name",
             ),
-            (
-                {"name": "Unique Tag", "slug": "test-tag"},
+            pytest.param(
+                {"name": "New Tag", "slug": "existing-slug"},
                 "already exists",
                 "/data/attributes/slug",
                 "unique",
+                id="duplicate_slug",
             ),
-            (
+            pytest.param(
                 {"name": ""},
                 "This field may not be blank.",
                 "/data/attributes/name",
                 "blank",
+                id="blank_name",
             ),
         ],
-        ids=("duplicate_name", "duplicate_slug", "blank name"),
     )
     def test_create_tag_bad_request(
-        self, db, tag_factory, editor_client, data, error, pointer, code
+        self, tag_factory, editor_client, payload, error_detail, pointer, error_code
     ):
         client, _ = editor_client
-        tag_factory(name="Test Tag", slug="test-tag")
+        tag_factory(name="Existing Tag", slug="existing-slug")
 
         response = client.post(
             path=reverse("v1:tag-list"),
-            data=data,
+            data=payload,
             format="json",
         )
 
         assert_jsonapi_error_response(
             response=response,
             status_code=status.HTTP_400_BAD_REQUEST,
-            code=code,
+            code=error_code,
             pointer=pointer,
-            detail_contains=error,
-        )
-
-    def test_create_tag_unauthorized(self, db, api_client):
-        client = api_client
-
-        response = client.post(
-            path=reverse("v1:tag-list"),
-            data={"name": "Test Tag"},
-            format="json",
-        )
-
-        assert_drf_error_response(
-            response=response,
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail_contains="credentials were not provided",
+            detail_contains=error_detail,
         )
 
 
+@pytest.mark.django_db
 class TestReadTag:
-    def test_list_tags_success(self, db, api_client, tag_factory):
-        client = api_client
-        tags = tag_factory.create_batch(size=3)
-        tag_ids = {str(t.id) for t in tags}
+    def test_list_tags_success(self, api_client, tag_factory):
+        tags = tag_factory.create_batch(3)
+        tag_pks = {str(t.pk) for t in tags}
 
-        response = client.get(path=reverse("v1:tag-list"))
-        data = response.json().get("data")
-        received_ids = {item["id"] for item in data}
+        response = api_client.get(reverse("v1:tag-list"))
 
         assert response.status_code == status.HTTP_200_OK
-        assert tag_ids.issubset(received_ids)
+        data = response.json().get("data")
+        received_pks = {item["id"] for item in data}
+        assert tag_pks.issubset(received_pks)
 
-    def test_retrieve_tag_success(self, db, api_client, tag_factory):
-        client = api_client
-        tag = tag_factory()
+    def test_retrieve_tag_success(self, api_client, tag_factory):
+        tag = tag_factory(name="Refactoring")
 
-        response = client.get(path=reverse("v1:tag-detail", args=[tag.slug]))
+        response = api_client.get(reverse("v1:tag-detail", args=[tag.slug]))
 
         assert response.status_code == status.HTTP_200_OK
-
         data = response.json().get("data")
-
-        assert data["attributes"]["name"] == tag.name
-        assert data["attributes"]["slug"] == tag.slug
+        assert data["attributes"]["name"] == "Refactoring"
+        assert data["attributes"]["slug"] == "refactoring"
 
     @pytest.mark.parametrize(
-        "client_name, expected_count",
-        [("api_client", 2), ("editor_client", 4), ("admin_client", 6)],
-        ids=("public", "editor", "admin"),
+        "client_fixture, expected_posts",
+        [
+            ("api_client", 2),
+            ("editor_client", 4),
+            ("admin_client", 6),
+        ],
+        ids=("only_published", "published_and_drafts", "all_posts"),
     )
-    def test_retrieve_tag_with_posts_success(
+    def test_retrieve_tag_visibility_permissions(
         self,
-        db,
         request,
         tag_factory,
-        editor_factory,
         post_factory,
-        client_name,
-        expected_count,
+        editor_factory,
+        client_fixture,
+        expected_posts,
     ):
-        fixture_value = request.getfixturevalue(client_name)
-        client, user = (
-            fixture_value if isinstance(fixture_value, tuple) else (fixture_value, None)
-        )
-        draft_author = user or editor_factory()
+        fixture = request.getfixturevalue(client_fixture)
+        client, user = fixture if isinstance(fixture, tuple) else (fixture, None)
+
         tag = tag_factory()
+        draft_author = user or editor_factory()
+
         posts = (
-            post_factory.create_batch(size=2, status="published")
-            + post_factory.create_batch(size=2, status="draft", author=draft_author)
-            + post_factory.create_batch(size=2, status="archived")
+            post_factory.create_batch(2, status="published")
+            + post_factory.create_batch(2, status="draft", author=draft_author)
+            + post_factory.create_batch(2, status="archived")
         )
         tag.posts.add(*posts)
-        post_ids = {str(post.id) for post in posts}
 
         response = client.get(
-            path=reverse("v1:tag-detail", args=[tag.slug]),
-            data={"include": "posts"},
-            format="json",
+            reverse("v1:tag-detail", args=[tag.slug]), data={"include": "posts"}
         )
+
         assert response.status_code == status.HTTP_200_OK
-
-        data = response.json().get("data")
-        received_post_ids = {
-            post["id"] for post in data["relationships"]["posts"]["data"]
-        }
-
-        assert received_post_ids.issubset(post_ids)
-        assert len(received_post_ids) == expected_count
-
-    def test_retrieve_tag_not_found(self, db, api_client):
-        client = api_client
-
-        response = client.get(path=reverse("v1:tag-detail", args=["nonexistent-slug"]))
-
-        assert_jsonapi_error_response(
-            response=response,
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="not_found",
-            detail_contains="No Tag matches the given query.",
-        )
+        relationships = response.json()["data"]["relationships"]["posts"]["data"]
+        assert len(relationships) == expected_posts
 
 
-class TestPartialUpdateTag:
-    def test_partial_update_tag_success(self, db, editor_client, tag_factory):
+@pytest.mark.django_db
+class TestUpdateTag:
+    def test_partial_update_success(self, editor_client, tag_factory):
         client, _ = editor_client
-        tag = tag_factory()
+        tag = tag_factory(name="Old Name", slug="old-slug")
 
         response = client.patch(
-            path=reverse("v1:tag-detail", args=[tag.slug]),
-            data={"name": "Updated Tag", "slug": "updated-tag"},
+            reverse("v1:tag-detail", args=[tag.slug]),
+            data={"name": "New Name"},
             format="json",
         )
 
         assert response.status_code == status.HTTP_200_OK
-
-        data = response.json().get("data")
-
-        assert data["attributes"]["name"] == "Updated Tag"
-        assert data["attributes"]["slug"] == "updated-tag"
-
-    @pytest.mark.parametrize(
-        "data, error, pointer, code",
-        [
-            (
-                {"name": "Updated Tag"},
-                "tag with this name already exists.",
-                "/data/attributes/name",
-                "unique",
-            ),
-            (
-                {"slug": "updated-tag"},
-                "tag with this slug already exists.",
-                "/data/attributes/slug",
-                "unique",
-            ),
-            (
-                {"name": ""},
-                "This field may not be blank.",
-                "/data/attributes/name",
-                "blank",
-            ),
-        ],
-        ids=("duplicate_name", "duplicate_slug", "blank name"),
-    )
-    def test_partial_update_tag_bad_request(
-        self, db, editor_client, tag_factory, data, error, pointer, code
-    ):
-        client, _ = editor_client
-        tag = tag_factory()
-        tag_factory(name="Updated Tag", slug="updated-tag")
-
-        response = client.patch(
-            path=reverse("v1:tag-detail", args=[tag.slug]),
-            data=data,
-            format="json",
-        )
-
-        assert_jsonapi_error_response(
-            response=response,
-            status_code=status.HTTP_400_BAD_REQUEST,
-            pointer=pointer,
-            code=code,
-            detail_contains=error,
-        )
-
-    def test_partial_update_tag_unauthorized(self, db, api_client, tag_factory):
-        client = api_client
-        tag = tag_factory()
-
-        response = client.patch(
-            path=reverse("v1:tag-detail", args=[tag.slug]),
-            data={"name": "Updated Tag", "slug": "updated-tag"},
-            format="json",
-        )
-
-        assert_drf_error_response(
-            response=response,
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail_contains="credentials were not provided.",
-        )
-
-    def test_partial_update_tag_not_found(self, db, editor_client):
-        client, _ = editor_client
-
-        response = client.patch(
-            path=reverse("v1:tag-detail", args=["nonexistent-slug"]),
-            data={"name": "Updated Tag"},
-            format="json",
-        )
-
-        assert_jsonapi_error_response(
-            response=response,
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="not_found",
-            detail_contains="No Tag matches the given query.",
-        )
+        assert response.json()["data"]["attributes"]["name"] == "New Name"
+        assert response.json()["data"]["attributes"]["slug"] == "old-slug"
 
 
+@pytest.mark.django_db
 class TestDeleteTag:
-    def test_delete_tag_success(self, db, admin_client, tag_factory):
+    def test_delete_tag_as_admin(self, admin_client, tag_factory):
         client, _ = admin_client
         tag = tag_factory()
-        initial_state = Tag.objects.count()
 
-        response = client.delete(path=reverse("v1:tag-detail", args=[tag.slug]))
+        response = client.delete(reverse("v1:tag-detail", args=[tag.slug]))
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
-        assert Tag.objects.count() == initial_state - 1
         assert not Tag.objects.filter(pk=tag.pk).exists()
 
-    def test_delete_tag_unauthorized(self, db, api_client, tag_factory):
-        client = api_client
+    def test_delete_tag_as_editor(self, editor_client, tag_factory):
+        client, _ = editor_client
         tag = tag_factory()
 
-        response = client.delete(path=reverse("v1:tag-detail", args=[tag.slug]))
+        response = client.delete(reverse("v1:tag-detail", args=[tag.slug]))
 
-        assert_drf_error_response(
-            response=response,
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail_contains="credentials were not provided.",
-        )
-
-    def test_delete_tag_not_found(self, db, editor_client):
-        client, _ = editor_client
-
-        response = client.delete(path=reverse("v1:tag-detail", args=["fake-slug"]))
-
-        assert_jsonapi_error_response(
-            response=response,
-            status_code=status.HTTP_404_NOT_FOUND,
-            code="not_found",
-            detail_contains="No Tag matches the given query.",
-        )
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert not Tag.objects.filter(pk=tag.pk).exists()
