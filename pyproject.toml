@@ -23,6 +23,8 @@ dev = [
     "drf-spectacular>=0.29.0",
     "ipython>=9.6.0",
     "markdown>=3.9",
+    "pre-commit>=4.5.1",
+    "ruff>=0.15.0",
 ]
 test = [
     "pytest>=8.4.2",
@@ -38,3 +40,31 @@ python_files = "tests.py test_*.py *_tests.py"
 addopts = "-v --tb=short --reuse-db --create-db"
 pythonpath = ["backend"]
 testpaths = ["backend"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+extend-exclude = ["migrations", ".venv", "venv", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "RUF", "SIM", "DJ", "TID", "PIE", "PERF"]
+ignore = ["E203", "B008"]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"migrations/*.py" = ["E501", "F401", "E402", "B", "RUF"]
+"tests/**/*.py" = ["S101", "B018"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "config"]
+known-third-party = ["django", "rest_framework", "rest_framework_json_api"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+force-sort-within-sections = true
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
