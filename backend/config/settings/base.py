@@ -1,9 +1,16 @@
 import os
 from pathlib import Path
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+import dj_database_url
+
+# -----------------------------------------------------------------------------
+# PATH CONFIGURATION
+# -----------------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+# -----------------------------------------------------------------------------
+# APPLICATION CONFIGURATION
+# -----------------------------------------------------------------------------
 DJANGO_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -31,6 +38,9 @@ LOCAL_APPS = [
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
+# -----------------------------------------------------------------------------
+# MIDDLEWARE & URLS
+# -----------------------------------------------------------------------------
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -42,7 +52,11 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "config.urls"
+WSGI_APPLICATION = "config.wsgi.application"
 
+# -----------------------------------------------------------------------------
+# TEMPLATES
+# -----------------------------------------------------------------------------
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -58,57 +72,41 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "config.wsgi.application"
-
-
-# Database
+# -----------------------------------------------------------------------------
+# DATABASE CONFIGURATION
+# -----------------------------------------------------------------------------
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    "default": dj_database_url.config(
+        default=f"sqlite:///{BASE_DIR}/db.sqlite3",
+        conn_max_age=600,
+    )
 }
 
-
-# Password validation
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-    },
-]
-
-
-# Internationalization
+# -----------------------------------------------------------------------------
+# INTERNATIONALIZATION & LOCALIZATION
+# -----------------------------------------------------------------------------
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
 
-
-# STATIC files (CSS, JavaScript, Images)
+# -----------------------------------------------------------------------------
+# STATIC & MEDIA FILES
+# -----------------------------------------------------------------------------
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-
-# MEDIA files (Uploaded content)
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = "/media/"
 
-# Default primary key field type
+# -----------------------------------------------------------------------------
+# USER & MODELS
+# -----------------------------------------------------------------------------
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-# Custom user model
 AUTH_USER_MODEL = "accounts.User"
 
-# REST Framework settings
+# -----------------------------------------------------------------------------
+# REST FRAMEWORK
+# -----------------------------------------------------------------------------
 REST_FRAMEWORK = {
     "PAGE_SIZE": 10,
     "EXCEPTION_HANDLER": "utils.exceptions.custom_exception_handler",
@@ -131,12 +129,6 @@ REST_FRAMEWORK = {
         "rest_framework_json_api.django_filters.DjangoFilterBackend",
     ),
     "SEARCH_PARAM": "filter[search]",
-    "TEST_REQUEST_RENDERER_CLASSES": (
-        "rest_framework_json_api.renderers.JSONRenderer",
-        "rest_framework.renderers.JSONRenderer",
-        "rest_framework.renderers.MultiPartRenderer",
-    ),
-    "TEST_REQUEST_DEFAULT_FORMAT": "vnd.api+json",
     "JSON_API_FORMAT_FIELD_NAMES": "dasherize",
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -144,13 +136,9 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
-SIMPLE_JWT = {
-    "AUTH_HEADER_TYPES": ("Bearer",),
-    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
-    "REFRESH_TOKEN_TYPE": "refresh",
-    "ACCESS_TOKEN_TYPE": "access",
-}
-
+# -----------------------------------------------------------------------------
+# API DOCUMENTATION (SPECTACULAR SETTINGS)
+# -----------------------------------------------------------------------------
 SPECTACULAR_SETTINGS = {
     "TITLE": "Simple DRF Blog API",
     "DESCRIPTION": "API for managing blog content and user profiles",
@@ -162,4 +150,14 @@ SPECTACULAR_SETTINGS = {
     "POSTPROCESSING_HOOKS": [
         "drf_spectacular.hooks.postprocess_schema_enums",
     ],
+}
+
+# -----------------------------------------------------------------------------
+# AUTHENTICATION (SIMPLE JWT)
+# -----------------------------------------------------------------------------
+SIMPLE_JWT = {
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
+    "REFRESH_TOKEN_TYPE": "refresh",
+    "ACCESS_TOKEN_TYPE": "access",
 }
