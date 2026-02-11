@@ -44,25 +44,82 @@ testpaths = ["backend"]
 [tool.ruff]
 line-length = 88
 target-version = "py312"
-extend-exclude = ["migrations", ".venv", "venv", "build", "dist"]
+extend-exclude = [
+    "migrations",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+]
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "B", "C4", "UP", "RUF", "SIM", "DJ", "TID", "PIE", "PERF"]
-ignore = ["E203", "B008"]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # bugbear
+    "C4",     # comprehensions
+    "UP",     # pyupgrade
+    "RUF",    # Ruff-specific rules
+    "SIM",    # simplify
+    "DJ",     # django-specific rules
+    "TID",    # tidy imports
+    "PIE",    # flake8-pie
+    "PERF",   # performance suggestions
+]
+
+ignore = [
+    "E203",    # Black compatibility
+    "B008",    # Django common default argument pattern
+    "RUF012",  # Mutable class attributes (very noisy in Django views/serializers)
+    "B905",  # zip(strict=...) too strict for most Django codebases
+]
+
 fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]
-"migrations/*.py" = ["E501", "F401", "E402", "B", "RUF"]
-"tests/**/*.py" = ["S101", "B018"]
+"__init__.py" = ["F401"]  # re-exports
+
+"migrations/*.py" = [
+    "E501",
+    "F401",
+    "E402",
+    "B",
+    "RUF",
+]
+
+"tests/**/*.py" = [
+    "E501",     # long lines in tests
+    "S101",     # allow assert
+    "B007",     # unused loop vars in tests
+    "PERF102",  # dict.values suggestion (not important in tests)
+    "PIE810",   # startswith tuple suggestion
+]
+
+"backend/config/settings/*.py" = [
+    "F403",
+    "F405",
+]
+
 
 [tool.ruff.lint.isort]
 known-first-party = ["apps", "config"]
-known-third-party = ["django", "rest_framework", "rest_framework_json_api"]
-section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
-force-sort-within-sections = true
+known-third-party = [
+    "django",
+    "rest_framework",
+    "rest_framework_json_api",
+]
+section-order = [
+    "future",
+    "standard-library",
+    "third-party",
+    "first-party",
+    "local-folder",
+]
 combine-as-imports = true
+force-sort-within-sections = true
 
 [tool.ruff.format]
 quote-style = "double"

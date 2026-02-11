@@ -1,6 +1,5 @@
 import time
 
-from apps.accounts.permissions import IsAdmin
 from django.conf import settings
 from django.db import connections
 from django.db.utils import OperationalError
@@ -9,6 +8,8 @@ from django.views.decorators.cache import never_cache
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from apps.accounts.permissions import IsAdmin
 
 
 @method_decorator(never_cache, name="dispatch")

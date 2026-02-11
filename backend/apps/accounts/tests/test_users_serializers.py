@@ -1,4 +1,7 @@
+from django.contrib.auth import get_user_model
+from django.utils import timezone
 import pytest
+
 from apps.accounts.serializers.users import (
     ChangeRoleSerializer,
     PasswordResetSerializer,
@@ -7,8 +10,6 @@ from apps.accounts.serializers.users import (
     UserDetailSerializer,
     UserListSerializer,
 )
-from django.contrib.auth import get_user_model
-from django.utils import timezone
 
 User = get_user_model()
 

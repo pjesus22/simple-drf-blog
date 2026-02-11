@@ -1,7 +1,8 @@
 import pytest
+from rest_framework.fields import DateTimeField
+
 from apps.uploads.models import Upload
 from apps.uploads.serializers import UploadCreateSerializer, UploadSerializer
-from rest_framework.fields import DateTimeField
 
 
 @pytest.fixture

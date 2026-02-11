@@ -1,8 +1,8 @@
-import pytest
-from apps.content.models import Tag
 from django.urls import reverse
+import pytest
 from rest_framework import status
 
+from apps.content.models import Tag
 from tests.helpers import assert_jsonapi_error_response
 
 

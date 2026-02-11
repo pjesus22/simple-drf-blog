@@ -1,6 +1,7 @@
 import factory
-from apps.accounts.models import User
 from faker import Faker
+
+from apps.accounts.models import User
 
 from .profiles import ProfileFactory
 

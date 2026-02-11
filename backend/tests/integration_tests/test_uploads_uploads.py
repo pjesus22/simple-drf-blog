@@ -1,10 +1,10 @@
-import pytest
-from apps.uploads.models import Upload
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+import pytest
 from rest_framework import status
 
+from apps.uploads.models import Upload
 from tests.helpers import assert_drf_error_response, assert_jsonapi_error_response
 
 pytestmark = pytest.mark.django_db

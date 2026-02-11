@@ -1,6 +1,7 @@
 import hashlib
 
 import pytest
+
 from apps.uploads.exceptions import (
     InvalidFileError,
     InvalidPurposeError,
@@ -131,5 +132,5 @@ def test_upload_service_validate_choices(
 
 
 def test_upload_service_validate_file_raises_error_on_missing_file():
-    with pytest.raises(InvalidFileError, match="Invalid file provided."):
+    with pytest.raises(InvalidFileError, match="Invalid file provided\\."):
         UploadService._validate_file(file=None)

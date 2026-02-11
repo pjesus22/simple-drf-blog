@@ -1,11 +1,12 @@
-from apps.accounts.models import Profile
-from apps.accounts.permissions import IsOwner
-from apps.accounts.serializers import PrivateProfileSerializer, PublicProfileSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+
+from apps.accounts.models import Profile
+from apps.accounts.permissions import IsOwner
+from apps.accounts.serializers import PrivateProfileSerializer, PublicProfileSerializer
 
 
 class ProfileViewSet(

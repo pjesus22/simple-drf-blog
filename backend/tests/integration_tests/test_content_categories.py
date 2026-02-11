@@ -1,8 +1,8 @@
-import pytest
-from apps.content.models import Category
 from django.urls import reverse
+import pytest
 from rest_framework import status
 
+from apps.content.models import Category
 from tests.helpers import assert_drf_error_response, assert_jsonapi_error_response
 
 pytestmark = pytest.mark.django_db

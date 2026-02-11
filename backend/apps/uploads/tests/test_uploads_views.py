@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 import pytest
+
 from apps.accounts.permissions import IsEditor, IsOwner
 from apps.uploads.models import Upload
 from apps.uploads.serializers import UploadCreateSerializer, UploadSerializer
@@ -31,7 +32,8 @@ def test_upload_viewset_gets_permissions(action, expected_permissions):
     permissions = viewset.get_permissions()
 
     assert len(permissions) == len(expected_permissions), (
-        f"Expected {len(expected_permissions)} permissions for '{action}', got {len(permissions)}"
+        f"Expected {len(expected_permissions)} permissions for "
+        f"'{action}', got {len(permissions)}"
     )
     assert all(
         isinstance(permission, expected_permission)
@@ -64,7 +66,7 @@ def test_upload_viewset_get_queryset_filtering(
 
     viewset = UploadViewSet()
 
-    # 1. Test Regular User (Editor)
+    # 1. Test Regular User
     request = rf.get("/uploads/")
     request.user = editor
     viewset.request = request
@@ -74,7 +76,7 @@ def test_upload_viewset_get_queryset_filtering(
     assert upload_by_editor in qs
     assert upload_by_admin not in qs
 
-    # 2. Test Admin (God Mode)
+    # 2. Test Admin
     request.user = admin
     viewset.request = request
 
@@ -95,7 +97,6 @@ def test_upload_viewset_perform_create_implements_upload_service(
     user = editor_factory()
     mock_file = Mock(name="test.jpg")
 
-    # Use a Mock for the request to avoid WSGIRequest immutability and missing .data attr
     request = Mock()
     request.user = user
     request.data = {

@@ -1,7 +1,8 @@
-import pytest
-from apps.content.models import Category, Post, Tag
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
+import pytest
+
+from apps.content.models import Category, Post, Tag
 
 pytestmark = pytest.mark.django_db
 

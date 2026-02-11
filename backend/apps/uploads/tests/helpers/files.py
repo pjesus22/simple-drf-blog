@@ -1,5 +1,4 @@
 import io
-from typing import Tuple
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
@@ -34,7 +33,7 @@ class FileFactory:
     @staticmethod
     def create_real_image_file(
         format: str = "PNG",
-        size: Tuple[int, int] = (64, 64),
+        size: tuple[int, int] = (64, 64),
         name: str | None = None,
     ) -> SimpleUploadedFile:
         mime, ext = _IMAGE_FORMATS[format]

@@ -1,5 +1,3 @@
-from typing import Optional
-
 from cryptography.fernet import Fernet
 from django.conf import settings
 
@@ -9,7 +7,7 @@ def get_fernet_for_version(key_version: int) -> Fernet:
     return Fernet(key)
 
 
-def encrypt_token(token: str, key_version: Optional[int] = None) -> tuple[bytes, int]:
+def encrypt_token(token: str, key_version: int | None = None) -> tuple[bytes, int]:
     key_version = key_version or settings.CURRENT_KEY_VERSION
     f = get_fernet_for_version(key_version)
     return f.encrypt(token.encode()), key_version

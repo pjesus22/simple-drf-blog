@@ -1,5 +1,6 @@
-from apps.accounts.models import User
 from rest_framework.permissions import BasePermission
+
+from apps.accounts.models import User
 
 ROLE_HIERARCHY = {
     User.Role.EDITOR: 1,
@@ -49,7 +50,7 @@ class IsOwner(BasePermission):
             if getattr(obj, field, None) == user:
                 return True
 
-        return False
+        return any(getattr(obj, field, None) == user for field in self.OWNER_FIELDS)
 
 
 class CanChangeUserRole(BasePermission):
@@ -67,7 +68,7 @@ class CanChangeUserRole(BasePermission):
         if obj == request.user:
             return False
 
-        return True
+        return obj != request.user
 
 
 class CanViewUser(BasePermission):

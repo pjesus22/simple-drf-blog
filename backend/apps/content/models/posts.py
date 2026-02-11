@@ -1,10 +1,11 @@
-from apps.content.managers import PostManager
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 from utils.base_models import BaseModel
 from utils.text_tools import generate_slug
+
+from apps.content.managers import PostManager
 
 
 class Post(BaseModel):

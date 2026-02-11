@@ -1,9 +1,10 @@
 import hashlib
 
-import pytest
-from apps.uploads.models import Upload
 from django.db import IntegrityError
 from django.utils import timezone
+import pytest
+
+from apps.uploads.models import Upload
 
 
 def test_upload_str():

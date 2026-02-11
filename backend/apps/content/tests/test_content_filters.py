@@ -1,4 +1,5 @@
 import pytest
+
 from apps.content.filters import PostFilter
 from apps.content.models import Post
 

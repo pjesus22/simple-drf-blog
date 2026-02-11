@@ -7,7 +7,7 @@ from utils.text_tools import generate_slug
 class Category(BaseModel):
     name = models.CharField(unique=True, max_length=100)
     slug = models.SlugField(unique=True, blank=True, max_length=120)
-    description = models.TextField(blank=True, null=True)
+    description = models.TextField(blank=True)
 
     def __str__(self):
         return self.name

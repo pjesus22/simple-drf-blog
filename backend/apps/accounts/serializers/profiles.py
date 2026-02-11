@@ -1,6 +1,7 @@
-from apps.accounts.models import Profile, SocialMediaProfile
 from django.db import transaction
 from rest_framework_json_api import serializers
+
+from apps.accounts.models import Profile, SocialMediaProfile
 
 
 class SocialMediaProfileSerializer(serializers.ModelSerializer):
@@ -68,7 +69,8 @@ class PrivateProfileSerializer(ProfileSerializer):
 
     class Meta(ProfileSerializer.Meta):
         model = Profile
-        fields = ProfileSerializer.Meta.fields + (
+        fields = (
+            *ProfileSerializer.Meta.fields,
             "is_public",
             "created_at",
             "updated_at",

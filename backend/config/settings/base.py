@@ -110,7 +110,9 @@ AUTH_USER_MODEL = "accounts.User"
 REST_FRAMEWORK = {
     "PAGE_SIZE": 10,
     "EXCEPTION_HANDLER": "utils.exceptions.custom_exception_handler",
-    "DEFAULT_PAGINATION_CLASS": "rest_framework_json_api.pagination.JsonApiPageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": (
+        "rest_framework_json_api.pagination.JsonApiPageNumberPagination"
+    ),
     "DEFAULT_PARSER_CLASSES": (
         "rest_framework_json_api.parsers.JSONParser",
         "rest_framework.parsers.JSONParser",

@@ -1,4 +1,7 @@
 import pytest
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
+
 from apps.accounts.exceptions import CannotDemoteLastAdmin, InvalidPassword
 from apps.accounts.permissions import (
     CanChangeUserRole,
@@ -14,8 +17,6 @@ from apps.accounts.serializers import (
     UserListSerializer,
 )
 from apps.accounts.views import UserViewSet
-from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import IsAuthenticated
 
 
 @pytest.fixture

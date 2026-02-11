@@ -1,5 +1,7 @@
 from dataclasses import dataclass
-from typing import Optional
+
+from django.core.files.uploadedfile import UploadedFile
+from django.db import transaction
 
 from apps.accounts.models import User
 from apps.uploads.exceptions import (
@@ -7,8 +9,6 @@ from apps.uploads.exceptions import (
     InvalidPurposeError,
     InvalidVisibilityError,
 )
-from django.core.files.uploadedfile import UploadedFile
-from django.db import transaction
 
 from .models import Upload
 from .utils import FileProcessor
@@ -33,8 +33,8 @@ class UploadService:
     def __init__(
         self,
         uploaded_by: User,
-        purpose: Optional[str] = None,
-        visibility: Optional[str] = None,
+        purpose: str | None = None,
+        visibility: str | None = None,
     ):
         self.uploaded_by = uploaded_by
         self.purpose = purpose or Upload.Purpose.ATTACHMENT
@@ -104,9 +104,7 @@ class UploadService:
             raise InvalidFileError()
 
     @staticmethod
-    def _process_file(
-        file: UploadedFile, file_name: Optional[str] = None
-    ) -> FileMetadata:
+    def _process_file(file: UploadedFile, file_name: str | None = None) -> FileMetadata:
         processor = FileProcessor(
             file_obj=file,
             file_name=file_name or file.name,

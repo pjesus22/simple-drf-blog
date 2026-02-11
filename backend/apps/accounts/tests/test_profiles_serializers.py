@@ -1,4 +1,5 @@
 import pytest
+
 from apps.accounts.serializers import (
     PrivateProfileSerializer,
     PublicProfileSerializer,

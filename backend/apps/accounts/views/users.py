@@ -1,3 +1,10 @@
+from django.contrib.auth import get_user_model
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.viewsets import ModelViewSet
+
 from apps.accounts.exceptions import CannotDemoteLastAdmin, InvalidPassword
 from apps.accounts.permissions import CanChangeUserRole, CanViewUser, IsAdmin
 from apps.accounts.serializers import (
@@ -13,12 +20,6 @@ from apps.accounts.services import (
     change_user_role,
     force_user_password_change,
 )
-from django.contrib.auth import get_user_model
-from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet
 
 User = get_user_model()
 
@@ -80,7 +81,7 @@ class UserViewSet(ModelViewSet):
         try:
             change_user_role(actor=request.user, target_user=user, new_role=new_role)
         except CannotDemoteLastAdmin as exc:
-            raise ValidationError({"role": str(exc)})
+            raise ValidationError({"role": str(exc)}) from exc
 
         return Response(UserDetailSerializer(user).data)
 
@@ -98,7 +99,7 @@ class UserViewSet(ModelViewSet):
                 new_password=serializer.validated_data["new_password"],
             )
         except InvalidPassword:
-            raise ValidationError({"old_password": "Invalid password"})
+            raise ValidationError({"old_password": "Invalid password"}) from None
 
         return Response(status=204)
 

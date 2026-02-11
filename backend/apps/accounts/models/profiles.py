@@ -1,7 +1,8 @@
-from apps.accounts.managers import ProfileManager
 from django.core.validators import RegexValidator
 from django.db import models
 from utils.base_models import BaseModel
+
+from apps.accounts.managers import ProfileManager
 
 
 class Profile(BaseModel):

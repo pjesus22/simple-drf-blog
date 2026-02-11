@@ -1,6 +1,7 @@
-import factory
-from apps.content.models import Category, Post, Tag
 from django.utils.text import slugify
+import factory
+
+from apps.content.models import Category, Post, Tag
 
 
 class CategoryFactory(factory.django.DjangoModelFactory):

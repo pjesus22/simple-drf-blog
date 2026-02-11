@@ -13,13 +13,13 @@ from .users import (
 )
 
 __all__ = [
-    "UserListSerializer",
-    "UserDetailSerializer",
-    "UserCreateSerializer",
+    "ChangeRoleSerializer",
+    "PasswordResetSerializer",
+    "PasswordUpdateSerializer",
     "PrivateProfileSerializer",
     "PublicProfileSerializer",
     "SocialMediaProfileSerializer",
-    "PasswordUpdateSerializer",
-    "PasswordResetSerializer",
-    "ChangeRoleSerializer",
+    "UserCreateSerializer",
+    "UserDetailSerializer",
+    "UserListSerializer",
 ]

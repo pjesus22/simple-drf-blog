@@ -41,9 +41,8 @@ class User(AbstractUser):
         return self.get_full_name()
 
     def save(self, *args, **kwargs):
-        if self.pk is None:
-            if not self.role:
-                self.role = getattr(self, "base_role", self.Role.ADMIN)
+        if self.pk is None and not self.role:
+            self.role = getattr(self, "base_role", self.Role.ADMIN)
         if self.role == self.Role.ADMIN:
             self.is_staff = True
             self.is_superuser = True

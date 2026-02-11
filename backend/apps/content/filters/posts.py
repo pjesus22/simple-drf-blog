@@ -1,6 +1,7 @@
-import django_filters
-from apps.content.models import Post
 from django.db.models import Q
+import django_filters
+
+from apps.content.models import Post
 
 
 class PostFilter(django_filters.FilterSet):

@@ -1,9 +1,10 @@
 import hashlib
 import uuid
 
-import factory
-from apps.uploads.models import Upload
 from django.core.files.base import ContentFile
+import factory
+
+from apps.uploads.models import Upload
 
 
 class UploadFactory(factory.django.DjangoModelFactory):

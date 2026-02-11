@@ -1,5 +1,3 @@
-from typing import Optional
-
 from rest_framework.response import Response
 
 
@@ -7,9 +5,9 @@ def assert_jsonapi_error_response(
     response: Response,
     *,
     status_code: int,
-    pointer: Optional[str] = None,
-    code: Optional[str] = None,
-    detail_contains: Optional[str] = None,
+    pointer: str | None = None,
+    code: str | None = None,
+    detail_contains: str | None = None,
     index: int = 0,
 ):
     """
@@ -87,8 +85,8 @@ def assert_drf_error_response(
     response: Response,
     *,
     status_code: int,
-    detail_contains: Optional[str] = None,
-    code: Optional[str] = None,
+    detail_contains: str | None = None,
+    code: str | None = None,
 ):
     """
     Asserts a standard DRF error response. Handles potential wrapping by

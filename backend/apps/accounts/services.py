@@ -1,6 +1,7 @@
+from django.db import transaction
+
 from apps.accounts.exceptions import CannotDemoteLastAdmin, InvalidPassword
 from apps.accounts.models import User
-from django.db import transaction
 
 
 @transaction.atomic

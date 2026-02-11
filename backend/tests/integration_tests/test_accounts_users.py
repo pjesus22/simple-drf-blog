@@ -1,9 +1,9 @@
-import pytest
-from apps.accounts.models import User
 from django.urls import reverse
 from django.utils import timezone
+import pytest
 from rest_framework import status
 
+from apps.accounts.models import User
 from tests.helpers import (
     assert_datetimes_close,
     assert_drf_error_response,

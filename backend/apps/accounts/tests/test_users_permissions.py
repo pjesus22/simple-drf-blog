@@ -1,4 +1,5 @@
 import pytest
+
 from apps.accounts.permissions import (
     CanChangeUserRole,
     CanViewUser,

@@ -52,10 +52,7 @@ class UploadSerializer(serializers.ModelSerializer):
         if obj.visibility == Upload.Visibility.PRIVATE:
             if not request or not request.user.is_authenticated:
                 return
-            if (
-                obj.uploaded_by != request.user
-                and not request.user.role == User.Role.ADMIN
-            ):
+            if obj.uploaded_by != request.user and request.user.role != User.Role.ADMIN:
                 return
 
         if request:

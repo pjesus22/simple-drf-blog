@@ -1,19 +1,20 @@
+from abc import ABC, abstractmethod
 import hashlib
 import logging
 import mimetypes
 import os
-from abc import ABC, abstractmethod
-from typing import Any, BinaryIO, Dict, Optional
+from typing import Any, BinaryIO
 
+from django.utils.text import get_valid_filename
 import magic
+from PIL import Image, UnidentifiedImageError
+
 from apps.uploads.exceptions import (
     FileTooLargeError,
     InvalidFileError,
     UnsupportedMimeTypeError,
     UploadDomainError,
 )
-from django.utils.text import get_valid_filename
-from PIL import Image, UnidentifiedImageError
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,9 @@ class ImageStrategy(BaseStrategy):
 
             return {"width": width, "height": height}
         except (UnidentifiedImageError, OSError):
-            raise InvalidFileError("Uploaded file is not a valid or supported image.")
+            raise InvalidFileError(
+                "Uploaded file is not a valid or supported image."
+            ) from None
 
 
 class DefaultStrategy(BaseStrategy):
@@ -80,8 +83,8 @@ class FileProcessor:
     def __init__(
         self,
         file_obj: BinaryIO,
-        file_name: Optional[str] = None,
-        max_size: Optional[int] = None,
+        file_name: str | None = None,
+        max_size: int | None = None,
         use_magic: bool = True,
     ):
         self.file = file_obj
@@ -140,7 +143,7 @@ class FileProcessor:
             return self.IMAGE_STRATEGY
         return self.DEFAULT_STRATEGY
 
-    def process(self) -> Dict[str, Any]:
+    def process(self) -> dict[str, Any]:
         if not self.file:
             raise InvalidFileError()
 

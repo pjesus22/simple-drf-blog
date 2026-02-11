@@ -1,9 +1,10 @@
+from django.contrib.auth import get_user_model
+from rest_framework.viewsets import ModelViewSet
+
 from apps.accounts.permissions import IsEditor, IsOwner
 from apps.uploads.models import Upload
 from apps.uploads.serializers import UploadCreateSerializer, UploadSerializer
 from apps.uploads.services import UploadService
-from django.contrib.auth import get_user_model
-from rest_framework.viewsets import ModelViewSet
 
 User = get_user_model()
 

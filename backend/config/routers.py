@@ -1,7 +1,8 @@
+from rest_framework.routers import DefaultRouter
+
 from apps.accounts.views import ProfileViewSet, UserViewSet
 from apps.content.views import CategoryViewSet, PostViewSet, TagViewSet
 from apps.uploads.views import UploadViewSet
-from rest_framework.routers import DefaultRouter
 
 
 class MasterRouter(DefaultRouter):

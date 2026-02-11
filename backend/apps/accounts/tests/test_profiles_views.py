@@ -1,8 +1,9 @@
 import pytest
+from rest_framework.permissions import AllowAny, IsAuthenticated
+
 from apps.accounts.permissions import IsOwner
 from apps.accounts.serializers import PrivateProfileSerializer, PublicProfileSerializer
 from apps.accounts.views import ProfileViewSet
-from rest_framework.permissions import AllowAny, IsAuthenticated
 
 
 class TestProfileViewSet:

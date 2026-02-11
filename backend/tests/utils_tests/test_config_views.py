@@ -1,4 +1,5 @@
 import pytest
+
 from config.views import APIRootView
 
 pytestmark = pytest.mark.django_db
@@ -28,6 +29,6 @@ class TestAPIRootView:
         view = APIRootView.as_view()
 
         response = view(request)
-        for key, value in response.data.items():
+        for value in response.data.values():
             assert isinstance(value, str)
-            assert value.startswith("http://") or value.startswith("/")
+            assert value.startswith(("http://", "/"))

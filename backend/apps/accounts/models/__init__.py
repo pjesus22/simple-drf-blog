@@ -3,8 +3,8 @@ from .users import Admin, Editor, User
 
 __all__ = [
     "Admin",
-    "Profile",
     "Editor",
+    "Profile",
     "SocialMediaProfile",
     "User",
 ]

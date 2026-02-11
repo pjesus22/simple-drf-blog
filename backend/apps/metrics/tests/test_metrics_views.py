@@ -1,9 +1,10 @@
-import pytest
-from apps.accounts.permissions import IsAdmin
-from apps.metrics.views import HealthDiagnosticView, HealthView
 from django.db.utils import OperationalError
+import pytest
 from rest_framework.permissions import AllowAny
 from rest_framework.test import APIClient
+
+from apps.accounts.permissions import IsAdmin
+from apps.metrics.views import HealthDiagnosticView, HealthView
 
 
 @pytest.fixture

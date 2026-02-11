@@ -46,7 +46,7 @@ class UserCreateSerializer(BaseUserSerializer):
     )
 
     class Meta(BaseUserSerializer.Meta):
-        fields = BaseUserSerializer.Meta.fields + ("password",)
+        fields = (*BaseUserSerializer.Meta.fields, "password")
         read_only_fields = ("id", "profile", "date_joined", "last_login")
 
     def create(self, validated_data):
@@ -77,7 +77,9 @@ class PasswordUpdateSerializer(serializers.Serializer):
         if attrs["old_password"] == attrs["new_password"]:
             raise ValidationError(
                 {
-                    "new_password": "The new password must be different from the old password."
+                    "new_password": (
+                        "The new password must be different from the old password."
+                    )
                 }
             )
 

@@ -1,7 +1,8 @@
-import pytest
-from apps.accounts.models import Profile, SocialMediaProfile
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+import pytest
+
+from apps.accounts.models import Profile, SocialMediaProfile
 
 
 @pytest.fixture

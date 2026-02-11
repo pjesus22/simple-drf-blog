@@ -1,6 +1,8 @@
 import uuid
 
 import pytest
+from rest_framework.fields import DateTimeField
+
 from apps.content.serializers import (
     CategorySerializer,
     PostAttachmentAddSerializer,
@@ -14,7 +16,6 @@ from apps.content.serializers import (
     PostUpdateSerializer,
     TagSerializer,
 )
-from rest_framework.fields import DateTimeField
 
 pytestmark = pytest.mark.django_db
 

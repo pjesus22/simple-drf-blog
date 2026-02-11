@@ -1,5 +1,6 @@
-from apps.content.models import Category
 from utils.text_tools import generate_slug
+
+from apps.content.models import Category
 
 
 def test_generate_slug_deduplicates_same_slug(db):

@@ -1,8 +1,7 @@
-from apps.content.models import Category, Tag
-from apps.uploads.models import Upload
 from rest_framework_json_api import serializers
 
-from ..models import Post
+from apps.content.models import Category, Post, Tag
+from apps.uploads.models import Upload
 
 
 class PostSerializer(serializers.ModelSerializer):
@@ -133,7 +132,7 @@ class PostThumbnailSerializer(serializers.Serializer):
         try:
             return Upload.objects.get(id=value, purpose=Upload.Purpose.THUMBNAIL)
         except Upload.DoesNotExist:
-            raise serializers.ValidationError("Invalid thumbnail upload.")
+            raise serializers.ValidationError("Invalid thumbnail upload.") from None
 
 
 class PostAttachmentAddSerializer(serializers.Serializer):
@@ -161,7 +160,9 @@ class PostAttachmentRemoveSerializer(serializers.Serializer):
         try:
             return post.attachments.get(id=value, purpose=Upload.Purpose.ATTACHMENT)
         except Upload.DoesNotExist:
-            raise serializers.ValidationError("Attachment not found in this post")
+            raise serializers.ValidationError(
+                "Attachment not found in this post"
+            ) from None
 
 
 class PostSoftDeleteSerializer(serializers.Serializer):

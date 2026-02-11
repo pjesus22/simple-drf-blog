@@ -1,4 +1,9 @@
 import pytest
+from rest_framework.exceptions import MethodNotAllowed, ValidationError
+from rest_framework.permissions import AllowAny
+from rest_framework.request import Request
+from rest_framework.test import APIRequestFactory
+
 from apps.accounts.permissions import IsAdmin, IsEditor, IsOwner
 from apps.content.serializers import (
     PostAttachmentAddSerializer,
@@ -12,10 +17,6 @@ from apps.content.serializers import (
     PostUpdateSerializer,
 )
 from apps.content.views import CategoryViewSet, PostViewSet, TagViewSet
-from rest_framework.exceptions import MethodNotAllowed, ValidationError
-from rest_framework.permissions import AllowAny
-from rest_framework.request import Request
-from rest_framework.test import APIRequestFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -53,7 +54,8 @@ def test_content_viewsets_return_correct_permissions(
     viewset = viewset_class(action=action)
     permissions = viewset.get_permissions()
     assert len(permissions) == len(expected_permissions), (
-        f"Expected {len(expected_permissions)} permissions for {viewset_class.__name__}:{action}, got {len(permissions)}"
+        f"Expected {len(expected_permissions)} permissions for "
+        f"{viewset_class.__name__}:{action}, got {len(permissions)}"
     )
     for permission, expected_permission in zip(permissions, expected_permissions):
         assert isinstance(permission, expected_permission)

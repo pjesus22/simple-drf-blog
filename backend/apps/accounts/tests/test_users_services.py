@@ -1,7 +1,8 @@
+from django.contrib.auth import get_user_model
 import pytest
+
 from apps.accounts.exceptions import CannotDemoteLastAdmin, InvalidPassword
 from apps.accounts.services import change_own_password, change_user_role
-from django.contrib.auth import get_user_model
 
 User = get_user_model()
 

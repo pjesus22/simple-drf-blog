@@ -1,8 +1,8 @@
-import pytest
-from apps.content.models import Post
 from django.urls import reverse
+import pytest
 from rest_framework import status
 
+from apps.content.models import Post
 from tests.helpers import assert_drf_error_response, assert_jsonapi_error_response
 
 pytestmark = pytest.mark.django_db
@@ -180,11 +180,14 @@ class TestReadPost:
 
         for item in data:
             assert item["attributes"]["status"] != "deleted"
-            if item["attributes"]["status"] == "draft" and client_user:
-                if not client_user.is_staff:
-                    assert item["relationships"]["author"]["data"]["id"] == str(
-                        client_user.id
-                    )
+            if (
+                item["attributes"]["status"] == "draft"
+                and client_user
+                and not client_user.is_staff
+            ):
+                assert item["relationships"]["author"]["data"]["id"] == str(
+                    client_user.id
+                )
 
     def test_retrieve_post_success_with_related(
         self, api_client, post_factory, tag_factory, upload_factory, clean_media

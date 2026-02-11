@@ -1,8 +1,9 @@
 import pytest
-from apps.uploads.tests.helpers import FileFactory
 from pytest_factoryboy import register
 from rest_framework.test import APIRequestFactory
 from tests.factories import AdminFactory, EditorFactory, UploadFactory
+
+from apps.uploads.tests.helpers import FileFactory
 
 register(EditorFactory)
 register(AdminFactory)

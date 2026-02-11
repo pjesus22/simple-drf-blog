@@ -1,6 +1,7 @@
-import pytest
-from apps.accounts.models import Profile
 from django.contrib.auth.models import AnonymousUser
+import pytest
+
+from apps.accounts.models import Profile
 
 pytestmark = pytest.mark.django_db
 

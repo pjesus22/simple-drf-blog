@@ -1,16 +1,17 @@
-from apps.accounts.exceptions import AccountDomainError
-from apps.uploads.exceptions import UploadDomainError
 from rest_framework.exceptions import (
     AuthenticationFailed,
     ErrorDetail,
     NotAuthenticated,
+    ValidationError as DRFValidationError,
 )
-from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.views import exception_handler as drf_exception_handler
 from rest_framework_json_api.exceptions import (
     exception_handler as jsonapi_exception_handler,
 )
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+
+from apps.accounts.exceptions import AccountDomainError
+from apps.uploads.exceptions import UploadDomainError
 
 
 def _normalize_error_detail(value):
@@ -31,6 +32,9 @@ def custom_exception_handler(exc, context):
     - Translate domain-level errors into DRF ValidationErrors
     - Route authentication/JWT errors through DRF's default handler
     - Delegate all other errors to JSON:API exception handler
+
+    Auth/JWT errors intentionally bypass JSON:API formatting to keep compatibility with
+    DRF and common clients
     """
     DOMAIN_ERRORS = (UploadDomainError, AccountDomainError)
 
@@ -39,12 +43,7 @@ def custom_exception_handler(exc, context):
 
     if isinstance(
         exc,
-        (
-            AuthenticationFailed,
-            NotAuthenticated,
-            InvalidToken,
-            TokenError,
-        ),
+        (AuthenticationFailed | NotAuthenticated | InvalidToken | TokenError),
     ):
         return drf_exception_handler(exc, context)
 
@@ -54,7 +53,3 @@ def custom_exception_handler(exc, context):
         response.data = _normalize_error_detail(response.data)
 
     return response
-
-
-# Auth/JWT errors intentionally bypass JSON:API formatting
-# to keep compatibility with DRF and common clients
