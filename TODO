@@ -1,0 +1,8 @@
+- Add pre-commit hooks for code quality checks
+- Document API with drf-spectacular
+- Make dockerfile
+- Make docker-compose.yml
+- Add GitHub Actions for CI/CD pipeline
+- Add monitoring tools
+- Update README.md
+- Publish to GitHub

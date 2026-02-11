@@ -38,8 +38,8 @@ test = [
 DJANGO_SETTINGS_MODULE = "config.settings.tests"
 python_files = "tests.py test_*.py *_tests.py"
 addopts = "-v --tb=short --reuse-db --create-db"
-pythonpath = ["backend"]
-testpaths = ["backend"]
+pythonpath = ["src"]
+testpaths = ["src"]
 
 [tool.ruff]
 line-length = 88
@@ -54,63 +54,34 @@ extend-exclude = [
 
 [tool.ruff.lint]
 select = [
-    "E",      # pycodestyle errors
-    "W",      # pycodestyle warnings
-    "F",      # pyflakes
-    "I",      # isort
-    "B",      # bugbear
-    "C4",     # comprehensions
-    "UP",     # pyupgrade
-    "RUF",    # Ruff-specific rules
-    "SIM",    # simplify
-    "DJ",     # django-specific rules
-    "TID",    # tidy imports
-    "PIE",    # flake8-pie
-    "PERF",   # performance suggestions
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
+    "RUF",
+    "SIM",
+    "DJ",
+    "TID",
+    "PIE",
+    "PERF",
 ]
-
-ignore = [
-    "E203",    # Black compatibility
-    "B008",    # Django common default argument pattern
-    "RUF012",  # Mutable class attributes (very noisy in Django views/serializers)
-    "B905",  # zip(strict=...) too strict for most Django codebases
-]
-
+ignore = ["E203", "B008", "RUF012", "B905"]
 fixable = ["ALL"]
 unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]  # re-exports
-
-"migrations/*.py" = [
-    "E501",
-    "F401",
-    "E402",
-    "B",
-    "RUF",
-]
-
-"tests/**/*.py" = [
-    "E501",     # long lines in tests
-    "S101",     # allow assert
-    "B007",     # unused loop vars in tests
-    "PERF102",  # dict.values suggestion (not important in tests)
-    "PIE810",   # startswith tuple suggestion
-]
-
-"backend/config/settings/*.py" = [
-    "F403",
-    "F405",
-]
+"__init__.py" = ["F401"]
+"migrations/*.py" = ["E501", "F401", "E402", "B", "RUF"]
+"tests/**/*.py" = ["E501", "S101", "B007", "PERF102", "PIE810"]
+"src/config/settings/*.py" = ["F403", "F405"]
 
 
 [tool.ruff.lint.isort]
 known-first-party = ["apps", "config"]
-known-third-party = [
-    "django",
-    "rest_framework",
-    "rest_framework_json_api",
-]
+known-third-party = ["django", "rest_framework", "rest_framework_json_api"]
 section-order = [
     "future",
     "standard-library",
