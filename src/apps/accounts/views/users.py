@@ -7,6 +7,13 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.exceptions import CannotDemoteLastAdmin, InvalidPassword
 from apps.accounts.permissions import CanChangeUserRole, CanViewUser, IsAdmin
+from apps.accounts.schemas import (
+    change_password_schema,
+    change_role_schema,
+    force_password_change_schema,
+    user_me_schema,
+    user_viewset_schema,
+)
 from apps.accounts.serializers import (
     ChangeRoleSerializer,
     PasswordResetSerializer,
@@ -24,6 +31,7 @@ from apps.accounts.services import (
 User = get_user_model()
 
 
+@user_viewset_schema
 class UserViewSet(ModelViewSet):
     queryset = User.objects.all()
     permission_classes = [IsAuthenticated]
@@ -55,6 +63,7 @@ class UserViewSet(ModelViewSet):
         permission_classes = permission_map.get(self.action, self.permission_classes)
         return [p() for p in permission_classes]
 
+    @user_me_schema
     @action(detail=False, methods=["get", "patch"])
     def me(self, request, *args, **kwargs):
         user = request.user
@@ -69,6 +78,7 @@ class UserViewSet(ModelViewSet):
 
         return Response(serializer.data)
 
+    @change_role_schema
     @action(detail=True, methods=["post"])
     def change_role(self, request, pk=None):
         user = self.get_object()
@@ -85,6 +95,7 @@ class UserViewSet(ModelViewSet):
 
         return Response(UserDetailSerializer(user).data)
 
+    @change_password_schema
     @action(detail=False, methods=["post"], url_path="me/change-password")
     def change_password(self, request):
         serializer = self.get_serializer(data=request.data)
@@ -103,6 +114,7 @@ class UserViewSet(ModelViewSet):
 
         return Response(status=204)
 
+    @force_password_change_schema
     @action(detail=True, methods=["post"])
     def force_password_change(self, request, pk=None):
         user = self.get_object()

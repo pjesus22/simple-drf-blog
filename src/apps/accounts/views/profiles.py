@@ -6,9 +6,11 @@ from rest_framework.response import Response
 
 from apps.accounts.models import Profile
 from apps.accounts.permissions import IsOwner
+from apps.accounts.schemas import profile_me_schema, profile_viewset_schema
 from apps.accounts.serializers import PrivateProfileSerializer, PublicProfileSerializer
 
 
+@profile_viewset_schema
 class ProfileViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
@@ -42,6 +44,7 @@ class ProfileViewSet(
             permission_classes = [AllowAny]
         return [p() for p in permission_classes]
 
+    @profile_me_schema
     @action(detail=False, methods=["get", "put", "patch"])
     def me(self, request):
         queryset = Profile.objects.me(request.user)
