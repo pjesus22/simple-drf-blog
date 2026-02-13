@@ -1,9 +1,13 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from rest_framework.views import APIView
 
 
+@extend_schema(exclude=True)
 class APIRootView(APIView):
+    serializer_class = None
+
     def get_view_name(self):
         return "API Root"
 
