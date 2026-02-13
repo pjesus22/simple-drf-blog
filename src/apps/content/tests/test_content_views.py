@@ -45,7 +45,7 @@ pytestmark = pytest.mark.django_db
         (PostViewSet, "list", [AllowAny]),
         (PostViewSet, "retrieve", [AllowAny]),
         (PostViewSet, "restore", [IsAdmin]),
-        (PostViewSet, "trash", [IsAdmin]),
+        (PostViewSet, "trash", [IsOwner, IsEditor]),
     ],
 )
 def test_content_viewsets_return_correct_permissions(
