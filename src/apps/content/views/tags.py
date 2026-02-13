@@ -4,9 +4,11 @@ from rest_framework.permissions import AllowAny
 
 from apps.accounts.permissions import IsEditor
 from apps.content.models import Post, Tag
+from apps.content.schemas import tag_viewset_schema
 from apps.content.serializers import TagSerializer
 
 
+@tag_viewset_schema
 class TagViewSet(viewsets.ModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer

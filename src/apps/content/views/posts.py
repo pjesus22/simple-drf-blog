@@ -8,6 +8,16 @@ from rest_framework_json_api.django_filters import DjangoFilterBackend
 from apps.accounts.permissions import IsAdmin, IsEditor, IsOwner
 from apps.content.filters import PostFilter
 from apps.content.models import Post
+from apps.content.schemas import (
+    add_attachments_schema,
+    change_status_schema,
+    post_viewset_schema,
+    remove_attachment_schema,
+    restore_schema,
+    soft_delete_schema,
+    thumbnail_schema,
+    trash_schema,
+)
 from apps.content.serializers import (
     PostAttachmentAddSerializer,
     PostAttachmentRemoveSerializer,
@@ -21,8 +31,10 @@ from apps.content.serializers import (
 )
 
 
+@post_viewset_schema
 class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
+    queryset = Post.objects.none()
     lookup_field = "slug"
     filter_backends = [DjangoFilterBackend]
     filterset_class = PostFilter
@@ -48,7 +60,7 @@ class PostViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ("list", "retrieve"):
             permission_classes = [AllowAny]
-        elif self.action in ("restore", "trash"):
+        elif self.action == "restore":
             permission_classes = [IsAdmin]
         else:
             permission_classes = [IsOwner, IsEditor]
@@ -78,6 +90,7 @@ class PostViewSet(viewsets.ModelViewSet):
         }
         return serializer_map.get(self.action, PostSerializer)
 
+    @change_status_schema
     @action(detail=True, methods=["post"])
     def change_status(self, request, slug=None):
         post = self.get_object()
@@ -91,6 +104,7 @@ class PostViewSet(viewsets.ModelViewSet):
             PostSerializer(post, context=self.get_serializer_context()).data
         )
 
+    @thumbnail_schema
     @action(detail=True, methods=["post", "delete"])
     def thumbnail(self, request, slug=None):
         post = self.get_object()
@@ -111,6 +125,7 @@ class PostViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @add_attachments_schema
     @action(detail=True, methods=["post"], url_path="attachments")
     def add_attachments(self, request, slug=None):
         post = self.get_object()
@@ -125,6 +140,7 @@ class PostViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @remove_attachment_schema
     @action(
         detail=True,
         methods=["delete"],
@@ -142,6 +158,7 @@ class PostViewSet(viewsets.ModelViewSet):
         post.attachments.remove(serializer.validated_data["attachment_id"])
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @soft_delete_schema
     @action(detail=True, methods=["post"])
     def soft_delete(self, request, slug=None):
         post = self.get_object()
@@ -154,6 +171,7 @@ class PostViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @restore_schema
     @action(detail=True, methods=["post"])
     def restore(self, request, slug=None):
         post = self.get_object()
@@ -168,6 +186,7 @@ class PostViewSet(viewsets.ModelViewSet):
             PostSerializer(post, context=self.get_serializer_context()).data,
         )
 
+    @trash_schema
     @action(detail=False, methods=["get"])
     def trash(self, request):
         qs = self.filter_queryset(self.get_queryset())
