@@ -148,10 +148,22 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
     "SCHEMA_PATH_PREFIX": "/api/v1/",
-    "SCHEMA_COERCE_PATH_PK_SUFFIX": True,
     "POSTPROCESSING_HOOKS": [
         "drf_spectacular.hooks.postprocess_schema_enums",
     ],
+    "SERVE_MEDIA_TYPES": ["application/vnd.api+json"],
+    "SORT_OPERATIONS": True,
+    "ENUM_ADD_EXPLICIT_BLANK_NULL_CHOICE": False,
+    "COMPONENTS": {
+        "securitySchemes": {
+            "BearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+            }
+        }
+    },
+    "SECURITY": [{"BearerAuth": []}],
 }
 
 # -----------------------------------------------------------------------------
