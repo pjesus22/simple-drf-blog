@@ -3,12 +3,14 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.permissions import IsEditor, IsOwner
 from apps.uploads.models import Upload
+from apps.uploads.schemas import upload_viewset_schema
 from apps.uploads.serializers import UploadCreateSerializer, UploadSerializer
 from apps.uploads.services import UploadService
 
 User = get_user_model()
 
 
+@upload_viewset_schema
 class UploadViewSet(ModelViewSet):
     queryset = Upload.objects.none()
     serializer_class = UploadSerializer
