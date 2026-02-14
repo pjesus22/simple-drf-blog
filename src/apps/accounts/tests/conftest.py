@@ -1,6 +1,7 @@
 import pytest
 from pytest_factoryboy import register
 from rest_framework.fields import DateTimeField
+
 from tests.factories import (
     AdminFactory,
     DefaultUserFactory,

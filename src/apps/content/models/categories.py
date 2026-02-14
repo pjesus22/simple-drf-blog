@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.text import slugify
+
 from utils.base_models import BaseModel
 from utils.text_tools import generate_slug
 

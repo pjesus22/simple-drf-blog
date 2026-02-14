@@ -2,6 +2,7 @@ import uuid
 
 from django.core.validators import RegexValidator
 from django.db import models
+
 from utils.base_models import BaseModel
 
 from .utils import get_upload_path
