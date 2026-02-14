@@ -10,8 +10,10 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.permissions import IsAdmin
+from apps.metrics.schemas import health_diagnostic_schema, health_schema
 
 
+@health_schema
 @method_decorator(never_cache, name="dispatch")
 class HealthView(APIView):
     permission_classes = [AllowAny]
@@ -29,6 +31,7 @@ class HealthView(APIView):
         return Response(data)
 
 
+@health_diagnostic_schema
 @method_decorator(never_cache, name="dispatch")
 class HealthDiagnosticView(APIView):
     permission_classes = [IsAdmin]
