@@ -46,7 +46,7 @@ class UploadSerializer(serializers.ModelSerializer):
         )
         resource_name = "uploads"
 
-    def get_url(self, obj):
+    def get_url(self, obj) -> str | None:
         request = self.context.get("request")
 
         if obj.visibility == Upload.Visibility.PRIVATE:
