@@ -50,3 +50,4 @@ REST_FRAMEWORK.update(
 # METADATA
 # -----------------------------------------------------------------------------
 API_VERSION = config("API_VERSION", default="1.0")
+SERVE_DOCS = config("SERVE_DOCS", default=True, cast=bool)

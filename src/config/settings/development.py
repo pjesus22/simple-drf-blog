@@ -18,3 +18,4 @@ ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(","
 # METADATA
 # -----------------------------------------------------------------------------
 API_VERSION = config("API_VERSION", default="1.0")
+SERVE_DOCS = config("SERVE_DOCS", default=True, cast=bool)
