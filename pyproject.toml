@@ -11,6 +11,8 @@ dependencies = [
     "djangorestframework>=3.16.1",
     "djangorestframework-jsonapi>=8.1.0",
     "djangorestframework-simplejwt>=5.5.1",
+    "drf-spectacular>=0.29.0",
+    "gunicorn>=25.1.0",
     "pillow>=11.3.0",
     "python-decouple>=3.8",
     "python-magic>=0.4.27",
@@ -20,7 +22,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "django-extensions>=4.1",
-    "drf-spectacular>=0.29.0",
     "ipython>=9.6.0",
     "markdown>=3.9",
     "pre-commit>=4.5.1",
