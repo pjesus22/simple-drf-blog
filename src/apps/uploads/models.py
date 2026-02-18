@@ -2,10 +2,11 @@ import uuid
 
 from django.core.validators import RegexValidator
 from django.db import models
-
 from utils.base_models import BaseModel
 
-from .utils import get_upload_path
+from apps.uploads.managers import UploadManager
+from apps.uploads.storage import get_media_storage
+from apps.uploads.utils import get_upload_path
 
 
 class Upload(BaseModel):
@@ -20,7 +21,11 @@ class Upload(BaseModel):
         INHERIT = "inherit", "Inherit"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    file = models.FileField(upload_to=get_upload_path, max_length=250)
+    file = models.FileField(
+        upload_to=get_upload_path,
+        storage=get_media_storage,
+        max_length=500,
+    )
     uploaded_by = models.ForeignKey(
         to="accounts.User",
         on_delete=models.CASCADE,
@@ -31,8 +36,8 @@ class Upload(BaseModel):
     hash_sha256 = models.CharField(
         max_length=64,
         editable=False,
-        unique=True,
         validators=[RegexValidator(r"^[a-fA-F0-9]{64}$")],
+        db_index=True,
     )
     size = models.PositiveIntegerField(editable=False)
     width = models.PositiveIntegerField(null=True, blank=True)
@@ -48,6 +53,9 @@ class Upload(BaseModel):
         default=Visibility.INHERIT,
         db_index=True,
     )
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    objects = UploadManager()
+    all_objects = models.Manager()
 
     class Meta:
         ordering = ["-created_at"]
