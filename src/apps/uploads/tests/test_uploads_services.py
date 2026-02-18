@@ -1,5 +1,6 @@
 import hashlib
 
+from django.utils import timezone
 import pytest
 
 from apps.uploads.exceptions import (
@@ -50,7 +51,7 @@ def test_upload_service_creates_upload_object_successfully(
     file = file_factory.create_real_text_file()
     service = UploadService(uploaded_by=user)
 
-    upload = service.create_or_get_upload(file=file)
+    upload = service.create_upload(file=file)
 
     assert isinstance(upload, Upload)
     assert Upload.objects.filter(pk=upload.pk).exists()
@@ -59,20 +60,6 @@ def test_upload_service_creates_upload_object_successfully(
     assert upload.visibility == Upload.Visibility.INHERIT
     assert upload.size == file.size
     assert upload.original_filename == file.name
-    assert Upload.objects.count() == 1
-
-
-def test_upload_service_reuses_existing_upload(editor_factory, file_factory):
-    user = editor_factory()
-    file = file_factory.create_real_text_file()
-    service = UploadService(uploaded_by=user)
-
-    upload1 = service.create_or_get_upload(file=file)
-
-    file.seek(0)
-    upload2 = service.create_or_get_upload(file=file)
-
-    assert upload1.pk == upload2.pk
     assert Upload.objects.count() == 1
 
 
@@ -134,3 +121,42 @@ def test_upload_service_validate_choices(
 def test_upload_service_validate_file_raises_error_on_missing_file():
     with pytest.raises(InvalidFileError, match="Invalid file provided\\."):
         UploadService._validate_file(file=None)
+
+
+def test_upload_service_check_storage_health(editor_factory):
+    user = editor_factory()
+    service = UploadService(uploaded_by=user)
+
+    health_status = service.check_storage_health()
+
+    assert isinstance(health_status, bool)
+    assert health_status is True
+
+
+def test_upload_soft_delete(editor_factory, file_factory, clean_media):
+    user = editor_factory()
+    file = file_factory.create_real_text_file()
+    service = UploadService(uploaded_by=user)
+
+    upload = service.create_upload(file=file)
+    assert upload.deleted_at is None
+
+    upload.deleted_at = timezone.now()
+    upload.save()
+
+    assert Upload.objects.filter(id=upload.id).count() == 0
+    assert Upload.all_objects.filter(id=upload.id).count() == 1
+
+
+def test_upload_service_allows_duplicate_hash(editor_factory, file_factory):
+    user = editor_factory()
+    file = file_factory.create_real_text_file()
+    service = UploadService(uploaded_by=user)
+
+    upload1 = service.create_upload(file=file)
+
+    file.seek(0)
+    upload2 = service.create_upload(file=file)
+
+    assert upload1.hash_sha256 == upload2.hash_sha256
+    assert upload1.pk != upload2.pk

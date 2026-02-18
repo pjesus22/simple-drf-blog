@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 
+from django.utils import timezone
 import pytest
 
 from apps.accounts.permissions import IsEditor, IsOwner
@@ -18,12 +19,12 @@ def viewset():
 @pytest.mark.parametrize(
     "action, expected_permissions",
     [
-        ("list", [IsOwner]),
-        ("retrieve", [IsOwner]),
+        ("list", [IsEditor]),
+        ("retrieve", [IsEditor, IsOwner]),
         ("create", [IsEditor]),
-        ("update", [IsOwner]),
-        ("partial_update", [IsOwner]),
-        ("destroy", [IsOwner]),
+        ("update", [IsEditor, IsOwner]),
+        ("partial_update", [IsEditor, IsOwner]),
+        ("destroy", [IsEditor, IsOwner]),
     ],
     ids=("list", "retrieve", "create", "update", "partial_update", "destroy"),
 )
@@ -92,7 +93,7 @@ def test_upload_viewset_perform_create_implements_upload_service(
     mock_service_class = mocker.patch("apps.uploads.views.UploadService")
     mock_service_instance = mock_service_class.return_value
     mock_upload = Mock(spec=Upload, id=123)
-    mock_service_instance.create_or_get_upload.return_value = mock_upload
+    mock_service_instance.create_upload.return_value = mock_upload
 
     user = editor_factory()
     mock_file = Mock(name="test.jpg")
@@ -117,5 +118,36 @@ def test_upload_viewset_perform_create_implements_upload_service(
         purpose=Upload.Purpose.AVATAR,
         visibility=Upload.Visibility.PUBLIC,
     )
-    mock_service_instance.create_or_get_upload.assert_called_once_with(file=mock_file)
+    mock_service_instance.create_upload.assert_called_once_with(file=mock_file)
     assert mock_serializer.instance == mock_upload
+
+
+def test_upload_restore_action(mocker, rf, editor_factory):
+    user = editor_factory.build()
+    upload = mocker.Mock(spec=Upload)
+    upload.deleted_at = timezone.now()
+
+    # Mock get_object_or_404 to return our mock upload
+    mock_get_object = mocker.patch(
+        "apps.uploads.views.get_object_or_404", return_value=upload
+    )
+
+    # Mock the serializer
+    mock_serializer = mocker.Mock()
+    mock_serializer.data = {"id": 123, "status": "restored"}
+
+    viewset = UploadViewSet()
+    viewset.action = "restore"
+    viewset.request = rf.post("/restore/")
+    viewset.request.user = user
+
+    # Mock get_serializer to return our mock serializer
+    mocker.patch.object(viewset, "get_serializer", return_value=mock_serializer)
+
+    response = viewset.restore(viewset.request, pk=123)
+
+    assert response.status_code == 200
+    assert response.data == mock_serializer.data
+    mock_get_object.assert_called_once_with(Upload.all_objects, pk=123)
+    assert upload.deleted_at is None
+    upload.save.assert_called_once()
