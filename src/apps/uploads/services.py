@@ -9,6 +9,7 @@ from apps.uploads.exceptions import (
     InvalidPurposeError,
     InvalidVisibilityError,
 )
+from apps.uploads.storage import get_media_storage
 
 from .models import Upload
 from .utils import FileProcessor
@@ -39,19 +40,23 @@ class UploadService:
         self.uploaded_by = uploaded_by
         self.purpose = purpose or Upload.Purpose.ATTACHMENT
         self.visibility = visibility or Upload.Visibility.INHERIT
+        self.storage = get_media_storage()
 
         self._validate_choices()
 
-    def create_or_get_upload(self, file: UploadedFile) -> Upload:
-        """Create or reuse an Upload from an uploaded file."""
+    def check_storage_health(self) -> bool:
+        return self.storage.health_check()
+
+    def create_upload(self, file: UploadedFile) -> Upload:
+        """Create an Upload from an uploaded file."""
         self._validate_file(file)
 
         metadata = self._process_file(file)
 
         with transaction.atomic():
-            upload, _ = Upload.objects.get_or_create(
+            upload = Upload.objects.create(
                 hash_sha256=metadata.hash_sha256,
-                defaults=self._build_defaults(metadata, file),
+                **self._build_defaults(metadata, file),
             )
 
         return upload

@@ -14,12 +14,12 @@ class PostSerializer(serializers.ModelSerializer):
         queryset=Tag.objects.all(),
     )
     thumbnail = serializers.ResourceRelatedField(
-        queryset=Upload.objects.filter(purpose=Upload.Purpose.THUMBNAIL).all(),
+        queryset=Upload.objects.filter(purpose=Upload.Purpose.THUMBNAIL),
         allow_null=True,
     )
     attachments = serializers.ResourceRelatedField(
         many=True,
-        queryset=Upload.objects.filter(purpose=Upload.Purpose.ATTACHMENT).all(),
+        queryset=Upload.objects.filter(purpose=Upload.Purpose.ATTACHMENT),
     )
 
     included_serializers = {

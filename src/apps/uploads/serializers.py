@@ -55,6 +55,9 @@ class UploadSerializer(serializers.ModelSerializer):
             if obj.uploaded_by != request.user and request.user.role != User.Role.ADMIN:
                 return
 
+        if obj.deleted_at is not None:
+            return
+
         if request:
             return request.build_absolute_uri(obj.file.url)
         return obj.file.url
