@@ -72,7 +72,6 @@ class TestUserCreateSerializer:
             "first_name": user.first_name,
             "last_name": user.last_name,
             "email": user.email,
-            "role": user.role,
             "date_joined": drf_datetime.to_representation(user.date_joined),
             "last_login": drf_datetime.to_representation(user.last_login),
             "profile": {
@@ -90,16 +89,32 @@ class TestUserCreateSerializer:
             "last_name": "User",
             "email": "newuser@example.com",
             "password": "securepassword123",
-            "role": User.Role.EDITOR,
         }
         serializer = UserCreateSerializer(data=data)
-        assert serializer.is_valid()
+        assert serializer.is_valid(), serializer.errors
 
         user = serializer.save()
 
         assert user.username == data["username"]
         assert user.email == data["email"]
         assert user.check_password(data["password"])
+        assert user.role == User.Role.EDITOR
+
+    def test_create_serializer_always_creates_editor(self):
+        """Passing role=admin in the payload must be ignored."""
+        data = {
+            "username": "sneakyuser",
+            "first_name": "Sneaky",
+            "last_name": "User",
+            "email": "sneaky@example.com",
+            "password": "securepassword123",
+            "role": User.Role.ADMIN,  # attacker tries to escalate
+        }
+        serializer = UserCreateSerializer(data=data)
+        assert serializer.is_valid(), serializer.errors
+
+        user = serializer.save()
+
         assert user.role == User.Role.EDITOR
 
 

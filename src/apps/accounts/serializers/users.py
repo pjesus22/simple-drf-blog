@@ -46,12 +46,28 @@ class UserCreateSerializer(BaseUserSerializer):
     )
 
     class Meta(BaseUserSerializer.Meta):
-        fields = (*BaseUserSerializer.Meta.fields, "password")
+        fields = (
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "password",
+            "date_joined",
+            "last_login",
+            "profile",
+        )
         read_only_fields = ("id", "profile", "date_joined", "last_login")
 
     def create(self, validated_data):
         password = validated_data.pop("password")
-        user = User.objects.create_user(password=password, **validated_data)
+        # role is always forced to EDITOR — admins must be created via
+        # Django shell or createsuperuser, never through the API.
+        user = User.objects.create_user(
+            password=password,
+            role=User.Role.EDITOR,
+            **validated_data,
+        )
         return user
 
 
