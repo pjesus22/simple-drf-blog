@@ -27,6 +27,7 @@ THIRD_PARTY_APPS = [
     "django_extensions",
     "django_filters",
     "drf_spectacular",
+    "django_q",
 ]
 
 LOCAL_APPS = [
@@ -98,6 +99,13 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = "/media/"
 
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+}
+
+MEDIA_STORAGE_BACKEND = "local"
+
 # -----------------------------------------------------------------------------
 # USER & MODELS
 # -----------------------------------------------------------------------------
@@ -139,7 +147,7 @@ REST_FRAMEWORK = {
 }
 
 # -----------------------------------------------------------------------------
-# API DOCUMENTATION (SPECTACULAR SETTINGS)
+# API DOCUMENTATION
 # -----------------------------------------------------------------------------
 SPECTACULAR_SETTINGS = {
     "TITLE": "Simple DRF Blog API",
@@ -167,11 +175,24 @@ SPECTACULAR_SETTINGS = {
 }
 
 # -----------------------------------------------------------------------------
-# AUTHENTICATION (SIMPLE JWT)
+# AUTHENTICATION
 # -----------------------------------------------------------------------------
 SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "REFRESH_TOKEN_TYPE": "refresh",
     "ACCESS_TOKEN_TYPE": "access",
+}
+
+# -----------------------------------------------------------------------------
+# Q
+# -----------------------------------------------------------------------------
+Q_CLUSTER = {
+    "name": "simple_drf_blog",
+    "workers": 2,
+    "timeout": 60,
+    "retry": 90,
+    "queue_limit": 50,
+    "bulk": 10,
+    "orm": "default",
 }

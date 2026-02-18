@@ -18,11 +18,24 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 ALLOWED_HOSTS = config(
     "ALLOWED_HOSTS", cast=lambda v: [s.strip() for s in v.split(",")]
 )
+MEDIA_STORAGE_BACKEND = config("MEDIA_STORAGE_BACKEND", default="local")
+
+# -----------------------------------------------------------------------------
+# STORAGE
+# -----------------------------------------------------------------------------
+# S3
+AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", cast=str)
+AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", cast=str)
+AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", cast=str)
+AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", cast=str)
+
+# Google
+GS_BUCKET_NAME = Config("GS_BUCKET_NAME", cast=str)
+GOOGLE_APPLICATION_CREDENTIALS = Config("GOOGLE_APPLICATION_CREDENTIALS", cast=str)
 
 # -----------------------------------------------------------------------------
 # SECURITY SETTINGS
 # -----------------------------------------------------------------------------
-
 SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=True, cast=bool)
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
@@ -57,4 +70,3 @@ LOGGING = {
 # METADATA
 # -----------------------------------------------------------------------------
 API_VERSION = config("API_VERSION", default="1.0")
-SERVE_DOCS = config("SERVE_DOCS", default=False, cast=bool)

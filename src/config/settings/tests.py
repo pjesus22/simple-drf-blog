@@ -1,3 +1,5 @@
+import tempfile
+
 from decouple import Config, RepositoryEnv
 
 from .base import *
@@ -13,6 +15,7 @@ config = Config(RepositoryEnv(BASE_DIR.parent / ".env.test"))
 SECRET_KEY = config("SECRET_KEY", default="test-secret-key")
 DEBUG = False
 ALLOWED_HOSTS = ["*"]
+MEDIA_ROOT = tempfile.mkdtemp()
 
 # -----------------------------------------------------------------------------
 # SECURITY OPTIMIZATION (FOR SPEED)
@@ -50,4 +53,12 @@ REST_FRAMEWORK.update(
 # METADATA
 # -----------------------------------------------------------------------------
 API_VERSION = config("API_VERSION", default="1.0")
-SERVE_DOCS = config("SERVE_DOCS", default=True, cast=bool)
+
+# -----------------------------------------------------------------------------
+# DJANGO-Q2
+# -----------------------------------------------------------------------------
+Q_CLUSTER = {
+    "name": "test",
+    "sync": True,
+    "orm": "default",
+}
