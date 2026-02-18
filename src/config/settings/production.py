@@ -24,14 +24,16 @@ MEDIA_STORAGE_BACKEND = config("MEDIA_STORAGE_BACKEND", default="local")
 # STORAGE
 # -----------------------------------------------------------------------------
 # S3
-AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", cast=str)
-AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", cast=str)
-AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", cast=str)
-AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", cast=str)
+AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", cast=str, default=None)
+AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", cast=str, default=None)
+AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", cast=str, default=None)
+AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", cast=str, default=None)
 
 # Google
-GS_BUCKET_NAME = Config("GS_BUCKET_NAME", cast=str)
-GOOGLE_APPLICATION_CREDENTIALS = Config("GOOGLE_APPLICATION_CREDENTIALS", cast=str)
+GS_BUCKET_NAME = config("GS_BUCKET_NAME", cast=str, default=None)
+GOOGLE_APPLICATION_CREDENTIALS = config(
+    "GOOGLE_APPLICATION_CREDENTIALS", cast=str, default=None
+)
 
 # -----------------------------------------------------------------------------
 # SECURITY SETTINGS

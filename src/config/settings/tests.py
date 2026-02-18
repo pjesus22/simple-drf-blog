@@ -61,4 +61,5 @@ Q_CLUSTER = {
     "name": "test",
     "sync": True,
     "orm": "default",
+    "timeout": 30,
 }

@@ -10,20 +10,11 @@ STORAGE_BACKENDS = {
     "gcs": GCSMediaStorage,
 }
 
-_storage_instance = None
-
 
 def get_media_storage():
-    global _storage_instance
-
-    if _storage_instance is not None:
-        return _storage_instance
-
     backend = getattr(settings, "MEDIA_STORAGE_BACKEND", "local").lower()
 
     if backend not in STORAGE_BACKENDS:
         raise ValueError(f"Unsupported storage backend: {backend}")
 
-    _storage_instance = STORAGE_BACKENDS[backend]()
-
-    return _storage_instance
+    return STORAGE_BACKENDS[backend]()

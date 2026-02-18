@@ -13,5 +13,6 @@ class BaseMediaStorage(Storage, ABC):
     def generate_url(self, name: str) -> str:
         return self.url(name)
 
+    @abstractmethod
     def health_check(self) -> bool:
-        return True
+        """Return True if the storage backend is reachable and writable."""

@@ -9,7 +9,6 @@ class GCSMediaStorage(GoogleCloudStorage, BaseMediaStorage):
 
     def health_check(self) -> bool:
         try:
-            self.client.get_bucket(self.bucket_name)
-            return True
+            return self.client.bucket(self.bucket_name).exists()
         except Exception:
             return False

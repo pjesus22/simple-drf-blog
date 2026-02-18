@@ -14,6 +14,7 @@ from rest_framework_simplejwt.views import (
 )
 
 from apps.accounts.permissions import IsAdmin
+from apps.uploads.views import StorageHealthView
 from config.routers import router
 
 from .views import APIRootView
@@ -23,6 +24,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("apps.metrics.urls")),
     path("api/v1/", include((router.urls, "api"), namespace="v1")),
+    path("api/v1/uploads/health/", StorageHealthView.as_view(), name="storage-health"),
     path("api/v1/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/v1/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/v1/token/verify/", TokenVerifyView.as_view(), name="token_verify"),
