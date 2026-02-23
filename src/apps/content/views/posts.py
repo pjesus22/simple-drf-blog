@@ -29,6 +29,7 @@ from apps.content.serializers import (
     PostThumbnailSerializer,
     PostUpdateSerializer,
 )
+from apps.metrics.models import MetricEvent
 
 
 @post_viewset_schema
@@ -89,6 +90,16 @@ class PostViewSet(viewsets.ModelViewSet):
             "remove_attachment": PostAttachmentRemoveSerializer,
         }
         return serializer_map.get(self.action, PostSerializer)
+
+    def retrieve(self, request, *args, **kwargs):
+        response = super().retrieve(request, *args, **kwargs)
+        if request.user.is_authenticated:
+            MetricEvent.objects.create(
+                event_type=MetricEvent.EventType.POST_READ,
+                user=request.user,
+                metadata={"post_slug": kwargs.get("slug")},
+            )
+        return response
 
     @change_status_schema
     @action(detail=True, methods=["post"])
