@@ -16,6 +16,11 @@ ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(","
 MEDIA_STORAGE_BACKEND = config("MEDIA_STORAGE_BACKEND", default="local")
 
 # -----------------------------------------------------------------------------
+# APPS
+# -----------------------------------------------------------------------------
+INSTALLED_APPS += ["django_extensions"]
+
+# -----------------------------------------------------------------------------
 # METADATA
 # -----------------------------------------------------------------------------
 API_VERSION = config("API_VERSION", default="1.0")

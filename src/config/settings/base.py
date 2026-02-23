@@ -24,7 +24,6 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework_json_api",
     "rest_framework_simplejwt",
-    "django_extensions",
     "django_filters",
     "drf_spectacular",
     "django_q",
@@ -80,8 +79,15 @@ DATABASES = {
     "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR}/db.sqlite3",
         conn_max_age=600,
+        engine="django.db.backends.mysql",
     )
 }
+DATABASES["default"].setdefault("OPTIONS", {}).update(
+    {
+        "charset": "utf8mb4",
+        "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+    }
+)
 
 # -----------------------------------------------------------------------------
 # INTERNATIONALIZATION & LOCALIZATION
@@ -195,4 +201,41 @@ Q_CLUSTER = {
     "queue_limit": 50,
     "bulk": 10,
     "orm": "default",
+}
+
+
+# -----------------------------------------------------------------------------
+# LOGGING
+# -----------------------------------------------------------------------------
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        }
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
 }

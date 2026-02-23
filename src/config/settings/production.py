@@ -1,4 +1,5 @@
 from decouple import Config, RepositoryEnv
+import sentry_sdk
 
 from .base import *
 
@@ -38,7 +39,8 @@ GOOGLE_APPLICATION_CREDENTIALS = config(
 # -----------------------------------------------------------------------------
 # SECURITY SETTINGS
 # -----------------------------------------------------------------------------
-SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=True, cast=bool)
+SECURE_SSL_REDIRECT = False
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_BROWSER_XSS_FILTER = True
@@ -72,3 +74,14 @@ LOGGING = {
 # METADATA
 # -----------------------------------------------------------------------------
 API_VERSION = config("API_VERSION", default="1.0")
+
+
+# -----------------------------------------------------------------------------
+# MONITORING
+# -----------------------------------------------------------------------------
+
+sentry_sdk.init(
+    dsn=config("SENTRY_DSN", default=""),
+    enviroment=config("ENVIRONMENT", default="production"),
+    traces_sample_rate=0.1,
+)
