@@ -10,3 +10,10 @@ class DiagnosticHealthSerializer(serializers.Serializer):
     status = serializers.CharField()
     database = serializers.CharField()
     db_latency_ms = serializers.IntegerField()
+
+
+class EventSummarySerializer(serializers.Serializer):
+    event_type = serializers.CharField()
+    total = serializers.IntegerField()
+    last_7_days = serializers.IntegerField()
+    today = serializers.IntegerField()

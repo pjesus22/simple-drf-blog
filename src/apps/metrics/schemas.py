@@ -1,6 +1,10 @@
 from drf_spectacular.utils import extend_schema
 
-from apps.metrics.serializers import DiagnosticHealthSerializer, HealthSerializer
+from apps.metrics.serializers import (
+    DiagnosticHealthSerializer,
+    EventSummarySerializer,
+    HealthSerializer,
+)
 
 health_schema = extend_schema(
     summary="health",
@@ -14,4 +18,13 @@ health_diagnostic_schema = extend_schema(
         "Health check endpoint with database diagnostics (requires admin role)."
     ),
     responses={200: DiagnosticHealthSerializer},
+)
+
+event_summary_schema = extend_schema(
+    summary="metrics_summary",
+    description=(
+        "Event counts grouped by type: total, last 7 days, and today."
+        "Requires admin (requires Admin role)."
+    ),
+    responses={200: EventSummarySerializer},
 )
