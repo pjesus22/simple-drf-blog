@@ -1,13 +1,12 @@
 from django.db import models
 from django.utils.text import slugify
-
 from utils.base_models import BaseModel
 from utils.text_tools import generate_slug
 
 
 class Category(BaseModel):
-    name = models.CharField(unique=True, max_length=100)
-    slug = models.SlugField(unique=True, blank=True, max_length=120)
+    name = models.CharField(unique=True, max_length=106)
+    slug = models.SlugField(unique=True, blank=True, max_length=128)
     description = models.TextField(blank=True)
 
     def __str__(self):

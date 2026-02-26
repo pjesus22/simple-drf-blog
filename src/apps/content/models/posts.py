@@ -2,10 +2,10 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
-
-from apps.content.managers import PostManager
 from utils.base_models import BaseModel
 from utils.text_tools import generate_slug
+
+from apps.content.managers import PostManager
 
 
 class Post(BaseModel):
@@ -18,7 +18,7 @@ class Post(BaseModel):
     objects = PostManager()
 
     status = models.CharField(
-        max_length=20,
+        max_length=32,
         choices=Status.choices,
         default=Status.DRAFT,
     )
@@ -39,15 +39,15 @@ class Post(BaseModel):
         related_name="posts",
         blank=True,
     )
-    title = models.CharField(max_length=100, blank=False, null=False)
-    slug = models.SlugField(max_length=120, null=False, unique=True)
+    title = models.CharField(max_length=106, blank=False, null=False)
+    slug = models.SlugField(max_length=128, null=False, unique=True)
     content = models.TextField(blank=True)
     attachments = models.ManyToManyField(
         to="uploads.Upload",
         related_name="post_attachments",
         blank=True,
     )
-    summary = models.CharField(blank=True, max_length=250)
+    summary = models.CharField(blank=True, max_length=256)
     thumbnail = models.OneToOneField(
         to="uploads.Upload",
         on_delete=models.SET_NULL,

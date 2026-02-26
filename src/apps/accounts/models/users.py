@@ -11,11 +11,11 @@ class User(AbstractUser):
     base_role = Role.ADMIN
     role = models.CharField(
         choices=Role.choices,
-        max_length=10,
+        max_length=16,
         default=base_role,
     )
     username = models.CharField(
-        max_length=30,
+        max_length=32,
         unique=True,
         blank=False,
         null=False,
@@ -27,12 +27,12 @@ class User(AbstractUser):
         null=False,
     )
     first_name = models.CharField(
-        max_length=50,
+        max_length=64,
         blank=False,
         null=False,
     )
     last_name = models.CharField(
-        max_length=50,
+        max_length=64,
         blank=False,
         null=False,
     )

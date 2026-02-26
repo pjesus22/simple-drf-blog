@@ -24,15 +24,15 @@ class Upload(BaseModel):
     file = models.FileField(
         upload_to=get_upload_path,
         storage=get_media_storage,
-        max_length=500,
+        max_length=512,
     )
     uploaded_by = models.ForeignKey(
         to="accounts.User",
         on_delete=models.CASCADE,
         related_name="uploads",
     )
-    original_filename = models.CharField(max_length=250)
-    mime_type = models.CharField(max_length=100)
+    original_filename = models.CharField(max_length=256)
+    mime_type = models.CharField(max_length=128)
     hash_sha256 = models.CharField(
         max_length=64,
         editable=False,
@@ -43,12 +43,12 @@ class Upload(BaseModel):
     width = models.PositiveIntegerField(null=True, blank=True)
     height = models.PositiveIntegerField(null=True, blank=True)
     purpose = models.CharField(
-        max_length=20,
+        max_length=32,
         choices=Purpose.choices,
         default=Purpose.ATTACHMENT,
     )
     visibility = models.CharField(
-        max_length=10,
+        max_length=16,
         choices=Visibility.choices,
         default=Visibility.INHERIT,
         db_index=True,

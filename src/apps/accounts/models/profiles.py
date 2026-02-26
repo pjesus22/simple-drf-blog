@@ -1,8 +1,8 @@
 from django.core.validators import RegexValidator
 from django.db import models
+from utils.base_models import BaseModel
 
 from apps.accounts.managers import ProfileManager
-from utils.base_models import BaseModel
 
 
 class Profile(BaseModel):
@@ -13,8 +13,8 @@ class Profile(BaseModel):
         related_name="profile",
     )
     biography = models.TextField(blank=True)
-    location = models.CharField(blank=True)
-    occupation = models.CharField(blank=True)
+    location = models.CharField(blank=True, max_length=128)
+    occupation = models.CharField(blank=True, max_length=128)
     skills = models.TextField(blank=True)
     experience_years = models.PositiveIntegerField(default=0)
 
@@ -43,7 +43,7 @@ class SocialMediaProfile(BaseModel):
         on_delete=models.CASCADE,
         related_name="social_media",
     )
-    platform = models.CharField(choices=Platform.choices)
+    platform = models.CharField(choices=Platform.choices, max_length=32)
     url = models.URLField(
         validators=[
             RegexValidator(
