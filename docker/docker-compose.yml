@@ -1,0 +1,80 @@
+services:
+  db:
+    image: mariadb:lts
+    restart: unless-stopped
+    env_file:
+      - ../.env.prod
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../.env.prod
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ../.env.prod:/app/.env.prod:ro
+      - media_files:/app/src/media
+      - static_files:/app/src/staticfiles
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  qcluster:
+    build:
+      context: ..
+      dockerfile: docker/dockerfile
+    restart: unless-stopped
+    env_file:
+      - ../.env.prod
+    depends_on:
+      web:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    volumes:
+      - ../.env.prod:/app/.env.prod:ro
+      - media_files:/app/src/media
+    command: ["python", "src/manage.py", "qcluster"]
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../nginx/conf.d:/etc/nginx/conf.d:ro
+      - ../nginx/snippets:/etc/nginx/snippets:ro
+      # Self-signed cert (default). Swap this mount for Let's Encrypt:
+      #   - /etc/letsencrypt:/etc/letsencrypt:ro
+      # Or for a paid/custom cert:
+      #   - ../nginx/certs/custom:/etc/nginx/certs/custom:ro
+      - ../nginx/certs/self-signed:/etc/nginx/certs/self-signed:ro
+      # Let's Encrypt ACME challenge webroot
+      - certbot_webroot:/var/www/certbot
+      # Shared static/media with the web container
+      - static_files:/app/staticfiles:ro
+      - media_files:/app/media:ro
+
+volumes:
+  mariadb_data:
+  media_files:
+  static_files:
+  certbot_webroot:
