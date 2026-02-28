@@ -17,3 +17,9 @@ class EventSummarySerializer(serializers.Serializer):
     total = serializers.IntegerField()
     last_7_days = serializers.IntegerField()
     today = serializers.IntegerField()
+
+
+class StorageHealthSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    backend = serializers.CharField()
+    reachable = serializers.BooleanField()

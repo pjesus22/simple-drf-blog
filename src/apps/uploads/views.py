@@ -3,9 +3,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.permissions import IsEditor, IsOwner
@@ -13,23 +11,8 @@ from apps.uploads.models import Upload
 from apps.uploads.schemas import upload_viewset_schema
 from apps.uploads.serializers import UploadCreateSerializer, UploadSerializer
 from apps.uploads.services import UploadService
-from apps.uploads.storage import get_media_storage
 
 User = get_user_model()
-
-
-class StorageHealthView(APIView):
-    authentication_classes = []
-    permission_classes = [AllowAny]
-
-    def get(self, request):
-        healthy = get_media_storage().health_check()
-        if healthy:
-            return Response({"status": "ok"}, status=status.HTTP_200_OK)
-        return Response(
-            {"status": "degraded"},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
 
 
 @upload_viewset_schema

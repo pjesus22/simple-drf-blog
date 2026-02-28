@@ -17,8 +17,10 @@ from apps.metrics.schemas import (
     event_summary_schema,
     health_diagnostic_schema,
     health_schema,
+    storage_health_schema,
 )
 from apps.metrics.serializers import EventSummarySerializer
+from apps.uploads.storage import get_media_storage
 
 
 @health_schema
@@ -81,3 +83,25 @@ class EventSummaryView(APIView):
         )
         serializer = EventSummarySerializer(qs, many=True)
         return Response(serializer.data)
+
+
+@storage_health_schema
+@method_decorator(never_cache, name="dispatch")
+class StorageHealthView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        storage = get_media_storage()
+        reachable = storage.health_check()
+        return Response(
+            data={
+                "type": "health",
+                "id": "storage",
+                "attributes": {
+                    "status": "ok" if reachable else "unavailable",
+                    "backend": storage.get_backend_name(),
+                    "reachable": reachable,
+                },
+            },
+            status=200 if reachable else 503,
+        )
