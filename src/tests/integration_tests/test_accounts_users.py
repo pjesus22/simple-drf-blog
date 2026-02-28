@@ -28,14 +28,12 @@ def user_data():
 
 
 class TestCreateUser:
-    @pytest.mark.parametrize("role", User.Role.values)
-    def test_create_user_success(self, admin_client, user_data, role):
+    def test_create_user_success(self, admin_client, user_data):
         client, _ = admin_client
-        payload = {**user_data, "role": role}
 
         response = client.post(
             path=reverse("v1:user-list"),
-            data=payload,
+            data=user_data,
             format="json",
         )
 
