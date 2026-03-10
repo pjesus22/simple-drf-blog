@@ -29,7 +29,7 @@ from apps.content.serializers import (
     PostThumbnailSerializer,
     PostUpdateSerializer,
 )
-from apps.metrics.models import MetricEvent
+from apps.metrics import signals as metrics_signals
 
 
 @post_viewset_schema
@@ -92,14 +92,15 @@ class PostViewSet(viewsets.ModelViewSet):
         return serializer_map.get(self.action, PostSerializer)
 
     def retrieve(self, request, *args, **kwargs):
-        response = super().retrieve(request, *args, **kwargs)
+        instance = self.get_object()
         if request.user.is_authenticated:
-            MetricEvent.objects.create(
-                event_type=MetricEvent.EventType.POST_READ,
+            metrics_signals.post_read.send(
+                sender=Post,
+                post=instance,
                 user=request.user,
-                metadata={"post_slug": kwargs.get("slug")},
             )
-        return response
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
     @change_status_schema
     @action(detail=True, methods=["post"])

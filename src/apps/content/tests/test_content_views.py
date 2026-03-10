@@ -163,6 +163,30 @@ class TestPostViewSet:
         viewset.get_queryset()
         mock_post.objects.owned_by.assert_called_once_with(request.user)
 
+    def test_retrieve_fires_metric_event_signal(
+        self, rf, post_factory, editor_factory, mocker
+    ):
+        post = post_factory(status="published")
+        user = editor_factory()
+        request = rf.get(f"/posts/{post.slug}/")
+        request.user = user
+
+        viewset = PostViewSet(
+            request=request, action="retrieve", kwargs={"slug": post.slug}
+        )
+        viewset.format_kwarg = None
+        viewset.get_object = mocker.Mock(return_value=post)
+        viewset.get_serializer_context = mocker.Mock(return_value={"request": request})
+        mock_send = mocker.patch("apps.metrics.signals.post_read.send")
+
+        viewset.retrieve(request)
+
+        mock_send.assert_called_once_with(
+            sender=type(post),
+            post=post,
+            user=user,
+        )
+
     def test_change_status_action_success(
         self, rf, post_factory, editor_factory, mocker
     ):
