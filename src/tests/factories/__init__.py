@@ -4,6 +4,7 @@ from .accounts import (
     EditorFactory,
 )
 from .content import CategoryFactory, PostFactory, TagFactory
+from .metrics import MetricEventFactory
 from .profiles import ProfileFactory, SocialMediaProfileFactory
 from .uploads import UploadFactory
 
@@ -12,6 +13,7 @@ __all__ = [
     "CategoryFactory",
     "DefaultUserFactory",
     "EditorFactory",
+    "MetricEventFactory",
     "PostFactory",
     "ProfileFactory",
     "SocialMediaProfileFactory",
