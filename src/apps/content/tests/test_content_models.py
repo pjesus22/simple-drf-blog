@@ -104,7 +104,7 @@ class TestPostModel:
         assert post.id is not None
         assert Post.objects.filter(id=post.id).exists()
 
-    def test_status_methods(self, post_factory):
+    def test_status_properties(self, post_factory):
         post = post_factory(status=Post.Status.PUBLISHED)
         assert post.is_published is True
         assert post.is_draft is False
@@ -184,6 +184,12 @@ class TestPostModelMethods:
         assert post.status == Post.Status.PUBLISHED
         assert post.published_at is not None
 
+    def test_change_status_invalid_status(self, post_factory):
+        status = "invalid"
+        post = post_factory()
+        with pytest.raises(ValidationError, match=f"Invalid status: {status}"):
+            post.change_status(status)
+
     def test_change_status_invalid_transition(self, post_factory):
         post = post_factory(status=Post.Status.DRAFT)
         with pytest.raises(
@@ -215,6 +221,14 @@ class TestPostModelMethods:
         post.refresh_from_db()
         assert post.status == Post.Status.ARCHIVED
 
+    def test_archive_raises_error_if_already_deleted(self, post_factory):
+        post = post_factory(status=Post.Status.DELETED)
+        with pytest.raises(
+            expected_exception=ValidationError,
+            match=("Cannot archive a deleted post\\. Restore it first\\."),
+        ):
+            post.archive()
+
     def test_soft_delete_and_restore(self, post_factory):
         post = post_factory(status=Post.Status.DRAFT)
 
@@ -227,6 +241,14 @@ class TestPostModelMethods:
         post.restore()
         post.refresh_from_db()
         assert post.status == Post.Status.DRAFT
+
+    def test_soft_delete_raises_error_if_already_deleted(self, post_factory):
+        post = post_factory(status=Post.Status.DELETED)
+        with pytest.raises(
+            expected_exception=ValidationError,
+            match=("This post is already deleted\\."),
+        ):
+            post.soft_delete()
 
     def test_restore_fails_for_non_deleted(self, post_factory):
         post = post_factory(status=Post.Status.DRAFT)
