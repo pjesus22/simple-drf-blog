@@ -49,14 +49,19 @@ class TestCreateUser:
         assert data["attributes"]["email"] == created_user.email
         assert data["attributes"]["role"] == created_user.role
 
-        assert_datetimes_close(
-            data["attributes"]["date_joined"], created_user.date_joined
-        )
         assert data["attributes"]["last_login"] is None
+        assert_datetimes_close(
+            actual_str=data["attributes"]["date_joined"],
+            expected_dt=created_user.date_joined,
+        )
 
         relationships = data["relationships"]
+        expected_profile = {
+            "data": {"type": "profiles", "id": str(created_user.profile.id)}
+        }
+
         assert "profile" in relationships
-        assert relationships["profile"]["data"] is None
+        assert relationships["profile"] == expected_profile
 
     def test_create_user_bad_request_empty_data(self, admin_client):
         client, _ = admin_client

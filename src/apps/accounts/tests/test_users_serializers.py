@@ -74,6 +74,7 @@ class TestUserCreateSerializer:
             "email": user.email,
             "date_joined": drf_datetime.to_representation(user.date_joined),
             "last_login": drf_datetime.to_representation(user.last_login),
+            "role": user.role,
             "profile": {
                 "type": "profiles",
                 "id": str(user.profile.id),

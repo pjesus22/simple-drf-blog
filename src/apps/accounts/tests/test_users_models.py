@@ -3,14 +3,14 @@ import pytest
 
 from apps.accounts.models import Admin, Editor, User
 
+pytestmark = pytest.mark.django_db
 
-@pytest.mark.django_db
+
 def test_base_user_method_properties(editor_factory):
     user = editor_factory(first_name="John", last_name="Doe")
     assert str(user) == user.get_full_name()
 
 
-@pytest.mark.django_db
 @pytest.mark.parametrize(
     "user_class, role, expected_role, is_staff, is_superuser",
     [
@@ -41,7 +41,6 @@ def test_user_save_sets_correct_role_and_permissions(
     assert user.is_superuser == is_superuser
 
 
-@pytest.mark.django_db
 def test_user_default_role():
     user = User(
         username="defaultuser",
@@ -49,11 +48,11 @@ def test_user_default_role():
         first_name="Default",
         last_name="User",
     )
+
     user.save()
     assert user.role == User.Role.ADMIN
 
 
-@pytest.mark.django_db
 def test_username_min_length_validation():
     user = User(username="ab", email="ab@example.com")
     with pytest.raises(ValidationError) as excinfo:
@@ -61,7 +60,6 @@ def test_username_min_length_validation():
     assert "Username must be at least 3 characters" in str(excinfo.value)
 
 
-@pytest.mark.django_db
 def test_admin_manager_filters_user_by_role(admin_factory, editor_factory):
     admin_factory()
     editor_factory()
@@ -69,7 +67,6 @@ def test_admin_manager_filters_user_by_role(admin_factory, editor_factory):
     assert Admin.objects.first().role == User.Role.ADMIN
 
 
-@pytest.mark.django_db
 def test_editor_manager_filters_user_by_role(editor_factory, admin_factory):
     editor_factory()
     admin_factory()
