@@ -1,9 +1,9 @@
 from django.urls import path
 
 from apps.metrics.views import (
-    EventSummaryView,
     HealthDiagnosticView,
     HealthView,
+    MetricEventView,
     StorageHealthView,
 )
 
@@ -12,6 +12,6 @@ urlpatterns = [
     path(
         "health/diagnostic/", HealthDiagnosticView.as_view(), name="health_diagnostic"
     ),
-    path("metrics/summary/", EventSummaryView.as_view(), name="metrics_summary"),
+    path("metrics/", MetricEventView.as_view(), name="metrics"),
     path("health/storage/", StorageHealthView.as_view(), name="health_storage"),
 ]

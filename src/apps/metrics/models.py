@@ -9,6 +9,13 @@ class MetricEvent(BaseModel):
         UPLOAD_CREATED = "upload_created"
         LOGIN_FAILED = "login_failed"
 
+    EVENT_GROUP = {
+        EventType.LOGIN: "login",
+        EventType.LOGIN_FAILED: "login",
+        EventType.UPLOAD_CREATED: "uploads",
+        EventType.POST_READ: "posts",
+    }
+
     event_type = models.CharField(
         max_length=64,
         choices=EventType.choices,
@@ -24,7 +31,7 @@ class MetricEvent(BaseModel):
     metadata = models.JSONField(default=dict)
 
     def __str__(self):
-        return f"{self.event_type} @{self.created_at} by {self.user}"
+        return f"{self.event_type} @{self.created_at} by user_id={self.user_id}"
 
     class Meta:
         ordering = ["-created_at"]

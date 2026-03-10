@@ -1,9 +1,15 @@
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import (
+    OpenApiParameter,
+    OpenApiResponse,
+    PolymorphicProxySerializer,
+    extend_schema,
+)
 
 from apps.metrics.serializers import (
     DiagnosticHealthSerializer,
-    EventSummarySerializer,
     HealthSerializer,
+    MetricEventSerializer,
+    MetricEventSummarySerializer,
     StorageHealthSerializer,
 )
 
@@ -21,13 +27,28 @@ health_diagnostic_schema = extend_schema(
     responses={200: DiagnosticHealthSerializer},
 )
 
-event_summary_schema = extend_schema(
-    summary="metrics_summary",
-    description=(
-        "Event counts grouped by type: total, last 7 days, and today."
-        "Requires admin (requires Admin role)."
-    ),
-    responses={200: EventSummarySerializer},
+metric_event_schema = extend_schema(
+    summary="metric_event",
+    description=("List all metric events (requires admin role). "),
+    parameters=[
+        OpenApiParameter(
+            name="summary",
+            type=str,
+            description="Pass 'true' to get event counts grouped by event type.",
+            required=False,
+            enum=["true", "false"],
+        )
+    ],
+    responses={
+        200: PolymorphicProxySerializer(
+            component_name="MetricEventResponse",
+            serializers=[
+                MetricEventSerializer,
+                MetricEventSummarySerializer,
+            ],
+            resource_type_field_name=None,
+        )
+    },
 )
 
 

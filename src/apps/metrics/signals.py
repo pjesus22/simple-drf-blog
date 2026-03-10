@@ -1,6 +1,6 @@
 from django.contrib.auth.signals import user_logged_in, user_login_failed
 from django.db.models.signals import post_save
-from django.dispatch import receiver
+from django.dispatch import Signal, receiver
 
 from apps.metrics.models import MetricEvent
 
@@ -13,6 +13,7 @@ def on_login(sender, request, user, **kwargs):
         metadata={
             "ip": request.META.get("REMOTE_ADDR"),
             "user_agent": request.META.get("HTTP_USER_AGENT"),
+            "user_id": user.id,
         },
     )
 
@@ -37,10 +38,17 @@ def on_created_upload(sender, instance, created, **kwargs):
     MetricEvent.objects.create(
         event_type=MetricEvent.EventType.UPLOAD_CREATED,
         user=instance.uploaded_by,
-        metadata={
-            "upload_id": instance.id,
-            "purpose": instance.purpose,
-            "size": instance.size,
-            "mime_type": instance.mime_type,
-        },
+        metadata={"purpose": instance.purpose, "size": instance.size},
+    )
+
+
+post_read = Signal()
+
+
+@receiver(post_read)
+def on_post_read(sender, post, user, **kwargs):
+    MetricEvent.objects.create(
+        event_type=MetricEvent.EventType.POST_READ,
+        user=user,
+        metadata={"post_slug": post.slug},
     )

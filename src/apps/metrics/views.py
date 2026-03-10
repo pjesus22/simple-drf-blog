@@ -14,12 +14,12 @@ from rest_framework.views import APIView
 from apps.accounts.permissions import IsAdmin
 from apps.metrics.models import MetricEvent
 from apps.metrics.schemas import (
-    event_summary_schema,
     health_diagnostic_schema,
     health_schema,
+    metric_event_schema,
     storage_health_schema,
 )
-from apps.metrics.serializers import EventSummarySerializer
+from apps.metrics.serializers import MetricEventSerializer, MetricEventSummarySerializer
 from apps.uploads.storage import get_media_storage
 
 
@@ -67,21 +67,28 @@ class HealthDiagnosticView(APIView):
         )
 
 
-@event_summary_schema
-@method_decorator(never_cache, name="dispatch")
-class EventSummaryView(APIView):
+@metric_event_schema
+class MetricEventView(APIView):
     permission_classes = [IsAdmin]
+    resource_name = "metric-events"
 
     def get(self, request):
-        now = timezone.now()
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        week_start = now - timezone.timedelta(days=7)
-        qs = MetricEvent.objects.values("event_type").annotate(
-            total=Count("id"),
-            last_7_days=Count("id", filter=Q(created_at__gte=week_start)),
-            today=Count("id", filter=Q(created_at__gte=today_start)),
-        )
-        serializer = EventSummarySerializer(qs, many=True)
+        summary = request.query_params.get("summary") == "true"
+        if summary:
+            self.resource_name = "metric-event-summaries"
+            now = timezone.now()
+            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            week_start = now - timezone.timedelta(days=7)
+            qs = MetricEvent.objects.values("event_type").annotate(
+                total=Count("id"),
+                last_7_days=Count("id", filter=Q(created_at__gte=week_start)),
+                today=Count("id", filter=Q(created_at__gte=today_start)),
+            )
+            serializer = MetricEventSummarySerializer(qs, many=True)
+            return Response(serializer.data)
+
+        qs = MetricEvent.objects.all()
+        serializer = MetricEventSerializer(qs, many=True)
         return Response(serializer.data)
 
 
