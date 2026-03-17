@@ -8,13 +8,6 @@ from apps.uploads.models import Upload
 from apps.uploads.serializers import UploadCreateSerializer, UploadSerializer
 from apps.uploads.views import UploadViewSet
 
-pytestmark = pytest.mark.django_db
-
-
-@pytest.fixture
-def viewset():
-    return UploadViewSet()
-
 
 @pytest.mark.parametrize(
     "action, expected_permissions",
@@ -57,6 +50,7 @@ def test_upload_viewset_get_serializer_class(action, expected_serializer):
     assert viewset.get_serializer_class() == expected_serializer
 
 
+@pytest.mark.django_db
 def test_upload_viewset_get_queryset_filtering(
     rf, admin_factory, editor_factory, upload_factory
 ):
@@ -87,16 +81,15 @@ def test_upload_viewset_get_queryset_filtering(
     assert upload_by_admin in qs
 
 
-def test_upload_viewset_perform_create_implements_upload_service(
-    mocker, editor_factory
-):
+@pytest.mark.django_db
+def test_upload_viewset_perform_create_implements_upload_service(mocker):
     mock_service_class = mocker.patch("apps.uploads.views.UploadService")
     mock_service_instance = mock_service_class.return_value
     mock_upload = Mock(spec=Upload, id=123)
     mock_service_instance.create_upload.return_value = mock_upload
 
-    user = editor_factory()
-    mock_file = Mock(name="test.jpg")
+    user = mocker.Mock()
+    mock_file = Mock()
 
     request = Mock()
     request.user = user
@@ -122,26 +115,30 @@ def test_upload_viewset_perform_create_implements_upload_service(
     assert mock_serializer.instance == mock_upload
 
 
-def test_upload_restore_action(mocker, rf, editor_factory):
-    user = editor_factory.build()
+def test_upload_viewset_perform_destroy_sets_deleted_at(mocker):
+    upload = mocker.Mock(spec=Upload)
+    viewset = UploadViewSet()
+    viewset.perform_destroy(upload)
+
+    assert upload.deleted_at is not None
+    upload.save.assert_called_once()
+
+
+def test_upload_restore_action(mocker, rf):
     upload = mocker.Mock(spec=Upload)
     upload.deleted_at = timezone.now()
 
-    # Mock get_object_or_404 to return our mock upload
     mock_get_object = mocker.patch(
         "apps.uploads.views.get_object_or_404", return_value=upload
     )
 
-    # Mock the serializer
     mock_serializer = mocker.Mock()
     mock_serializer.data = {"id": 123, "status": "restored"}
 
     viewset = UploadViewSet()
     viewset.action = "restore"
     viewset.request = rf.post("/restore/")
-    viewset.request.user = user
 
-    # Mock get_serializer to return our mock serializer
     mocker.patch.object(viewset, "get_serializer", return_value=mock_serializer)
 
     response = viewset.restore(viewset.request, pk=123)
@@ -151,3 +148,42 @@ def test_upload_restore_action(mocker, rf, editor_factory):
     mock_get_object.assert_called_once_with(Upload.all_objects, pk=123)
     assert upload.deleted_at is None
     upload.save.assert_called_once()
+
+
+def test_upload_restore_returns_400_if_not_deleted(mocker, rf):
+    upload = mocker.Mock(spec=Upload)
+    upload.deleted_at = None
+
+    mocker.patch("apps.uploads.views.get_object_or_404", return_value=upload)
+
+    viewset = UploadViewSet()
+    viewset.action = "restore"
+    viewset.request = rf.post("/restore/")
+
+    response = viewset.restore(viewset.request, pk=123)
+
+    assert response.status_code == 400
+    assert response.data == {"detail": "Upload is not deleted."}
+
+
+def test_upload_trash_action(mocker, rf):
+    mock_queryset = mocker.MagicMock()
+    mock_deleted_qs = mocker.MagicMock()
+    mock_queryset.only_deleted.return_value = mock_deleted_qs
+
+    mock_serializer = mocker.Mock()
+    mock_serializer.data = [{"id": 1}, {"id": 2}]
+
+    viewset = UploadViewSet()
+    viewset.action = "trash"
+    viewset.request = rf.get("/uploads/trash/")
+
+    mocker.patch.object(viewset, "get_queryset", return_value=mock_queryset)
+    mocker.patch.object(viewset, "get_serializer", return_value=mock_serializer)
+
+    response = viewset.trash(viewset.request)
+
+    mock_queryset.only_deleted.assert_called_once()
+    viewset.get_serializer.assert_called_once_with(mock_deleted_qs, many=True)
+    assert response.status_code == 200
+    assert response.data == mock_serializer.data

@@ -59,7 +59,7 @@ class UploadViewSet(ModelViewSet):
 
         if upload.deleted_at is None:
             return Response(
-                {"detail": "Upload is not deleted"}, status=status.HTTP_400_BAD_REQUEST
+                {"detail": "Upload is not deleted."}, status=status.HTTP_400_BAD_REQUEST
             )
 
         upload.deleted_at = None
