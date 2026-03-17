@@ -1,8 +1,4 @@
-import pytest
-
 from config.views import APIRootView
-
-pytestmark = pytest.mark.django_db
 
 
 class TestAPIRootView:
