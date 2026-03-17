@@ -1,3 +1,4 @@
+from django.utils import timezone
 import pytest
 from rest_framework.fields import DateTimeField
 
@@ -95,6 +96,12 @@ def test_get_url_private_file_access_control(
         assert serializer.data["url"] == request.build_absolute_uri(upload.file.url)
     else:
         assert serializer.data["url"] is None
+
+
+def test_get_url_returns_none_if_deleted(db, upload_factory, clean_media):
+    upload = upload_factory(deleted_at=timezone.now())
+    serializer = UploadSerializer(upload)
+    assert serializer.data["url"] is None
 
 
 def test_upload_create_serializer_requires_file(db):
