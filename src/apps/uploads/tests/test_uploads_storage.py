@@ -73,6 +73,13 @@ class TestLocalMediaStorage:
         storage = LocalMediaStorage()
         assert storage.get_backend_name() == "local"
 
+    def test_local_storage_generate_url(self, settings, tmp_path):
+        settings.MEDIA_ROOT = str(tmp_path)
+        settings.MEDIA_URL = "/media/"
+        storage = LocalMediaStorage()
+        url = storage.generate_url("uploads/photo.jpg")
+        assert url == "/media/uploads/photo.jpg"
+
 
 class TestS3MediaStorage:
     def test_s3_storage_health_check_returns_true(self, mocker):
