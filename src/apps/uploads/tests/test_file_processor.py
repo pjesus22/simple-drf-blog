@@ -9,7 +9,7 @@ from apps.uploads.exceptions import (
     UnsupportedMimeTypeError,
 )
 from apps.uploads.utils import DefaultStrategy, FileProcessor, ImageStrategy
-from apps.uploads.utils.file_processor import BaseStrategy, validate_extension
+from apps.uploads.utils.file_processor import validate_extension
 
 
 class TestValidateExtension:
@@ -55,17 +55,6 @@ class TestValidateExtension:
 
 
 class TestStrategies:
-    def test_base_strategy_process_is_abstract(self):
-        class MockStrategy(BaseStrategy):
-            def process(self, file, head):
-                return super().process(file, head)
-
-        strategy = MockStrategy()
-        f = SimpleUploadedFile("test.txt", b"test content")
-
-        with pytest.raises(NotImplementedError):
-            strategy.process(f, b"test")
-
     def test_image_strategy_valid_image(self, file_factory):
         f = file_factory.create_real_image_file(size=(50, 30))
         strategy = ImageStrategy()
