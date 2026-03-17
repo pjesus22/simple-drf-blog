@@ -103,3 +103,9 @@ force-sort-within-sections = true
 quote-style = "double"
 indent-style = "space"
 line-ending = "auto"
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "@abstractmethod",
+]
