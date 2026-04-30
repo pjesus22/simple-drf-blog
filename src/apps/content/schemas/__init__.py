@@ -6,7 +6,8 @@ from apps.content.schemas.posts import (
     remove_attachment_schema,
     restore_schema,
     soft_delete_schema,
-    thumbnail_schema,
+    thumbnail_add_schema,
+    thumbnail_remove_schema,
     trash_schema,
 )
 from apps.content.schemas.tags import tag_viewset_schema
@@ -20,6 +21,7 @@ __all__ = [
     "restore_schema",
     "soft_delete_schema",
     "tag_viewset_schema",
-    "thumbnail_schema",
+    "thumbnail_add_schema",
+    "thumbnail_remove_schema",
     "trash_schema",
 ]
