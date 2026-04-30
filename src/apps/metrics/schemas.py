@@ -6,8 +6,8 @@ from drf_spectacular.utils import (
 )
 
 from apps.metrics.serializers import (
-    DiagnosticHealthSerializer,
-    HealthSerializer,
+    APIHealthSerializer,
+    DatabaseHealthSerializer,
     MetricEventSerializer,
     MetricEventSummarySerializer,
     StorageHealthSerializer,
@@ -16,7 +16,7 @@ from apps.metrics.serializers import (
 health_schema = extend_schema(
     summary="health",
     description="Health check endpoint.",
-    responses={200: HealthSerializer},
+    responses={200: APIHealthSerializer},
 )
 
 health_diagnostic_schema = extend_schema(
@@ -24,12 +24,12 @@ health_diagnostic_schema = extend_schema(
     description=(
         "Health check endpoint with database diagnostics (requires admin role)."
     ),
-    responses={200: DiagnosticHealthSerializer},
+    responses={200: DatabaseHealthSerializer},
 )
 
 metric_event_schema = extend_schema(
     summary="metric_event",
-    description=("List all metric events (requires admin role). "),
+    description=("List all metric events (requires admin role)."),
     parameters=[
         OpenApiParameter(
             name="summary",

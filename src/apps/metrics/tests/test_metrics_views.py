@@ -5,8 +5,8 @@ from rest_framework.test import APIClient
 
 from apps.accounts.permissions import IsAdmin
 from apps.metrics.views import (
-    HealthDiagnosticView,
-    HealthView,
+    APIHealthView,
+    DatabaseHealthView,
     MetricEventView,
     StorageHealthView,
 )
@@ -27,7 +27,7 @@ def admin_user(mocker):
 
 class TestHealthView:
     def test_health_view_permissions(self):
-        view = HealthView()
+        view = APIHealthView()
         permissions = view.get_permissions()
 
         assert len(permissions) == 1
@@ -35,32 +35,34 @@ class TestHealthView:
 
     def test_health_view_get_success(self, api_client):
         response = api_client.get("/health/")
+        data = response.json().get("data")
 
         assert response.status_code == 200
-        assert response.data["type"] == "health"
-        assert response.data["id"] == "api"
-        assert response.data["attributes"]["status"] == "ok"
-        assert response.data["attributes"]["version"] == "1.0"
+        assert data["type"] == "health"
+        assert data["id"] == "api"
+        assert data["attributes"]["status"] == "ok"
+        assert data["attributes"]["version"] == "1.0"
 
 
-class TestHealthDiagnosticView:
-    def test_health_diagnostic_view_permissions(self):
-        view = HealthDiagnosticView()
+class TestDatabaseHealthView:
+    def test_database_health_view_permissions(self):
+        view = DatabaseHealthView()
         permissions = view.get_permissions()
 
         assert len(permissions) == 1
         assert isinstance(permissions[0], IsAdmin)
 
-    def test_health_diagnostic_view_get_success(self, api_client, admin_user, db):
+    def test_database_health_view_get_success(self, api_client, admin_user, db):
         api_client.force_authenticate(user=admin_user)
-        response = api_client.get("/health/diagnostic/")
+        response = api_client.get("/health/database/")
+        data = response.json().get("data")
 
         assert response.status_code == 200
-        assert response.data["attributes"]["status"] == "ok"
-        assert response.data["attributes"]["database"] == "ok"
-        assert "db_latency_ms" in response.data["attributes"]
+        assert data["attributes"]["status"] == "ok"
+        assert data["attributes"]["db_status"] == "ok"
+        assert "db_latency_ms" in data["attributes"]
 
-    def test_health_diagnostic_view_database_unavailable(
+    def test_database_health_view_database_unavailable(
         self, api_client, admin_user, db, mocker
     ):
         cursor = mocker.MagicMock()
@@ -70,10 +72,11 @@ class TestHealthDiagnosticView:
         ].cursor.return_value = cursor
 
         api_client.force_authenticate(user=admin_user)
-        response = api_client.get("/health/diagnostic/")
+        response = api_client.get("/health/database/")
+        data = response.json().get("data")
 
         assert response.status_code == 200
-        assert response.data["attributes"]["database"] == "unavailable"
+        assert data["attributes"]["db_status"] == "unavailable"
 
 
 class TestMetricEventView:
@@ -121,8 +124,9 @@ class TestStorageHealthView:
     def test_storage_health_view_get_success(self, api_client, admin_user, db):
         api_client.force_authenticate(user=admin_user)
         response = api_client.get("/health/storage/")
+        data = response.json().get("data")
 
         assert response.status_code == 200
-        assert response.data["attributes"]["status"] == "ok"
-        assert response.data["attributes"]["backend"] == "local"
-        assert response.data["attributes"]["reachable"] is True
+        assert data["attributes"]["status"] == "ok"
+        assert data["attributes"]["backend"] == "local"
+        assert data["attributes"]["reachable"] is True

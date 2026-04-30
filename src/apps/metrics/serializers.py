@@ -1,44 +1,41 @@
-from rest_framework import serializers as drf_serializers
-from rest_framework_json_api import serializers as json_api_serializers
+from rest_framework_json_api import serializers
 
 from apps.metrics.models import MetricEvent
 
 
-class HealthSerializer(drf_serializers.Serializer):
-    status = drf_serializers.CharField()
-    version = drf_serializers.CharField()
+class APIHealthSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    version = serializers.CharField()
 
 
-class DiagnosticHealthSerializer(drf_serializers.Serializer):
-    status = drf_serializers.CharField()
-    database = drf_serializers.CharField()
-    db_latency_ms = drf_serializers.IntegerField()
+class DatabaseHealthSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    version = serializers.CharField()
+    db_status = serializers.CharField()
+    db_latency_ms = serializers.IntegerField()
+
+    class Meta:
+        resource_name = "database-health"
 
 
-class MetricEventSummarySerializer(json_api_serializers.Serializer):
-    id = drf_serializers.CharField(source="event_type")
-    event_type = drf_serializers.CharField()
-    total = drf_serializers.IntegerField()
-    last_7_days = drf_serializers.IntegerField()
-    today = drf_serializers.IntegerField()
+class MetricEventSummarySerializer(serializers.Serializer):
+    id = serializers.CharField(source="event_type")
+    event_type = serializers.CharField()
+    total = serializers.IntegerField()
+    last_7_days = serializers.IntegerField()
+    today = serializers.IntegerField()
 
     class Meta:
         resource_name = "metric-event-summaries"
 
 
-class MetricEventSerializer(json_api_serializers.ModelSerializer):
+class MetricEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = MetricEvent
-        fields = (
-            "id",
-            "event_type",
-            "user",
-            "metadata",
-            "created_at",
-        )
+        fields = ("id", "event_type", "metadata", "created_at", "updated_at")
 
 
-class StorageHealthSerializer(drf_serializers.Serializer):
-    status = drf_serializers.CharField()
-    backend = drf_serializers.CharField()
-    reachable = drf_serializers.BooleanField()
+class StorageHealthSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    backend = serializers.CharField()
+    reachable = serializers.BooleanField()
