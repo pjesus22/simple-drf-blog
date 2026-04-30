@@ -25,10 +25,6 @@ def test_social_media_profile_str(profile):
     )
 
 
-def test_profile_is_public_defaults_to_true(profile):
-    assert profile.is_public is True
-
-
 def test_user_cannot_have_multiple_profiles(db, editor_factory):
     user = editor_factory(profile=True)
 
@@ -169,7 +165,7 @@ def test_profile_default_values(db, editor_factory):
     assert profile.occupation == ""
     assert profile.skills == ""
     assert profile.experience_years == 0
-    assert profile.is_public is True
+    assert profile.is_public is False
 
 
 def test_profile_experience_years_validation(profile):

@@ -17,8 +17,7 @@ class Profile(BaseModel):
     occupation = models.CharField(blank=True, max_length=128)
     skills = models.TextField(blank=True)
     experience_years = models.PositiveIntegerField(default=0)
-
-    is_public = models.BooleanField(default=True)
+    is_public = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-created_at"]

@@ -46,10 +46,6 @@ class IsOwner(BasePermission):
         if isinstance(obj, User):
             return obj == user
 
-        for field in self.OWNER_FIELDS:
-            if getattr(obj, field, None) == user:
-                return True
-
         return any(getattr(obj, field, None) == user for field in self.OWNER_FIELDS)
 
 

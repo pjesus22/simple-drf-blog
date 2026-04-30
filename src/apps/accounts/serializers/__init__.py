@@ -1,5 +1,6 @@
 from .profiles import (
     PrivateProfileSerializer,
+    ProfileVisibilitySerializer,
     PublicProfileSerializer,
     SocialMediaProfileSerializer,
 )
@@ -17,6 +18,7 @@ __all__ = [
     "PasswordResetSerializer",
     "PasswordUpdateSerializer",
     "PrivateProfileSerializer",
+    "ProfileVisibilitySerializer",
     "PublicProfileSerializer",
     "SocialMediaProfileSerializer",
     "UserCreateSerializer",

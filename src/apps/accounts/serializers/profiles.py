@@ -86,57 +86,95 @@ class PrivateProfileSerializer(ProfileSerializer):
 
         with transaction.atomic():
             instance = Profile.objects.create(**validated_data)
-
-            if social_data:
-                social_media_objects = [
-                    SocialMediaProfile(profile=instance, **item) for item in social_data
-                ]
-                SocialMediaProfile.objects.bulk_create(social_media_objects)
-
+            self._put_social_media(instance, social_data)
             return instance
 
     def update(self, instance, validated_data):
-        social_data = validated_data.pop("social_media", None)
+        social_media_data = validated_data.pop("social_media", None)
 
         with transaction.atomic():
-            for attr, value in validated_data.items():
-                setattr(instance, attr, value)
-            instance.save()
+            if self.partial:
+                self._patch_instance(instance, validated_data)
+                self._patch_social_media(instance, social_media_data)
 
-            if social_data is not None:
-                existing = {
-                    s.id: s
-                    for s in instance.social_media.all().only("id", "platform", "url")
-                }
+            else:
+                self._put_instance(instance, validated_data)
+                self._put_social_media(instance, social_media_data)
 
-                incoming_ids = set()
+        return instance
 
-                to_create = []
-                to_update = []
+    def _patch_instance(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
 
-                for item in social_data:
-                    sid = item.get("id")
-                    if sid and sid in existing:
-                        obj = existing[sid]
-                        obj.platform = item.get("platform", obj.platform)
-                        obj.url = item.get("url", obj.url)
-                        to_update.append(obj)
-                        incoming_ids.add(sid)
-                    else:
-                        item.pop("id", None)
-                        to_create.append(SocialMediaProfile(profile=instance, **item))
+    def _put_instance(self, instance, validated_data):
+        fields = (
+            "biography",
+            "location",
+            "occupation",
+            "skills",
+            "experience_years",
+        )
 
-                if to_create:
-                    SocialMediaProfile.objects.bulk_create(to_create)
+        for field in fields:
+            default_value = [] if field == "skills" else None
+            value = validated_data.get(field, default_value)
+            setattr(instance, field, value)
 
-                if to_update:
-                    SocialMediaProfile.objects.bulk_update(
-                        to_update, ["platform", "url"]
-                    )
+        instance.save()
 
-                to_delete_ids = set(existing.keys()) - incoming_ids
+    def _put_social_media(self, instance, social_data):
+        instance.social_media.all().delete()
 
-                if to_delete_ids:
-                    SocialMediaProfile.objects.filter(id__in=to_delete_ids).delete()
+        if social_data:
+            SocialMediaProfile.objects.bulk_create(
+                objs=[
+                    SocialMediaProfile(profile=instance, **item) for item in social_data
+                ]
+            )
 
-            return instance
+    def _patch_social_media(self, instance, social_data):
+        if social_data is None:
+            return
+
+        existing = {
+            social_profile.id: social_profile
+            for social_profile in instance.social_media.all().only(
+                "id", "platform", "url"
+            )
+        }
+
+        incoming_ids = set()
+        to_create = []
+        to_update = []
+
+        for item in social_data:
+            social_profile_id = item.get("id")
+
+            if social_profile_id and social_profile_id in existing:
+                obj = existing[social_profile_id]
+                obj.platform = item.get("platform", obj.platform)
+                obj.url = item.get("url", obj.url)
+                to_update.append(obj)
+                incoming_ids.add(social_profile_id)
+            else:
+                item.pop("id", None)
+                to_create.append(SocialMediaProfile(profile=instance, **item))
+
+        if to_create:
+            SocialMediaProfile.objects.bulk_create(to_create)
+
+        if to_update:
+            SocialMediaProfile.objects.bulk_update(to_update, ["platform", "url"])
+
+        to_delete_ids = set(existing.keys()) - incoming_ids
+
+        if to_delete_ids:
+            SocialMediaProfile.objects.filter(id__in=to_delete_ids).delete()
+
+
+class ProfileVisibilitySerializer(serializers.Serializer):
+    class Meta:
+        model = Profile
+        fields = ["is_public"]
