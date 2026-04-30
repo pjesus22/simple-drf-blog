@@ -55,11 +55,7 @@ REST_FRAMEWORK.update(
 API_VERSION = config("API_VERSION", default="1.0")
 
 # -----------------------------------------------------------------------------
-# DJANGO-Q2
+# CELERY
 # -----------------------------------------------------------------------------
-Q_CLUSTER = {
-    "name": "test",
-    "sync": True,
-    "orm": "default",
-    "timeout": 30,
-}
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True

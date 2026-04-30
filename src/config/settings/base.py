@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from celery.schedules import crontab
 import dj_database_url
 
 # -----------------------------------------------------------------------------
@@ -24,9 +25,9 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework_json_api",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     "django_filters",
     "drf_spectacular",
-    "django_q",
 ]
 
 LOCAL_APPS = [
@@ -47,6 +48,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.metrics.middleware.PostViewTrackingMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -79,15 +81,16 @@ DATABASES = {
     "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR}/db.sqlite3",
         conn_max_age=600,
-        engine="django.db.backends.mysql",
     )
 }
-DATABASES["default"].setdefault("OPTIONS", {}).update(
-    {
-        "charset": "utf8mb4",
-        "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-    }
-)
+
+if DATABASES["default"]["ENGINE"] == "django.db.backends.mysql":
+    DATABASES["default"].setdefault("OPTIONS", {}).update(
+        {
+            "charset": "utf8mb4",
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
+        }
+    )
 
 # -----------------------------------------------------------------------------
 # INTERNATIONALIZATION & LOCALIZATION
@@ -165,6 +168,7 @@ SPECTACULAR_SETTINGS = {
     "POSTPROCESSING_HOOKS": [
         "drf_spectacular.hooks.postprocess_schema_enums",
     ],
+    "EXTENSIONS_MODULE": "drf_spectacular.extensions",
     "SERVE_MEDIA_TYPES": ["application/vnd.api+json"],
     "SORT_OPERATIONS": True,
     "ENUM_ADD_EXPLICIT_BLANK_NULL_CHOICE": False,
@@ -188,19 +192,36 @@ SIMPLE_JWT = {
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "REFRESH_TOKEN_TYPE": "refresh",
     "ACCESS_TOKEN_TYPE": "access",
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 # -----------------------------------------------------------------------------
-# Q
+# CELERY
 # -----------------------------------------------------------------------------
-Q_CLUSTER = {
-    "name": "simple_drf_blog",
-    "workers": 2,
-    "timeout": 60,
-    "retry": 120,
-    "queue_limit": 50,
-    "bulk": 10,
-    "orm": "default",
+CELERY_BROKER_URL = "redis://redis:6379/0"
+CELERY_RESULT_BACKEND = "redis://redis:6379/1"
+
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+
+CELERY_TIMEZONE = "UTC"
+CELERY_ENABLE_UTC = True
+
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_TIME_LIMIT = 60
+CELERY_TASK_SOFT_TIME_LIMIT = 50
+CELERY_TASK_DEFAULT_RETRY_DELAY = 5
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+CELERY_BEAT_SCHEDULE = {
+    "cleanup-deleted-uploads-daily": {
+        "task": "apps.uploads.tasks.cleanup_deleted_uploads_task",
+        "schedule": crontab(hour=3, minute=0),
+        "kwargs": {"days": 30},
+    }
 }
 
 

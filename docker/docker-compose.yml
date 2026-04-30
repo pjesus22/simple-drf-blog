@@ -12,16 +12,41 @@ services:
       timeout: 5s
       retries: 5
 
-  web:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
     build:
       context: ..
       dockerfile: docker/dockerfile
-    restart: unless-stopped
     env_file:
       - ../.env.prod
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - ../.env.prod:/app/.env.prod:ro
+    command: ["python", "src/manage.py", "migrate", "--noinput"]
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/dockerfile
+    restart: unless-stopped
+    working_dir: /src
+    env_file:
+      - ../.env.prod
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - ../.env.prod:/app/.env.prod:ro
       - media_files:/app/src/media
@@ -33,22 +58,42 @@ services:
       retries: 5
       start_period: 30s
 
-  qcluster:
+  celery_worker:
     build:
       context: ..
       dockerfile: docker/dockerfile
     restart: unless-stopped
+    working_dir: /app/src
     env_file:
       - ../.env.prod
     depends_on:
-      web:
-        condition: service_healthy
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - ../.env.prod:/app/.env.prod:ro
       - media_files:/app/src/media
-    command: ["python", "src/manage.py", "qcluster"]
+    command: ["celery", "-A", "config", "worker", "-l", "info"]
+
+  celery_beat:
+    build:
+      context: ..
+      dockerfile: docker/dockerfile
+    restart: unless-stopped
+    working_dir: /app/src
+    env_file:
+      - ../.env.prod
+    depends_on:
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ../.env.prod:/app/.env.prod:ro
+    command: ["celery", "-A", "config", "beat", "-l", "info"]
 
   nginx:
     image: nginx:1.27-alpine
