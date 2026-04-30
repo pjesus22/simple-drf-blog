@@ -49,14 +49,33 @@ profile_viewset_schema = extend_schema_view(
 )
 
 
-profile_me_schema = extend_schema(
+profile_me_action_schema = extend_schema(
     summary="profiles_me",
+    description="Get the authenticated user's profile.",
+    responses={200: PrivateProfileSerializer},
+    methods=["GET"],
+)
+
+profile_me_action_update_schema = extend_schema(
+    summary="profiles_me_update",
     description=(
-        "GET: Get the authenticated user's profile.\n"
-        "PUT: Update the authenticated user's profile.\n"
-        "PATCH: Partially update the authenticated user's profile."
+        "Replace the authenticated user's profile. "
+        "Unspecified fields are reset. "
+        "`social_media` is fully replaced (omitted = deleted)."
     ),
     request=PrivateProfileSerializer,
     responses={200: PrivateProfileSerializer},
-    methods=["GET", "PUT", "PATCH"],
+    methods=["PUT"],
+)
+
+profile_me_action_partial_update_schema = extend_schema(
+    summary="profiles_me_partial_update",
+    description=(
+        "Partially update the authenticated user's profile. "
+        "Only provided fields are updated. "
+        "social_media` is merged without removing unspecified items."
+    ),
+    request=PrivateProfileSerializer,
+    responses={200: PrivateProfileSerializer},
+    methods=["PATCH"],
 )

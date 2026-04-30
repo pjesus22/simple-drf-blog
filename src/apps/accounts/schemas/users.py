@@ -63,16 +63,25 @@ user_viewset_schema = extend_schema_view(
         parameters=[USER_ID_PARAMETER],
     ),
 )
-user_me_schema = extend_schema(
+user_me_action_schema = extend_schema(
     summary="users_me",
-    description=(
-        "GET: Get authenticated user profile.\n"
-        "PATCH: Update authenticated user profile."
-    ),
+    description="Get authenticated user profile",
+    responses={
+        200: UserDetailSerializer,
+        401: OpenApiResponse(description="Unauthorized"),
+    },
+    methods=["GET"],
+)
+
+user_me_action_update_schema = extend_schema(
+    summary="users_me_update",
+    description="Update authenticated user profile.",
     request=UserDetailSerializer,
     responses={200: UserDetailSerializer},
-    methods=["GET", "PATCH"],
+    methods=["PATCH"],
 )
+
+
 change_role_schema = extend_schema(
     summary="users_change_role",
     description=(

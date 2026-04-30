@@ -11,7 +11,8 @@ from apps.accounts.schemas import (
     change_password_schema,
     change_role_schema,
     force_password_change_schema,
-    user_me_schema,
+    user_me_action_schema,
+    user_me_action_update_schema,
     user_viewset_schema,
 )
 from apps.accounts.serializers import (
@@ -63,7 +64,8 @@ class UserViewSet(ModelViewSet):
         permission_classes = permission_map.get(self.action, self.permission_classes)
         return [p() for p in permission_classes]
 
-    @user_me_schema
+    @user_me_action_schema
+    @user_me_action_update_schema
     @action(detail=False, methods=["get", "patch"])
     def me(self, request, *args, **kwargs):
         user = request.user
