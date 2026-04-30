@@ -1,8 +1,6 @@
 import pytest
-from rest_framework.exceptions import MethodNotAllowed, ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
-from rest_framework.test import APIRequestFactory
 
 from apps.accounts.permissions import IsAdmin, IsEditor, IsOwner
 from apps.content.serializers import (
@@ -62,26 +60,17 @@ def test_content_viewsets_return_correct_permissions(
 
 
 class TestPostViewSet:
-    def test_post_viewset_destroy_raises_method_not_allowed(self):
-        factory = APIRequestFactory()
-        request = factory.delete("/posts/test-slug/")
-        viewset = PostViewSet(action="destroy")
-        viewset.request = request
-
-        with pytest.raises(MethodNotAllowed):
-            viewset.destroy(request)
-
     @pytest.mark.parametrize(
         "action, expected_serializer",
         [
             ("create", PostCreateSerializer),
             ("update", PostUpdateSerializer),
             ("partial_update", PostUpdateSerializer),
+            ("destroy", PostSoftDeleteSerializer),
             ("change_status", PostStatusSerializer),
             ("thumbnail", PostThumbnailSerializer),
             ("add_attachments", PostAttachmentAddSerializer),
             ("remove_attachment", PostAttachmentRemoveSerializer),
-            ("soft_delete", PostSoftDeleteSerializer),
             ("restore", PostRestoreSerializer),
             ("list", PostSerializer),
             ("retrieve", PostSerializer),
@@ -93,16 +82,6 @@ class TestPostViewSet:
         viewset = PostViewSet(action=action)
         serializer_class = viewset.get_serializer_class()
         assert serializer_class == expected_serializer
-
-    def test_post_viewset_perform_create_sets_author(self, mocker, editor_factory):
-        user = editor_factory()
-        request = mocker.Mock(user=user)
-        viewset = PostViewSet(request=request)
-        mock_serializer = mocker.Mock()
-
-        viewset.perform_create(mock_serializer)
-
-        mock_serializer.save.assert_called_once_with(author=user)
 
     def test_get_queryset_default_action_uses_visible_for(
         self, rf, editor_factory, mocker
@@ -154,39 +133,6 @@ class TestPostViewSet:
         mock_post.objects.only_deleted.assert_called_once()
         mock_queryset.owned_by.assert_called_once_with(request.user)
 
-    def test_get_queryset_soft_delete_action(self, rf, editor_factory, mocker):
-        request = rf.get("/posts/soft_delete/")
-        request.user = editor_factory()
-        viewset = PostViewSet(request=request, action="soft_delete")
-
-        mock_post = mocker.patch("apps.content.views.posts.Post")
-        viewset.get_queryset()
-        mock_post.objects.owned_by.assert_called_once_with(request.user)
-
-    def test_retrieve_fires_metric_event_signal(
-        self, rf, post_factory, editor_factory, mocker
-    ):
-        post = post_factory(status="published")
-        user = editor_factory()
-        request = rf.get(f"/posts/{post.slug}/")
-        request.user = user
-
-        viewset = PostViewSet(
-            request=request, action="retrieve", kwargs={"slug": post.slug}
-        )
-        viewset.format_kwarg = None
-        viewset.get_object = mocker.Mock(return_value=post)
-        viewset.get_serializer_context = mocker.Mock(return_value={"request": request})
-        mock_send = mocker.patch("apps.metrics.signals.post_read.send")
-
-        viewset.retrieve(request)
-
-        mock_send.assert_called_once_with(
-            sender=type(post),
-            post=post,
-            user=user,
-        )
-
     def test_change_status_action_success(
         self, rf, post_factory, editor_factory, mocker
     ):
@@ -202,35 +148,12 @@ class TestPostViewSet:
         viewset.get_object = mocker.Mock(return_value=post)
         viewset.get_serializer_context = mocker.Mock(return_value={"request": request})
 
-        mock_change_status = mocker.Mock()
-        post.change_status = mock_change_status
+        mock_transition_to = mocker.Mock()
+        post.transition_to = mock_transition_to
         response = viewset.change_status(request, slug=post.slug)
 
         assert response.status_code == 200
-        mock_change_status.assert_called_once_with("published")
-
-    def test_change_status_action_validation_error(
-        self, rf, post_factory, editor_factory, mocker
-    ):
-        post = post_factory(status="deleted")
-        data = {"status": "published"}
-        request = rf.post(f"/posts/{post.slug}/change_status/", data)
-        request.user = editor_factory()
-        request.data = data
-
-        viewset = PostViewSet(
-            request=request, action="change_status", kwargs={"slug": post.slug}
-        )
-        viewset.get_object = mocker.Mock(return_value=post)
-        viewset.get_serializer_context = mocker.Mock(return_value={"request": request})
-
-        with pytest.raises(ValidationError) as exc_info:
-            viewset.change_status(request, slug=post.slug)
-
-        assert "status" in exc_info.value.detail
-        assert "Cannot change status of a deleted post" in str(
-            exc_info.value.detail["status"][0]
-        )
+        mock_transition_to.assert_called_once_with("published")
 
     def test_thumbnail_action_post_success(
         self, rf, post_factory, upload_factory, clean_media, editor_factory, mocker
@@ -280,6 +203,7 @@ class TestPostViewSet:
         post = post_factory()
         attachments = upload_factory.create_batch(size=2, purpose="attachment")
         data = {"attachments": [str(a.id) for a in attachments]}
+        print(data)
         request = rf.post(
             f"/posts/{post.slug}/attachments/",
             data,
@@ -320,46 +244,6 @@ class TestPostViewSet:
 
         assert response.status_code == 204
         assert post.attachments.count() == 0
-
-    def test_soft_delete_action_success(self, rf, post_factory, editor_factory, mocker):
-        post = post_factory(status="draft")
-        data = {"confirm": True}
-        request = rf.post(f"/posts/{post.slug}/soft_delete/", data)
-        request.user = editor_factory()
-        request.data = data
-
-        viewset = PostViewSet(
-            request=request, action="soft_delete", kwargs={"slug": post.slug}
-        )
-        viewset.format_kwarg = None
-        viewset.get_object = mocker.Mock(return_value=post)
-
-        response = viewset.soft_delete(request, slug=post.slug)
-
-        assert response.status_code == 204
-        post.refresh_from_db()
-        assert post.status == "deleted"
-
-    def test_soft_delete_action_raises_validation_error_if_post_is_already_deleted(
-        self, rf, post_factory, editor_factory, mocker
-    ):
-        post = post_factory(status="deleted")
-        data = {"confirm": True}
-        request = rf.post(f"/posts/{post.slug}/soft_delete/", data)
-        request.user = editor_factory()
-        request.data = data
-
-        viewset = PostViewSet(
-            request=request, action="soft_delete", kwargs={"slug": post.slug}
-        )
-        viewset.format_kwarg = None
-        viewset.get_object = mocker.Mock(return_value=post)
-        viewset.get_serializer_context = mocker.Mock(return_value={"request": request})
-
-        with pytest.raises(ValidationError) as exc_info:
-            viewset.soft_delete(request, slug=post.slug)
-
-        assert "This post is already deleted" in str(exc_info.value.detail)
 
     def test_restore_action_success(self, rf, post_factory, admin_factory, mocker):
         post = post_factory(status="deleted")

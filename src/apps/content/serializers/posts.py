@@ -6,20 +6,19 @@ from apps.uploads.models import Upload
 
 class PostSerializer(serializers.ModelSerializer):
     author = serializers.ResourceRelatedField(read_only=True)
-    category = serializers.ResourceRelatedField(
-        queryset=Category.objects.all(),
-    )
+    category = serializers.ResourceRelatedField(queryset=Category.objects.all())
     tags = serializers.ResourceRelatedField(
-        many=True,
-        queryset=Tag.objects.all(),
+        many=True, queryset=Tag.objects.all(), required=False
     )
     thumbnail = serializers.ResourceRelatedField(
         queryset=Upload.objects.filter(purpose=Upload.Purpose.THUMBNAIL),
         allow_null=True,
+        required=False,
     )
     attachments = serializers.ResourceRelatedField(
         many=True,
         queryset=Upload.objects.filter(purpose=Upload.Purpose.ATTACHMENT),
+        required=False,
     )
 
     included_serializers = {
@@ -49,55 +48,53 @@ class PostSerializer(serializers.ModelSerializer):
             "attachments",
         )
         resource_name = "posts"
-        read_only_fields = ("id", "created_at", "updated_at", "published_at")
+        read_only_fields = ("id", "created_at", "updated_at", "published_at", "status")
 
 
 class PostCreateSerializer(PostSerializer):
-    title = serializers.CharField(required=True)
-    content = serializers.CharField(required=True)
-    slug = serializers.CharField(required=False)
-    category = serializers.ResourceRelatedField(
-        queryset=Category.objects.all(),
-        required=True,
-    )
-    tags = serializers.ResourceRelatedField(
-        many=True,
-        queryset=Tag.objects.all(),
-        required=False,
-    )
-    thumbnail = serializers.ResourceRelatedField(
-        queryset=Upload.objects.filter(purpose=Upload.Purpose.THUMBNAIL).all(),
-        allow_null=True,
-        required=False,
-    )
-    attachments = serializers.ResourceRelatedField(
-        many=True,
-        queryset=Upload.objects.filter(purpose=Upload.Purpose.ATTACHMENT).all(),
-        required=False,
-    )
+    status = serializers.ChoiceField(choices=Post.Status.choices, required=False)
 
     class Meta(PostSerializer.Meta):
-        pass
+        read_only_fields = (*PostSerializer.Meta.read_only_fields, "slug", "author")
+
+    def create(self, validated_data):
+        validated_data["author"] = self.context["request"].user
+        validated_data["status"] = Post.Status.DRAFT
+
+        return super().create(validated_data)
 
 
 class PostUpdateSerializer(serializers.ModelSerializer):
-    category = serializers.ResourceRelatedField(
-        queryset=Category.objects.all(), required=False
-    )
+    category = serializers.ResourceRelatedField(queryset=Category.objects.all())
     tags = serializers.ResourceRelatedField(
         many=True, queryset=Tag.objects.all(), required=False
     )
 
     class Meta:
         model = Post
-        fields = (
-            "title",
-            "slug",
-            "content",
-            "summary",
-            "category",
-            "tags",
-        )
+        fields = ("title", "slug", "content", "summary", "category", "tags")
+
+    def validate(self, attrs):
+        instance = self.instance
+
+        if instance and instance.is_published:
+            forbidden = ("title", "category", "tags")
+            if any(k in attrs for k in forbidden):
+                raise serializers.ValidationError(
+                    "Cannot change title, category, or tags of a published post."
+                    "Please archive the post first."
+                )
+        return attrs
+
+    def update(self, instance, validated_data):
+        tags = validated_data.pop("tags", serializers.empty)
+
+        instance = super().update(instance, validated_data)
+
+        if tags is not serializers.empty:
+            instance.tags.set(tags)
+
+        return instance
 
 
 class PostStatusSerializer(serializers.ModelSerializer):
@@ -107,7 +104,7 @@ class PostStatusSerializer(serializers.ModelSerializer):
         model = Post
         fields = ("status",)
 
-    def validate_status(self, value):
+    def validate(self, attrs):
         post = self.instance
 
         if post.is_deleted:
@@ -116,12 +113,17 @@ class PostStatusSerializer(serializers.ModelSerializer):
                 code="not_deleted",
             )
 
-        return value
+        if attrs["status"] == Post.Status.PUBLISHED and not post.content:
+            raise serializers.ValidationError(
+                detail="Cannot publish a post without content.",
+                code="no_content",
+            )
+
+        return attrs
 
     def save(self, **kwargs):
         post = self.instance
-        new_status = self.validated_data["status"]
-        post.change_status(new_status)
+        post.transition_to(self.validated_data["status"])
         return post
 
 
@@ -143,10 +145,11 @@ class PostAttachmentAddSerializer(serializers.Serializer):
 
     def validate_attachments(self, values):
         uploads = Upload.objects.filter(
-            id__in=values, purpose=Upload.Purpose.ATTACHMENT
+            id__in=values,
+            purpose=Upload.Purpose.ATTACHMENT,
         )
 
-        if uploads.count() != len(set(values)):
+        if uploads.count() != len(values):
             raise serializers.ValidationError("One or more attachments are invalid.")
 
         return uploads
@@ -166,26 +169,9 @@ class PostAttachmentRemoveSerializer(serializers.Serializer):
 
 
 class PostSoftDeleteSerializer(serializers.Serializer):
-    confirm = serializers.BooleanField(
-        required=True,
-        help_text="Must be true to confirm selection",
-    )
-    reason = serializers.CharField(
-        required=False,
-        max_length=200,
-        allow_blank=True,
-        help_text="Optional reason for deletion",
-    )
+    confirm = serializers.BooleanField(required=True)
 
     def validate(self, attrs):
-        post = self.instance
-
-        if post.is_deleted:
-            raise serializers.ValidationError(
-                detail="This post is already deleted.",
-                code="already_deleted",
-            )
-
         if not attrs.get("confirm", False):
             raise serializers.ValidationError(
                 detail="Must confirm deletion by setting 'confirm=true'",
@@ -201,20 +187,9 @@ class PostSoftDeleteSerializer(serializers.Serializer):
 
 
 class PostRestoreSerializer(serializers.Serializer):
-    confirm = serializers.BooleanField(
-        required=True,
-        help_text="Must be true to confirm restoration",
-    )
+    confirm = serializers.BooleanField(required=True)
 
     def validate(self, attrs):
-        post = self.instance
-
-        if not post.is_deleted:
-            raise serializers.ValidationError(
-                detail="Only deleted posts can be restored.",
-                code="not_deleted",
-            )
-
         if not attrs.get("confirm", False):
             raise serializers.ValidationError(
                 detail="Must confirm restoration by setting 'confirm=true'",

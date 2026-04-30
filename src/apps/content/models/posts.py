@@ -1,14 +1,13 @@
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
-from django.utils.text import slugify
 from utils.base_models import BaseModel
-from utils.text_tools import generate_slug
 
-from apps.content.managers import PostManager
+from apps.content.managers import PostManager, PostQueryset
+from apps.content.mixins import SlugMixin
 
 
-class Post(BaseModel):
+class Post(SlugMixin, BaseModel):
     class Status(models.TextChoices):
         DRAFT = "draft", "Draft"
         PUBLISHED = "published", "Published"
@@ -16,6 +15,13 @@ class Post(BaseModel):
         DELETED = "deleted", "Deleted"
 
     objects = PostManager()
+    all_objects = PostQueryset.as_manager()
+    ALLOWED_TRANSITIONS = {
+        Status.DRAFT: {Status.PUBLISHED, Status.DELETED},
+        Status.PUBLISHED: {Status.ARCHIVED, Status.DELETED},
+        Status.ARCHIVED: {Status.DRAFT, Status.DELETED},
+        Status.DELETED: {Status.DRAFT},
+    }
 
     status = models.CharField(
         max_length=32,
@@ -40,7 +46,7 @@ class Post(BaseModel):
         blank=True,
     )
     title = models.CharField(max_length=106, blank=False, null=False)
-    slug = models.SlugField(max_length=128, null=False, unique=True)
+    slug = models.SlugField(max_length=128, unique=True)
     content = models.TextField(blank=True)
     attachments = models.ManyToManyField(
         to="uploads.Upload",
@@ -60,82 +66,54 @@ class Post(BaseModel):
     def __str__(self):
         return self.title
 
-    def clean(self):
-        super().clean()
+    def transition_to(self, new_status):
+        if not self.pk:
+            raise ValidationError("Cannot transition an unsaved object.")
 
-        self.slug = slugify(self.slug) if self.slug else generate_slug(self, self.title)
-
-        if self.is_published and self.published_at is None:
-            self.published_at = timezone.now()
-
-        if self.status == self.Status.PUBLISHED and self._state.adding is False:
-            old_status = Post.objects.with_deleted().get(pk=self.pk).status
-            if old_status in [self.Status.ARCHIVED, self.Status.DELETED]:
-                raise ValidationError(
-                    f"Cannot publish a post from {old_status} status."
-                    f"Restore to draft first."
-                )
-
-    def save(self, *args, **kwargs):
-        self.clean()
-        super().save(*args, **kwargs)
-
-    def publish(self):
-        if self.status == self.Status.DELETED:
-            raise ValidationError("Cannot publish a deleted post. Restore it first.")
-
-        self.status = self.Status.PUBLISHED
-        self.published_at = timezone.now()
-        self.save(update_fields=["status", "published_at", "updated_at"])
-
-    def archive(self):
-        if self.status == self.Status.DELETED:
-            raise ValidationError("Cannot archive a deleted post. Restore it first.")
-
-        self.status = self.Status.ARCHIVED
-        self.save(update_fields=["status", "updated_at"])
-
-    def soft_delete(self):
-        if self.status == self.Status.DELETED:
-            raise ValidationError("This post is already deleted.")
-
-        self.status = self.Status.DELETED
-        self.save(update_fields=["status", "updated_at"])
-
-    def restore(self):
-        if self.status != self.Status.DELETED:
-            raise ValidationError("Only deleted posts can be restored.")
-
-        self.status = self.Status.DRAFT
-        self.save(update_fields=["status", "updated_at"])
-
-    def change_status(self, new_status):
-        if self.status == self.Status.DELETED:
-            raise ValidationError("Cannot change status of a deleted post.")
-
-        if new_status.lower() not in self.Status.values:
-            raise ValidationError(f"Invalid status: {new_status}")
-
-        transition_rules = {
-            self.Status.DRAFT: [self.Status.PUBLISHED, self.Status.DELETED],
-            self.Status.PUBLISHED: [self.Status.ARCHIVED, self.Status.DELETED],
-            self.Status.ARCHIVED: [self.Status.DRAFT, self.Status.DELETED],
-        }
-
-        if new_status not in transition_rules.get(self.status, []):
-            raise ValidationError(
-                f"Cannot transition from {self.status} to {new_status}"
+        with transaction.atomic():
+            locked = (
+                Post.all_objects.select_for_update()
+                .only("status", "published_at")
+                .get(pk=self.pk)
             )
 
-        if new_status == self.Status.PUBLISHED and self.published_at is None:
-            self.published_at = timezone.now()
+            if new_status not in self.Status.values:
+                raise ValidationError(f"Invalid status: {new_status}.")
 
-        self.status = new_status
-        update_fields = ["status", "updated_at"]
-        if new_status == self.Status.PUBLISHED:
-            update_fields.append("published_at")
+            if new_status == locked.status:
+                return
 
-        self.save(update_fields=update_fields)
+            allowed = self.ALLOWED_TRANSITIONS.get(locked.status, set())
+
+            if new_status not in allowed:
+                raise ValidationError(
+                    f"Cannot transition from {locked.status} to {new_status}"
+                )
+
+            if new_status == self.Status.PUBLISHED and locked.published_at is None:
+                locked.published_at = timezone.now()
+
+            locked.status = new_status
+            locked.save()
+            self.refresh_from_db(fields=["status", "published_at"])
+
+    def publish(self):
+        self.transition_to(self.Status.PUBLISHED)
+
+    def archive(self):
+        self.transition_to(self.Status.ARCHIVED)
+
+    def soft_delete(self):
+        if self.is_deleted:
+            raise ValidationError(message="This post is already deleted.")
+
+        self.transition_to(self.Status.DELETED)
+
+    def restore(self):
+        if not (self.is_deleted or self.is_archived):
+            raise ValidationError(message="This post is not deleted or archived.")
+
+        self.transition_to(self.Status.DRAFT)
 
     @property
     def is_published(self):

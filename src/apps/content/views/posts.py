@@ -1,6 +1,5 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import MethodNotAllowed
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_json_api.django_filters import DjangoFilterBackend
@@ -14,8 +13,9 @@ from apps.content.schemas import (
     post_viewset_schema,
     remove_attachment_schema,
     restore_schema,
-    soft_delete_schema,
-    thumbnail_schema,
+    # soft_delete_schema,
+    thumbnail_add_schema,
+    thumbnail_remove_schema,
     trash_schema,
 )
 from apps.content.serializers import (
@@ -29,37 +29,44 @@ from apps.content.serializers import (
     PostThumbnailSerializer,
     PostUpdateSerializer,
 )
-from apps.metrics import signals as metrics_signals
 
 
 @post_viewset_schema
 class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
-    queryset = Post.objects.none()
+    queryset = Post.objects.all()
     lookup_field = "slug"
     filter_backends = [DjangoFilterBackend]
     filterset_class = PostFilter
 
     def get_queryset(self):
-        user = self.request.user
-
         if self.action == "restore":
-            return (
-                Post.objects.with_deleted()
-                if user.is_staff
-                else Post.objects.only_deleted().owned_by(user)
-            )
+            return self._get_restore_queryset()
 
         elif self.action == "trash":
-            return Post.objects.only_deleted().owned_by(user)
+            return self._get_trash_queryset()
 
-        elif self.action == "soft_delete":
-            return Post.objects.owned_by(user)
+        elif self.action == "destroy":
+            return self._get_soft_delete_queryset()
 
-        return Post.objects.visible_for(user)
+        return Post.objects.visible_for(self.request.user)
+
+    def _get_restore_queryset(self):
+        user = self.request.user
+        return (
+            Post.objects.with_deleted()
+            if user.is_staff
+            else Post.objects.only_deleted().owned_by(user)
+        )
+
+    def _get_trash_queryset(self):
+        return Post.objects.only_deleted().owned_by(self.request.user)
+
+    def _get_soft_delete_queryset(self):
+        return Post.objects.owned_by(self.request.user)
 
     def get_permissions(self):
-        if self.action in ("list", "retrieve"):
+        if self.action in ["list", "retrieve"]:
             permission_classes = [AllowAny]
         elif self.action == "restore":
             permission_classes = [IsAdmin]
@@ -68,21 +75,12 @@ class PostViewSet(viewsets.ModelViewSet):
 
         return [permission() for permission in permission_classes]
 
-    def destroy(self, request, *args, **kwargs):
-        raise MethodNotAllowed(
-            method="DELETE",
-            detail="Use POST /posts/{slug}/soft-delete/ instead.",
-        )
-
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
-
     def get_serializer_class(self):
         serializer_map = {
             "create": PostCreateSerializer,
             "update": PostUpdateSerializer,
             "partial_update": PostUpdateSerializer,
-            "soft_delete": PostSoftDeleteSerializer,
+            "destroy": PostSoftDeleteSerializer,
             "restore": PostRestoreSerializer,
             "change_status": PostStatusSerializer,
             "thumbnail": PostThumbnailSerializer,
@@ -92,15 +90,18 @@ class PostViewSet(viewsets.ModelViewSet):
         return serializer_map.get(self.action, PostSerializer)
 
     def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        if request.user.is_authenticated:
-            metrics_signals.post_read.send(
-                sender=Post,
-                post=instance,
-                user=request.user,
-            )
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        post = self.get_object()
+        request._metrics_post_instance = post
+        return super().retrieve(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        post = self.get_object()
+        serializer = self.get_serializer(
+            post, data=request.data, context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @change_status_schema
     @action(detail=True, methods=["post"])
@@ -113,10 +114,12 @@ class PostViewSet(viewsets.ModelViewSet):
         serializer.save()
 
         return Response(
-            PostSerializer(post, context=self.get_serializer_context()).data
+            data=PostSerializer(post, context=self.get_serializer_context()).data,
+            status=status.HTTP_200_OK,
         )
 
-    @thumbnail_schema
+    @thumbnail_add_schema
+    @thumbnail_remove_schema
     @action(detail=True, methods=["post", "delete"])
     def thumbnail(self, request, slug=None):
         post = self.get_object()
@@ -133,7 +136,7 @@ class PostViewSet(viewsets.ModelViewSet):
         post.save(update_fields=["thumbnail", "updated_at"])
 
         return Response(
-            data=PostSerializer(post, context=self.get_serializer_context()).data,
+            data=self.get_serializer(post).data,
             status=status.HTTP_200_OK,
         )
 
@@ -148,7 +151,10 @@ class PostViewSet(viewsets.ModelViewSet):
         post.attachments.add(*serializer.validated_data["attachments"])
 
         return Response(
-            data=PostSerializer(post, context=self.get_serializer_context()).data,
+            data=PostSerializer(
+                post,
+                context=self.get_serializer_context(),
+            ).data,
             status=status.HTTP_200_OK,
         )
 
@@ -170,18 +176,18 @@ class PostViewSet(viewsets.ModelViewSet):
         post.attachments.remove(serializer.validated_data["attachment_id"])
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @soft_delete_schema
-    @action(detail=True, methods=["post"])
-    def soft_delete(self, request, slug=None):
-        post = self.get_object()
+    # @soft_delete_schema
+    # @action(detail=True, methods=["post"])
+    # def soft_delete(self, request, slug=None):
+    #     post = self.get_object()
 
-        serializer = self.get_serializer(
-            post, data=request.data, context={"request": request}
-        )
-        serializer.is_valid(raise_exception=True)
+    #     serializer = self.get_serializer(
+    #         post, data=request.data, context={"request": request}
+    #     )
+    #     serializer.is_valid(raise_exception=True)
 
-        serializer.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    #     serializer.save()
+    #     return Response(status=status.HTTP_204_NO_CONTENT)
 
     @restore_schema
     @action(detail=True, methods=["post"])
@@ -195,7 +201,8 @@ class PostViewSet(viewsets.ModelViewSet):
 
         serializer.save()
         return Response(
-            PostSerializer(post, context=self.get_serializer_context()).data,
+            data=PostSerializer(post, context=self.get_serializer_context()).data,
+            status=status.HTTP_200_OK,
         )
 
     @trash_schema

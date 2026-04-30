@@ -53,10 +53,9 @@ class TestCreatePost:
         "field, detail, pointer, code",
         [
             ("title", "required.", "/data/attributes/title", "required"),
-            ("content", "required.", "/data/attributes/content", "required"),
             ("category", "required.", "/data/relationships/category", "required"),
         ],
-        ids=("missing-title", "missing-content", "missing-category"),
+        ids=("missing-title", "missing-category"),
     )
     def test_create_post_bad_request_missing_fields(
         self, editor_client, post_data, field, detail, pointer, code, category_factory
@@ -263,9 +262,16 @@ class TestUpdatePost:
 
         response = client.patch(
             path=reverse("v1:post-detail", args=[post.slug]),
-            data={"slug": "existing-slug"},
+            data={
+                "slug": "existing-slug",
+                "title": "Updated Title",
+                "content": "Updated Content",
+            },
             format="json",
         )
+
+        print(response.json())
+        print(response.status_code)
 
         assert_jsonapi_error_response(
             response=response,
@@ -276,19 +282,12 @@ class TestUpdatePost:
 
 
 class TestDeletePost:
-    def test_hard_delete_not_allowed(self, editor_client, post_factory):
+    def test_delete_success(self, editor_client, post_factory):
         client, client_user = editor_client
         post = post_factory(author=client_user)
 
-        response = client.delete(path=reverse("v1:post-detail", args=[post.slug]))
-        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
-
-    def test_soft_delete_success(self, editor_client, post_factory):
-        client, client_user = editor_client
-        post = post_factory(author=client_user)
-
-        response = client.post(
-            path=reverse("v1:post-soft-delete", args=[post.slug]),
+        response = client.delete(
+            path=reverse("v1:post-detail", args=[post.slug]),
             data={"confirm": True},
             format="json",
         )

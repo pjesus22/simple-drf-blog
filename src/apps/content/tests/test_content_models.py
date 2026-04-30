@@ -1,3 +1,5 @@
+from itertools import product
+
 from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
 import pytest
@@ -5,6 +7,8 @@ import pytest
 from apps.content.models import Category, Post, Tag
 
 pytestmark = pytest.mark.django_db
+POST_STATES = Post.Status.values
+POST_TRANSITIONS = Post.ALLOWED_TRANSITIONS
 
 
 class TestCategoryModel:
@@ -67,29 +71,6 @@ class TestPostModel:
         assert str(post) == "Test Post"
 
     @pytest.mark.parametrize(
-        "title, expected_slug",
-        [
-            ("Test Post", "test-post"),
-            ("Hello World!", "hello-world"),
-        ],
-        ids=("test_post", "hello_world"),
-    )
-    def test_post_clean_generates_slug(self, title, expected_slug):
-        post = Post(title=title)
-        post.clean()
-        assert post.slug == expected_slug
-
-    def test_post_clean_preserves_existing_slug(self):
-        post = Post(title="Test Post", slug="manual-slug")
-        post.clean()
-        assert post.slug == "manual-slug"
-
-    def test_post_clean_sets_published_at(self):
-        post = Post(title="Test Post", status=Post.Status.PUBLISHED)
-        post.clean()
-        assert post.published_at is not None
-
-    @pytest.mark.parametrize(
         "status",
         [Post.Status.DRAFT, Post.Status.ARCHIVED, Post.Status.DELETED],
         ids=("draft", "archived", "deleted"),
@@ -99,54 +80,137 @@ class TestPostModel:
         post.clean()
         assert post.published_at is None
 
+    @pytest.mark.parametrize(
+        "status, expected",
+        [
+            (
+                Post.Status.DRAFT,
+                {
+                    "is_draft": True,
+                    "is_published": False,
+                    "is_archived": False,
+                    "is_deleted": False,
+                },
+            ),
+            (
+                Post.Status.PUBLISHED,
+                {
+                    "is_draft": False,
+                    "is_published": True,
+                    "is_archived": False,
+                    "is_deleted": False,
+                },
+            ),
+            (
+                Post.Status.ARCHIVED,
+                {
+                    "is_draft": False,
+                    "is_published": False,
+                    "is_archived": True,
+                    "is_deleted": False,
+                },
+            ),
+            (
+                Post.Status.DELETED,
+                {
+                    "is_draft": False,
+                    "is_published": False,
+                    "is_archived": False,
+                    "is_deleted": True,
+                },
+            ),
+        ],
+        ids=("draft", "published", "archived", "deleted"),
+    )
+    def test_status_properties(self, post_factory, status, expected):
+        post = post_factory(status=status)
+
+        assert post.is_draft is expected["is_draft"]
+        assert post.is_published is expected["is_published"]
+        assert post.is_archived is expected["is_archived"]
+        assert post.is_deleted is expected["is_deleted"]
+
     def test_save_post(self, post_factory):
         post = post_factory()
         assert post.id is not None
         assert Post.objects.filter(id=post.id).exists()
 
-    def test_status_properties(self, post_factory):
-        post = post_factory(status=Post.Status.PUBLISHED)
-        assert post.is_published is True
-        assert post.is_draft is False
-        assert post.is_archived is False
-        assert post.is_deleted is False
+    @pytest.mark.parametrize(
+        "initial_state,final_state",
+        [(src, tgt) for src, tgts in POST_TRANSITIONS.items() for tgt in tgts],
+        ids=lambda case: f"{case[0]}_to_{case[1]}"
+        if isinstance(case, tuple)
+        else str(case),
+    )
+    def test_allowed_transitions(self, post_factory, initial_state, final_state):
+        post = post_factory(status=initial_state)
+
+        post.transition_to(final_state)
+        post.refresh_from_db()
+
+        assert post.status == final_state
 
     @pytest.mark.parametrize(
-        "initial_status, final_status, expect_published_at_change",
+        "initial_state, final_state",
         [
-            (Post.Status.DRAFT, Post.Status.PUBLISHED, True),
-            (Post.Status.PUBLISHED, Post.Status.ARCHIVED, False),
-            (Post.Status.PUBLISHED, Post.Status.DELETED, False),
+            (src, tgt)
+            for src, tgt in product(POST_STATES, POST_STATES)
+            if src != tgt and tgt not in POST_TRANSITIONS[src]
         ],
-        ids=("draft_to_published", "published_to_archived", "published_to_deleted"),
+        ids=lambda case: f"{case[0]}_to_{case[1]}"
+        if isinstance(case, tuple)
+        else str(case),
     )
-    def test_post_status_transitions(
-        self, initial_status, final_status, expect_published_at_change, post_factory
+    def test_invalid_transitions_raises_error(
+        self, post_factory, initial_state, final_state
     ):
-        post = post_factory(status=initial_status)
-        original_published_at = post.published_at
+        post = post_factory(status=initial_state)
 
-        post.status = final_status
-        post.save()
+        with pytest.raises(
+            ValidationError,
+            match=f"Cannot transition from {initial_state} to {final_state}",
+        ):
+            post.transition_to(final_state)
+        post.refresh_from_db()
+        assert post.status == initial_state
 
-        if expect_published_at_change:
-            assert post.published_at is not None
-            assert original_published_at is None
-        else:
-            assert post.published_at == original_published_at
+    @pytest.mark.parametrize("status", Post.Status.values)
+    def test_transition_to_same_status_is_noop(self, post_factory, status):
+        post = post_factory(status=status)
+        original = post.published_at
 
-    def test_post_republish_preserves_published_at(self, post_factory):
-        post = post_factory(status=Post.Status.PUBLISHED)
-        original_published_at = post.published_at
+        post.transition_to(status)
 
-        post.status = Post.Status.ARCHIVED
-        post.save()
-        post.status = Post.Status.DRAFT
-        post.save()
-        post.status = Post.Status.PUBLISHED
-        post.save()
+        post.refresh_from_db()
+        assert post.status == status
+        assert post.published_at == original
 
-        assert post.published_at == original_published_at
+    def test_full_status_cycle_preserves_publish_timestamp(self, post_factory):
+        post = post_factory(status=Post.Status.DRAFT)
+
+        post.publish()
+        first_publish = post.published_at
+
+        post.archive()
+        assert post.status == Post.Status.ARCHIVED
+
+        post.restore()
+        assert post.status == Post.Status.DRAFT
+
+        post.publish()
+        post.refresh_from_db()
+
+        assert post.status == Post.Status.PUBLISHED
+        assert post.published_at == first_publish
+
+        post.soft_delete()
+        assert post.status == Post.Status.DELETED
+        assert post.published_at == first_publish
+
+    def test_soft_delete_raises_if_already_deleted(self, post_factory):
+        post = post_factory(status=Post.Status.DELETED)
+        with pytest.raises(ValidationError, match="This post is already deleted"):
+            post.soft_delete()
 
     def test_post_relationships(self, post_factory, tag_factory, upload_factory):
         post = post_factory()
@@ -174,86 +238,6 @@ class TestPostModel:
 
         assert post.thumbnail is None
         assert Post.objects.filter(id=post.id).exists()
-
-
-class TestPostModelMethods:
-    def test_change_status_sucess(self, post_factory):
-        post = post_factory(status=Post.Status.DRAFT)
-        post.change_status(Post.Status.PUBLISHED)
-        post.refresh_from_db()
-        assert post.status == Post.Status.PUBLISHED
-        assert post.published_at is not None
-
-    def test_change_status_invalid_status(self, post_factory):
-        status = "invalid"
-        post = post_factory()
-        with pytest.raises(ValidationError, match=f"Invalid status: {status}"):
-            post.change_status(status)
-
-    def test_change_status_invalid_transition(self, post_factory):
-        post = post_factory(status=Post.Status.DRAFT)
-        with pytest.raises(
-            ValidationError, match="Cannot transition from draft to archived"
-        ):
-            post.change_status(Post.Status.ARCHIVED)
-
-    def test_change_status_deleted_post(self, post_factory):
-        post = post_factory(status=Post.Status.DELETED)
-        with pytest.raises(
-            ValidationError, match="Cannot change status of a deleted post"
-        ):
-            post.change_status(Post.Status.DRAFT)
-
-    def test_publish_flow(self, post_factory):
-        post = post_factory(status=Post.Status.DRAFT)
-        post.publish()
-        post.refresh_from_db()
-        assert post.status == Post.Status.PUBLISHED
-
-    def test_publish_deleted_fails(self, post_factory):
-        post = post_factory(status=Post.Status.DELETED)
-        with pytest.raises(ValidationError, match="Cannot publish a deleted post"):
-            post.publish()
-
-    def test_archive_flow(self, post_factory):
-        post = post_factory(status=Post.Status.PUBLISHED)
-        post.archive()
-        post.refresh_from_db()
-        assert post.status == Post.Status.ARCHIVED
-
-    def test_archive_raises_error_if_already_deleted(self, post_factory):
-        post = post_factory(status=Post.Status.DELETED)
-        with pytest.raises(
-            expected_exception=ValidationError,
-            match=("Cannot archive a deleted post\\. Restore it first\\."),
-        ):
-            post.archive()
-
-    def test_soft_delete_and_restore(self, post_factory):
-        post = post_factory(status=Post.Status.DRAFT)
-
-        # Delete
-        post.soft_delete()
-        post.refresh_from_db()
-        assert post.status == Post.Status.DELETED
-
-        # Restore
-        post.restore()
-        post.refresh_from_db()
-        assert post.status == Post.Status.DRAFT
-
-    def test_soft_delete_raises_error_if_already_deleted(self, post_factory):
-        post = post_factory(status=Post.Status.DELETED)
-        with pytest.raises(
-            expected_exception=ValidationError,
-            match=("This post is already deleted\\."),
-        ):
-            post.soft_delete()
-
-    def test_restore_fails_for_non_deleted(self, post_factory):
-        post = post_factory(status=Post.Status.DRAFT)
-        with pytest.raises(ValidationError, match="Only deleted posts can be restored"):
-            post.restore()
 
 
 class TestPostQuerySet:
@@ -308,20 +292,3 @@ class TestPostQuerySet:
         post_factory(status=Post.Status.DRAFT, author=editor2)
         visible = Post.objects.visible_for(editor1)
         assert visible.count() == 0
-
-
-class TestPostValidations:
-    def test_prevent_publish_from_invalid_states(self, post_factory):
-        archived_post = post_factory(status=Post.Status.ARCHIVED)
-        archived_post.status = Post.Status.PUBLISHED
-        with pytest.raises(
-            ValidationError, match="Cannot publish a post from archived status"
-        ):
-            archived_post.clean()
-
-        deleted_post = post_factory(status=Post.Status.DELETED)
-        deleted_post.status = Post.Status.PUBLISHED
-        with pytest.raises(
-            ValidationError, match="Cannot publish a post from deleted status"
-        ):
-            deleted_post.clean()
