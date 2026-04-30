@@ -6,4 +6,4 @@ class MetricsConfig(AppConfig):
     name = "apps.metrics"
 
     def ready(self):
-        import apps.metrics.signals  # noqa: F401
+        import apps.metrics.events.handlers  # noqa: F401
