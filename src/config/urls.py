@@ -8,6 +8,7 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 from rest_framework_simplejwt.views import (
+    TokenBlacklistView,
     TokenObtainPairView,
     TokenRefreshView,
     TokenVerifyView,
@@ -27,17 +28,20 @@ urlpatterns = [
     path("api/v1/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/v1/token/verify/", TokenVerifyView.as_view(), name="token_verify"),
     path(
-        "api/schema/",
+        "api/v1/token/blacklist/", TokenBlacklistView.as_view(), name="token_blacklist"
+    ),
+    path(
+        "api/v1/schema/",
         SpectacularAPIView.as_view(permission_classes=[IsAdmin]),
         name="schema",
     ),
     path(
-        "api/docs/",
+        "api/v1/docs/",
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
     path(
-        "api/redoc/",
+        "api/v1/redoc/",
         SpectacularRedocView.as_view(url_name="schema"),
         name="redoc",
     ),
