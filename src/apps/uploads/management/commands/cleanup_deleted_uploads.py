@@ -52,7 +52,7 @@ class Command(BaseCommand):
         deleted_count = 0
         failed_count = 0
 
-        for upload in old_uploads:
+        for upload in old_uploads.iterator(chunk_size=100):
             try:
                 file_name = upload.file.name
                 upload.file.delete(save=False)

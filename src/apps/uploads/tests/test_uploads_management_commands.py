@@ -45,7 +45,10 @@ def test_cleanup_command_dry_run(editor_factory, upload_factory):
     call_command("cleanup_deleted_uploads", dry_run=True)
 
     assert (
-        Upload.all_objects.filter(deleted_at__day__lt=timezone.now().day).count() == 15
+        Upload.all_objects.filter(
+            deleted_at__lt=timezone.now() - timedelta(days=30)
+        ).count()
+        == 15
     )
     assert Upload.all_objects.filter(id=recent_upload.id).exists()
 
