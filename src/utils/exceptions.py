@@ -1,3 +1,4 @@
+from django.db import IntegrityError
 from rest_framework.exceptions import (
     AuthenticationFailed,
     ErrorDetail,
@@ -40,6 +41,9 @@ def custom_exception_handler(exc, context):
 
     if isinstance(exc, DOMAIN_ERRORS):
         exc = DRFValidationError({"detail": str(exc)})
+
+    if isinstance(exc, IntegrityError):
+        exc = DRFValidationError({"detail": "Database integrity error."})
 
     if isinstance(
         exc,
