@@ -5,7 +5,11 @@ from drf_spectacular.utils import (
     extend_schema_view,
 )
 
-from apps.uploads.serializers import UploadSerializer
+from apps.uploads.serializers import (
+    UploadCreateSerializer,
+    UploadSerializer,
+    UploadUpdateSerializer,
+)
 
 UPLOAD_ID_PARAMETER = OpenApiParameter(
     name="id",
@@ -31,33 +35,11 @@ upload_viewset_schema = extend_schema_view(
     create=extend_schema(
         summary="uploads_create",
         description=(
-            "Upload a new file."
-            "Support images, documents, and other files."
+            "Upload a new file. "
+            "Support images, documents, and other files. "
             "File purpose determines usage (thumbnail, attachment, avatar, etc.)."
         ),
-        request={
-            "multipart/form-data": {
-                "type": "object",
-                "properties": {
-                    "file": {
-                        "type": "string",
-                        "format": "binary",
-                        "description": "The file to upload.",
-                    },
-                    "purpose": {
-                        "type": "string",
-                        "enum": ["thumbnail", "attachment", "avatar", "other"],
-                        "description": "The purpose of the file.",
-                    },
-                    "visibility": {
-                        "type": "string",
-                        "enum": ["public", "private"],
-                        "description": "The visibility of the upload.",
-                    },
-                },
-                "required": ["file", "purpose", "visibility"],
-            }
-        },
+        request=UploadCreateSerializer,
         responses={
             201: UploadSerializer,
             400: OpenApiResponse(
@@ -71,7 +53,7 @@ upload_viewset_schema = extend_schema_view(
             "Update upload metadata (purpose, visibility). "
             "User can only update their own uploads."
         ),
-        request=UploadSerializer,
+        request=UploadUpdateSerializer,
         responses={200: UploadSerializer},
         parameters=[UPLOAD_ID_PARAMETER],
     ),
@@ -83,4 +65,19 @@ upload_viewset_schema = extend_schema_view(
         },
         parameters=[UPLOAD_ID_PARAMETER],
     ),
+)
+
+
+upload_restore_action_schema = extend_schema(
+    summary="uploads_restore",
+    description="Restore a deleted upload.",
+    responses={200: UploadSerializer},
+    parameters=[UPLOAD_ID_PARAMETER],
+    methods=["POST"],
+)
+
+upload_trash_action_schema = extend_schema(
+    summary="uploads_trash",
+    description="List deleted uploads.",
+    responses={200: UploadSerializer(many=True)},
 )
