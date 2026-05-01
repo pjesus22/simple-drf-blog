@@ -169,7 +169,7 @@ def test_upload_restore_returns_400_if_not_deleted(mocker, rf):
 def test_upload_trash_action(mocker, rf):
     mock_queryset = mocker.MagicMock()
     mock_deleted_qs = mocker.MagicMock()
-    mock_queryset.only_deleted.return_value = mock_deleted_qs
+    mock_queryset.deleted.return_value = mock_deleted_qs
 
     mock_serializer = mocker.Mock()
     mock_serializer.data = [{"id": 1}, {"id": 2}]
@@ -183,7 +183,7 @@ def test_upload_trash_action(mocker, rf):
 
     response = viewset.trash(viewset.request)
 
-    mock_queryset.only_deleted.assert_called_once()
+    mock_queryset.deleted.assert_called_once()
     viewset.get_serializer.assert_called_once_with(mock_deleted_qs, many=True)
     assert response.status_code == 200
     assert response.data == mock_serializer.data

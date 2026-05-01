@@ -8,8 +8,16 @@ from rest_framework.viewsets import ModelViewSet
 
 from apps.accounts.permissions import IsEditor, IsOwner
 from apps.uploads.models import Upload
-from apps.uploads.schemas import upload_viewset_schema
-from apps.uploads.serializers import UploadCreateSerializer, UploadSerializer
+from apps.uploads.schemas import (
+    upload_restore_action_schema,
+    upload_trash_action_schema,
+    upload_viewset_schema,
+)
+from apps.uploads.serializers import (
+    UploadCreateSerializer,
+    UploadSerializer,
+    UploadUpdateSerializer,
+)
 from apps.uploads.services import UploadService
 
 User = get_user_model()
@@ -39,6 +47,8 @@ class UploadViewSet(ModelViewSet):
     def get_serializer_class(self):
         if self.action == "create":
             return UploadCreateSerializer
+        elif self.action == "partial_update":
+            return UploadUpdateSerializer
         return UploadSerializer
 
     def perform_create(self, serializer):
@@ -53,6 +63,7 @@ class UploadViewSet(ModelViewSet):
         instance.deleted_at = timezone.now()
         instance.save()
 
+    @upload_restore_action_schema
     @action(detail=True, methods=["post"])
     def restore(self, request, pk=None):
         upload = get_object_or_404(Upload.all_objects, pk=pk)
@@ -68,8 +79,9 @@ class UploadViewSet(ModelViewSet):
         serializer = self.get_serializer(upload)
         return Response(serializer.data)
 
+    @upload_trash_action_schema
     @action(detail=False, methods=["get"])
     def trash(self, request):
-        queryset = self.get_queryset().only_deleted()
+        queryset = self.get_queryset().deleted()
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)

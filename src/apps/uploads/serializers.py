@@ -65,3 +65,37 @@ class UploadSerializer(serializers.ModelSerializer):
 
 class UploadCreateSerializer(UploadSerializer):
     file = serializers.FileField(write_only=True, required=True)
+
+
+class UploadUpdateSerializer(UploadSerializer):
+    purpose = serializers.ChoiceField(
+        choices=Upload.Purpose.choices,
+        required=False,
+    )
+    visibility = serializers.ChoiceField(
+        choices=Upload.Visibility.choices,
+        required=False,
+    )
+
+    class Meta:
+        model = Upload
+        fields = ("purpose", "visibility")
+        resource_name = "uploads"
+
+    def validate_purpose(self, value):
+        values = Upload.Purpose.values
+        if value not in values:
+            raise serializers.ValidationError(
+                detail=(f"Invalid purpose. Must be one of: {', '.join(values)}."),
+                code="invalid_purpose",
+            )
+        return value
+
+    def validate_visibility(self, value):
+        values = Upload.Visibility.values
+        if value not in values:
+            raise serializers.ValidationError(
+                detail=(f"Invalid visibility. Must be one of: {', '.join(values)}."),
+                code="invalid_visibility",
+            )
+        return value
