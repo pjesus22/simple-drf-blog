@@ -82,6 +82,6 @@ API_VERSION = config("API_VERSION", default="1.0")
 
 sentry_sdk.init(
     dsn=config("SENTRY_DSN", default=""),
-    enviroment=config("ENVIRONMENT", default="production"),
+    environment=config("ENVIRONMENT", default="production"),
     traces_sample_rate=0.1,
 )
