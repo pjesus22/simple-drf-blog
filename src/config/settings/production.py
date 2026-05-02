@@ -85,3 +85,28 @@ sentry_sdk.init(
     environment=config("ENVIRONMENT", default="production"),
     traces_sample_rate=0.1,
 )
+
+# -----------------------------------------------------------------------------
+# CACHE
+# -----------------------------------------------------------------------------
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": config("CACHE_URL"),
+        "TIMEOUT": 3600,
+        "KEY_PREFIX": "blog",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "IGNORE_EXCEPTIONS": True,
+            "SOCKET_CONNECT_TIMEOUT": 5,
+            "SOCKET_TIMEOUT": 5,
+        },
+    }
+}
+
+# -----------------------------------------------------------------------------
+# CELERY
+# -----------------------------------------------------------------------------
+CELERY_BROKER_URL = config("CELERY_BROKER_URL")
+CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND")
