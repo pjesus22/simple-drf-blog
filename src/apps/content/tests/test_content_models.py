@@ -24,12 +24,12 @@ class TestCategoryModel:
         category = Category(name=name)
         assert str(category) == expected_str
 
-        category.clean()
+        category.save()
         assert category.slug == expected_slug
 
-    def test_category_clean_preserves_existing_slug(self):
+    def test_category_save_preserves_existing_slug(self):
         category = Category(name="Test Category", slug="custom-slug")
-        category.clean()
+        category.save()
         assert category.slug == "custom-slug"
 
     def test_save_category(self, category_factory):
@@ -51,12 +51,12 @@ class TestTagModel:
         tag = Tag(name=name)
         assert str(tag) == expected_str
 
-        tag.clean()
+        tag.save()
         assert tag.slug == expected_slug
 
-    def test_tag_clean_preserves_existing_slug(self):
+    def test_tag_save_preserves_existing_slug(self):
         tag = Tag(name="Test Tag", slug="custom-tag-slug")
-        tag.clean()
+        tag.save()
         assert tag.slug == "custom-tag-slug"
 
     def test_save_tag(self, tag_factory):
