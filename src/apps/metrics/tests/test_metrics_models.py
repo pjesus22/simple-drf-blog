@@ -8,7 +8,7 @@ pytestmark = pytest.mark.django_db
 def test_create_metric(editor_factory):
     user = editor_factory()
     metadata = {
-        "post_id": "1",
+        "post_slug": "fake-slug",
         "ip": "127.0.0.1",
         "user_agent": "Mozilla/5.0",
         "referer": "https://google.com",

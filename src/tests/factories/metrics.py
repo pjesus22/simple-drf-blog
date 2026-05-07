@@ -1,5 +1,3 @@
-from random import randint
-
 import factory
 from faker import Faker
 
@@ -17,7 +15,7 @@ class MetricEventFactory(factory.django.DjangoModelFactory):
     @factory.LazyAttribute
     def metadata(self):
         return {
-            "post_id": randint(1, 10_000),
+            "post_slug": fake.slug(),
             "ip": fake.ipv4(),
             "user_agent": fake.user_agent(),
             "referer": fake.url(),
