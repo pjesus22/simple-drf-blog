@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class PostViewEvent:
-    post_id: str
+    post_slug: str
     ip: str | None
     user_agent: str
     referer: str | None

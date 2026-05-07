@@ -9,7 +9,7 @@ from .signals import post_view_signal
 def handle_post_view(sender, event, **kwargs):
     process_post_view_event.delay(
         {
-            "post_id": event.post_id,
+            "post_slug": event.post_slug,
             "ip": event.ip,
             "user_agent": event.user_agent[:256],
             "referer": event.referer,

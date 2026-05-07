@@ -46,7 +46,7 @@ class PostViewTrackingMiddleware:
             return response
 
         view_func = resolver.func
-        view_class = getattr(view_func, "view_class", None)
+        view_class = getattr(view_func, "cls", None)
         actions = getattr(view_func, "actions", {})
 
         if not view_class or not issubclass(view_class, PostViewSet):
@@ -60,12 +60,12 @@ class PostViewTrackingMiddleware:
         if is_bot(ua):
             return response
 
-        post = getattr(request, "_metrics_post_instance", None)
-        if not post:
+        slug = resolver.kwargs.get("slug")
+        if not slug:
             return response
 
         event = PostViewEvent(
-            post_id=str(post.id),
+            post_slug=slug,
             ip=anonymize_ip(get_client_ip(request)),
             user_agent=ua,
             referer=request.META.get("HTTP_REFERER"),

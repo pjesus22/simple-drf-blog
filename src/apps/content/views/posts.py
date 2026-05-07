@@ -89,11 +89,6 @@ class PostViewSet(viewsets.ModelViewSet):
         }
         return serializer_map.get(self.action, PostSerializer)
 
-    def retrieve(self, request, *args, **kwargs):
-        post = self.get_object()
-        request._metrics_post_instance = post
-        return super().retrieve(request, *args, **kwargs)
-
     def destroy(self, request, *args, **kwargs):
         post = self.get_object()
         serializer = self.get_serializer(
