@@ -1,0 +1,67 @@
+services:
+  db:
+    image: mariadb:lts
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: app
+      MYSQL_USER: app
+      MYSQL_PASSWORD: app
+      MYSQL_ROOT_PASSWORD: app
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_dev:/var/lib/mysql
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/dockerfile.dev
+    working_dir: /app
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.development
+    env_file:
+      - ../.env.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ..:/app
+      - venv_data:/app/.venv
+    depends_on:
+      - db
+      - redis
+    command: >
+      sh -c "
+      python src/manage.py migrate &&
+      python src/manage.py runserver 0.0.0.0:8000
+      "
+
+  celery_worker:
+    build:
+      context: ..
+      dockerfile: docker/dockerfile.dev
+    working_dir: /app
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.development
+    env_file:
+      - ../.env.dev
+    volumes:
+      - ..:/app
+      - venv_data:/app/.venv
+    depends_on:
+      - redis
+      - db
+    command: >
+      sh -c "
+      cd src &&
+      celery -A config worker -l info
+      "
+
+volumes:
+  mariadb_dev:
+  venv_data:
