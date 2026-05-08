@@ -49,3 +49,15 @@ CACHES = {
 # -----------------------------------------------------------------------------
 CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://redis:6379/0")
 CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND", default="redis://redis:6379/1")
+POST_VIEW_DEDUP_TTL = config("POST_VIEW_DEDUP_TTL", default=5, cast=int)
+
+# -----------------------------------------------------------------------------
+# LOGGING
+# -----------------------------------------------------------------------------
+LOGGING["formatters"]["verbose"] = {
+    "format": "{levelname} {asctime} {module} {message}",
+    "style": "{",
+}
+LOGGING["handlers"]["console"]["formatter"] = "verbose"
+LOGGING["root"]["level"] = "DEBUG"
+LOGGING["loggers"] = {"django": {"level": "DEBUG", "propagate": True}}

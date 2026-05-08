@@ -110,3 +110,19 @@ CACHES = {
 # -----------------------------------------------------------------------------
 CELERY_BROKER_URL = config("CELERY_BROKER_URL")
 CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND")
+POST_VIEW_DEDUP_TTL = config("POST_VIEW_DEDUP_TTL", default=300, cast=int)
+
+# -----------------------------------------------------------------------------
+# LOGGING
+# -----------------------------------------------------------------------------
+LOGGING["root"]["level"] = "WARNING"
+LOGGING["loggers"] = {
+    "django": {
+        "level": "WARNING",
+        "propagate": False,
+    },
+    "django.request": {
+        "level": "ERROR",
+        "propagate": False,
+    },
+}
