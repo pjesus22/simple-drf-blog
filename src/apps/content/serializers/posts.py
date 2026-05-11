@@ -70,6 +70,11 @@ class PostUpdateSerializer(serializers.ModelSerializer):
         many=True, queryset=Tag.objects.all(), required=False
     )
 
+    included_serializers = {
+        "category": "apps.content.serializers.CategorySerializer",
+        "tags": "apps.content.serializers.TagSerializer",
+    }
+
     class Meta:
         model = Post
         fields = ("title", "slug", "content", "summary", "category", "tags")
@@ -78,23 +83,16 @@ class PostUpdateSerializer(serializers.ModelSerializer):
         instance = self.instance
 
         if instance and instance.is_published:
-            forbidden = ("title", "category", "tags")
-            if any(k in attrs for k in forbidden):
-                raise serializers.ValidationError(
-                    "Cannot change title, category, or tags of a published post."
-                    "Please archive the post first."
-                )
+            forbidden = ("title", "category", "tags", "slug")
+            errors = {
+                k: f"Cannot change {k} on a published post. "
+                "Please archive the post first."
+                for k in forbidden
+                if k in attrs
+            }
+            if errors:
+                raise serializers.ValidationError(errors)
         return attrs
-
-    def update(self, instance, validated_data):
-        tags = validated_data.pop("tags", serializers.empty)
-
-        instance = super().update(instance, validated_data)
-
-        if tags is not serializers.empty:
-            instance.tags.set(tags)
-
-        return instance
 
 
 class PostStatusSerializer(serializers.ModelSerializer):
