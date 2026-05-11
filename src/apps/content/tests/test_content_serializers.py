@@ -205,6 +205,15 @@ class TestPostStatusSerializer:
         assert not serializer.is_valid()
         assert "not_deleted" in str(serializer.errors)
 
+    def test_serializer_rejects_published_post_without_content(self, post_factory):
+        post = post_factory(status="published", content="")
+        data = {"status": "published"}
+
+        serializer = PostStatusSerializer(post, data=data)
+
+        assert not serializer.is_valid()
+        assert "no_content" in str(serializer.errors)
+
 
 class TestPostCreateSerializer:
     def test_serializer_validates_valid_creation_data(
@@ -257,6 +266,22 @@ class TestPostUpdateSerializer:
         assert serializer.is_valid()
         assert "category" not in serializer.validated_data
         assert "tags" not in serializer.validated_data
+
+    @pytest.mark.parametrize("field", ["title", "category", "tags", "slug"])
+    def test_serializer_validates_forbidden_field_change_on_published_post(
+        self, post_factory, category_factory, tag_factory, field
+    ):
+        post = post_factory(status="published")
+        valid_data_per_field = {
+            "title": "Updated Title",
+            "category": {"type": "categories", "id": str(category_factory().id)},
+            "tags": [{"type": "tags", "id": str(tag_factory().id)}],
+            "slug": "updated-valid-slug",
+        }
+        data = {field: valid_data_per_field[field]}
+        serializer = PostUpdateSerializer(post, data=data, partial=True)
+        assert not serializer.is_valid()
+        assert field in serializer.errors
 
 
 class TestPostThumbnailSerializer:

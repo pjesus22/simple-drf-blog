@@ -185,6 +185,18 @@ class TestPostModel:
         assert post.status == status
         assert post.published_at == original
 
+    def test_transition_raises_error_if_object_not_saved(self, post_factory):
+        post = post_factory.build()
+        with pytest.raises(
+            ValidationError, match="Cannot transition an unsaved object\\."
+        ):
+            post.transition_to(Post.Status.PUBLISHED)
+
+    def test_transition_to_raises_error_if_invalid_status(self, post_factory):
+        post = post_factory()
+        with pytest.raises(ValidationError, match="Invalid status: invalid"):
+            post.transition_to("invalid")
+
     def test_full_status_cycle_preserves_publish_timestamp(self, post_factory):
         post = post_factory(status=Post.Status.DRAFT)
 
@@ -211,6 +223,13 @@ class TestPostModel:
         post = post_factory(status=Post.Status.DELETED)
         with pytest.raises(ValidationError, match="This post is already deleted"):
             post.soft_delete()
+
+    def test_restore_raises_if_not_deleted_or_archived(self, post_factory):
+        post = post_factory(status=Post.Status.DRAFT)
+        with pytest.raises(
+            ValidationError, match="This post is not deleted or archived"
+        ):
+            post.restore()
 
     def test_post_relationships(self, post_factory, tag_factory, upload_factory):
         post = post_factory()
