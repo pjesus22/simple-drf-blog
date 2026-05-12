@@ -157,3 +157,14 @@ class TestProfileViewSet:
         assert set(viewset.http_method_names) == allowed
         assert "delete" not in viewset.http_method_names
         assert "post" not in viewset.http_method_names
+
+    def test_toggle_public_success(self, viewset, mocker, profile_factory, db):
+        profile = profile_factory(is_public=False)
+        viewset_instance, _, _ = viewset(action="toggle_public", method="POST")
+        viewset_instance.request.user = profile.user
+        mocker.patch("django.shortcuts.get_object_or_404", return_value=profile)
+
+        response = viewset_instance.toggle_public(viewset_instance.request)
+
+        assert response.status_code == 200
+        assert response.data["is_public"] is True

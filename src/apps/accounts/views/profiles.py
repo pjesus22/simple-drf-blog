@@ -70,8 +70,8 @@ class ProfileViewSet(
 
         return Response(serializer.data)
 
-    @action(detail=False, methods=["post"], url_path="me/privacy")
-    def privacy(self, request):
+    @action(detail=False, methods=["post"], url_path="me/public")
+    def toggle_public(self, request):
         profile = get_object_or_404(Profile.objects.me(request.user))
         profile.is_public = not profile.is_public
         profile.save(update_fields=["is_public"])
