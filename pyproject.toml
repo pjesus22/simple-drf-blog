@@ -112,3 +112,8 @@ exclude_lines = [
     "pragma: no cover",
     "@abstractmethod",
 ]
+
+[tool.coverage.run]
+omit = [
+    "src/config/settings/*",
+]
