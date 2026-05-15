@@ -1,3 +1,3 @@
 from django.dispatch import Signal
 
-post_view_signal = Signal()
+metric_event_signal = Signal()
