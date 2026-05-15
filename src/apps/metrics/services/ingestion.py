@@ -3,8 +3,11 @@ from apps.metrics.models import MetricEvent
 from .deduplication import is_duplicate
 
 
-def ingest_post_view(event: dict):
-    if is_duplicate(event):
+def ingest_event(event_type: str, event_data: dict) -> None:
+    if is_duplicate(event_data, event_type):
         return
 
-    MetricEvent.objects.create(event_type="post_view", metadata=event)
+    MetricEvent.objects.create(
+        event_type=event_type,
+        metadata=event_data,
+    )
