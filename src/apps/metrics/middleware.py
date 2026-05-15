@@ -1,7 +1,7 @@
 import contextlib
 
 from apps.content.views import PostViewSet
-from apps.metrics.events.signals import post_view_signal
+from apps.metrics.events.bus import EventBus
 from apps.metrics.events.types import PostViewEvent
 
 BOT_KEYWORDS = ["bot", "crawl", "spider"]
@@ -70,10 +70,8 @@ class PostViewTrackingMiddleware:
             user_agent=ua,
             referer=request.META.get("HTTP_REFERER"),
             user_id=str(request.user.id) if request.user.is_authenticated else None,
-            is_bot=False,
         )
-
         with contextlib.suppress(Exception):
-            post_view_signal.send(sender="post_view", event=event)
+            EventBus.send(event)
 
         return response

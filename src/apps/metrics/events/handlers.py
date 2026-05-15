@@ -1,18 +1,26 @@
 from django.dispatch import receiver
 
-from apps.metrics.tasks import process_post_view_event
+from apps.metrics.tasks import process_metric_event
 
-from .signals import post_view_signal
+from .registry import EventRegistry
+from .signals import metric_event_signal
 
 
-@receiver(post_view_signal)
-def handle_post_view(sender, event, **kwargs):
-    process_post_view_event.delay(
-        {
-            "post_slug": event.post_slug,
-            "ip": event.ip,
-            "user_agent": event.user_agent[:256],
-            "referer": event.referer,
-            "user_id": event.user_id,
-        }
-    )
+@receiver(signal=metric_event_signal)
+def handle_metric_event(sender, event, **kwargs):
+    """Generic handler that routes events to their specific handlers."""
+    handler = EventRegistry.get_handler(event.event_type)
+    if handler:
+        handler(event)
+
+
+class PostViewHandler:
+    def __call__(self, event):
+        process_metric_event.delay(
+            event_type=event.event_type,
+            event_data=event.get_metadata(),
+        )
+
+
+# Handlers registry
+EventRegistry.register_handler("post_view", PostViewHandler())
