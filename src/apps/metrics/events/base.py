@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 
 @dataclass
@@ -13,7 +13,7 @@ class MetricEvent(ABC):
 
     def get_metadata(self) -> dict:
         """Convert event to dict for storage."""
-        return self.__dict__
+        return asdict(self)
 
     def validate(self) -> bool:
         """Override to add validation logic."""

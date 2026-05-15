@@ -1,7 +1,6 @@
 import factory
 from faker import Faker
 
-from apps.metrics.events.base import MetricEvent
 from apps.metrics.models import MetricRecord
 
 fake = Faker()
@@ -23,8 +22,3 @@ class MetricRecordFactory(factory.django.DjangoModelFactory):
             "user_id": fake.uuid4(),
             "is_bot": fake.boolean(),
         }
-
-
-class MetricEventTypeFactory(factory.Factory):
-    class Meta:
-        model = MetricEvent
