@@ -8,8 +8,8 @@ from drf_spectacular.utils import (
 from apps.metrics.serializers import (
     APIHealthSerializer,
     DatabaseHealthSerializer,
-    MetricEventSerializer,
-    MetricEventSummarySerializer,
+    MetricRecordSerializer,
+    MetricRecordSummarySerializer,
     StorageHealthSerializer,
 )
 
@@ -41,10 +41,10 @@ metric_event_schema = extend_schema(
     ],
     responses={
         200: PolymorphicProxySerializer(
-            component_name="MetricEventResponse",
+            component_name="MetricRecordResponse",
             serializers=[
-                MetricEventSerializer,
-                MetricEventSummarySerializer,
+                MetricRecordSerializer,
+                MetricRecordSummarySerializer,
             ],
             resource_type_field_name=None,
         )

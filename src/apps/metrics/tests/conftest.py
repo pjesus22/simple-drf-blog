@@ -1,11 +1,11 @@
 import pytest
 from pytest_factoryboy import register
 from tests.factories import EditorFactory, UploadFactory
-from tests.factories.metrics import MetricEventFactory
+from tests.factories.metrics import MetricRecordFactory
 
 register(EditorFactory)
 register(UploadFactory)
-register(MetricEventFactory)
+register(MetricRecordFactory)
 
 
 @pytest.fixture(autouse=True)

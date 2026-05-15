@@ -7,7 +7,7 @@ from apps.accounts.permissions import IsAdmin
 from apps.metrics.views import (
     APIHealthView,
     DatabaseHealthView,
-    MetricEventView,
+    MetricRecordView,
     StorageHealthView,
 )
 
@@ -79,18 +79,18 @@ class TestDatabaseHealthView:
         assert data["attributes"]["db_status"] == "unavailable"
 
 
-class TestMetricEventView:
+class TestMetricRecordView:
     def test_metric_event_view_permissions(self):
-        view = MetricEventView()
+        view = MetricRecordView()
         permissions = view.get_permissions()
 
         assert len(permissions) == 1
         assert isinstance(permissions[0], IsAdmin)
 
     def test_metric_event_view_get_success(
-        self, api_client, admin_user, db, metric_event_factory
+        self, api_client, admin_user, db, metric_record_factory
     ):
-        metric_event_factory.create_batch(size=5)
+        metric_record_factory.create_batch(size=5)
         api_client.force_authenticate(user=admin_user)
 
         response = api_client.get("/metrics/")
@@ -101,9 +101,9 @@ class TestMetricEventView:
         assert len(data) == 5
 
     def test_metric_event_view_get_summary_success(
-        self, api_client, admin_user, db, metric_event_factory
+        self, api_client, admin_user, db, metric_record_factory
     ):
-        metric_event_factory.create_batch(size=5)
+        metric_record_factory.create_batch(size=5)
         api_client.force_authenticate(user=admin_user)
 
         response = api_client.get("/metrics/?summary=true")

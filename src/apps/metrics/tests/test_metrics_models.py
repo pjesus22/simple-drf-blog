@@ -1,6 +1,6 @@
 import pytest
 
-from apps.metrics.models import MetricEvent
+from apps.metrics.models import MetricRecord
 
 pytestmark = pytest.mark.django_db
 
@@ -16,7 +16,7 @@ def test_create_metric(editor_factory):
         "is_bot": False,
     }
 
-    metric = MetricEvent(event_type="post_read", metadata=metadata)
+    metric = MetricRecord(event_type="post_read", metadata=metadata)
     metric.save()
     expected_str = f"{metric.event_type} @{metric.created_at}"
 

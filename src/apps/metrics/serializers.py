@@ -1,6 +1,6 @@
 from rest_framework_json_api import serializers
 
-from apps.metrics.models import MetricEvent
+from apps.metrics.models import MetricRecord
 
 
 class APIHealthSerializer(serializers.Serializer):
@@ -18,7 +18,7 @@ class DatabaseHealthSerializer(serializers.Serializer):
         resource_name = "database-health"
 
 
-class MetricEventSummarySerializer(serializers.Serializer):
+class MetricRecordSummarySerializer(serializers.Serializer):
     id = serializers.CharField(source="event_type")
     event_type = serializers.CharField()
     total = serializers.IntegerField()
@@ -26,13 +26,14 @@ class MetricEventSummarySerializer(serializers.Serializer):
     today = serializers.IntegerField()
 
     class Meta:
-        resource_name = "metric-event-summaries"
+        resource_name = "metric-record-summaries"
 
 
-class MetricEventSerializer(serializers.ModelSerializer):
+class MetricRecordSerializer(serializers.ModelSerializer):
     class Meta:
-        model = MetricEvent
+        model = MetricRecord
         fields = ("id", "event_type", "metadata", "created_at", "updated_at")
+        resource_name = "metric-records"
 
 
 class StorageHealthSerializer(serializers.Serializer):

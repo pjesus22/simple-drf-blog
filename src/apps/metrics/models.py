@@ -2,7 +2,7 @@ from django.db import models
 from utils.base_models import BaseModel
 
 
-class MetricEvent(BaseModel):
+class MetricRecord(BaseModel):
     event_type = models.CharField(max_length=64, db_index=True)
     metadata = models.JSONField(default=dict)
 
