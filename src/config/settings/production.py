@@ -110,7 +110,9 @@ CACHES = {
 # -----------------------------------------------------------------------------
 CELERY_BROKER_URL = config("CELERY_BROKER_URL")
 CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND")
-POST_VIEW_DEDUP_TTL = config("POST_VIEW_DEDUP_TTL", default=300, cast=int)
+DEDUP_EVENT_CONFIG["post_view"]["ttl"] = config(
+    "POST_VIEW_DEDUP_TTL", default=300, cast=int
+)
 
 # -----------------------------------------------------------------------------
 # LOGGING

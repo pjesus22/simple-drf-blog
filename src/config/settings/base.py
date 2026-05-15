@@ -230,6 +230,12 @@ CELERY_BEAT_SCHEDULE = {
         "kwargs": {"days": 30},
     }
 }
+DEDUP_EVENT_CONFIG = {
+    "post_view": {
+        "fields": ["post_slug", ["user_id", "ip"], "user_agent"],
+        "ttl": 300,
+    }
+}
 
 
 # -----------------------------------------------------------------------------
