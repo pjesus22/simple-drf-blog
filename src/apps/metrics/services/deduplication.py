@@ -58,7 +58,4 @@ def is_duplicate(event: dict, event_type: str = "post_view") -> bool:
     """Check if event is duplicate and set cache if not."""
     key = generate_key(event, event_type)
     _, ttl = _get_dedup_config(event_type)
-    if cache.get(key):
-        return True
-    cache.set(key, 1, timeout=ttl)
-    return False
+    return not cache.add(key, 1, timeout=ttl)
