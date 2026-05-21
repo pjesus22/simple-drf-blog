@@ -26,7 +26,8 @@ dependencies = [
     "redis>=6.4.0",
     "sentry-sdk>=2.53.0",
     "django-redis>=6.0.0",
-    "crawlerdetect>=0.3.2",
+    "django-ipware>=7.0.1",
+    "user-agents>=2.2.0",
 ]
 
 [dependency-groups]
