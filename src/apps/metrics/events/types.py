@@ -3,7 +3,7 @@ from dataclasses import InitVar, dataclass, field
 from apps.metrics.utils import (
     anonymize_ip,
     extract_referer_domain,
-    get_client_ip,
+    get_best_client_ip,
     parse_user_agent,
 )
 
@@ -39,7 +39,7 @@ class PostViewEvent(MetricEvent):
         return cls(
             post_slug=slug,
             user_agent=request.META.get("HTTP_USER_AGENT", ""),
-            client_ip=get_client_ip(request),
+            client_ip=get_best_client_ip(request),
             referer_domain=extract_referer_domain(request.META.get("HTTP_REFERER")),
             authenticated=request.user.is_authenticated,
         )

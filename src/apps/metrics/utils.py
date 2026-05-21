@@ -1,15 +1,20 @@
+import logging
 from urllib.parse import urlparse
 
-from crawlerdetect import CrawlerDetect
+from django.conf import settings
+from ipware import get_client_ip
+from user_agents import parse
 
-cd = CrawlerDetect()
+logger = logging.getLogger(__name__)
 
 
 def is_bot(user_agent: str) -> bool:
-    return cd.isCrawler(user_agent)
+    if not user_agent:
+        return True
+    return parse(user_agent).is_bot
 
 
-def anonymize_ip(ip: str | None) -> str | None:
+def anonymize_ip(ip: str | None = None) -> str | None:
     if not ip:
         return None
 
@@ -27,48 +32,27 @@ def anonymize_ip(ip: str | None) -> str | None:
     return None
 
 
-def get_client_ip(request):
-    xff = request.META.get("HTTP_X_FORWARDED_FOR")
-    if xff:
-        return xff.split(",")[0].strip()
-    return request.META.get("REMOTE_ADDR")
+def get_best_client_ip(request):
+    client_ip, is_routable = get_client_ip(request)
+
+    if not client_ip:
+        return "0.0.0.0"
+
+    if not is_routable and not settings.DEBUG:
+        logger.warning(
+            f"SECURITY: Unroutable/Private IP detected -> {client_ip}. "
+            "Check NGINX proxy configuration or potential spoofing attempt."
+        )
+    return client_ip
 
 
 def parse_user_agent(user_agent: str) -> dict:
-    ua = (user_agent or "").lower()
-
-    browser = "Other"
-    if "firefox" in ua:
-        browser = "Firefox"
-    elif "edg" in ua:
-        browser = "Edge"
-    elif "safari" in ua:
-        browser = "Safari"
-    elif "chrome" in ua:
-        browser = "Chrome"
-
-    os = "Other"
-    if "windows" in ua:
-        os = "Windows"
-    elif "mac os" in ua or "macintosh" in ua:
-        os = "macOS"
-    elif "android" in ua:
-        os = "Android"
-    elif "iphone" in ua or "ipad" in ua or "ios" in ua:
-        os = "iOS"
-    elif "linux" in ua:
-        os = "Linux"
-
-    device = "Desktop"
-    if "mobile" in ua:
-        device = "Mobile"
-    elif "tablet" in ua or "ipad" in ua:
-        device = "Tablet"
+    ua = parse(user_agent)
 
     return {
-        "browser": browser,
-        "os": os,
-        "device": device,
+        "browser": ua.browser.family,
+        "os": ua.os.family,
+        "device": ua.device.family,
     }
 
 
