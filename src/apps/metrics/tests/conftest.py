@@ -1,10 +1,12 @@
 from django.core.cache import cache
+from django.test import RequestFactory
 import pytest
 from pytest_factoryboy import register
 from tests.factories import EditorFactory, UploadFactory
 from tests.factories.metrics import MetricRecordFactory
 
 from apps.metrics.events.base import MetricEvent
+from apps.metrics.events.registry import EventRegistry
 from apps.metrics.events.types import PostViewEvent
 
 register(EditorFactory)
@@ -20,9 +22,20 @@ def clean_media(tmp_path, settings):
 
 @pytest.fixture(autouse=True)
 def clear_cache():
-    cache.clear()
     yield
     cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def clear_event_registry():
+    EventRegistry._handlers.clear()
+    yield
+    EventRegistry._handlers.clear()
+
+
+@pytest.fixture
+def rf():
+    return RequestFactory()
 
 
 @pytest.fixture
