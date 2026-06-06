@@ -1,71 +1,80 @@
 services:
   db:
-    image: mariadb:lts
+    image: mariadb:11.8
+    container_name: simple_drf_blog-prod-mariadb
     restart: unless-stopped
     env_file:
-      - ../.env.prod
+      - ../envs/.env.prod.db
+    ports:
+      - "3306:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
-    image: redis:7-alpine
+    image: redis:7.4-alpine
+    container_name: simple_drf_blog-redis
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
 
   migrate:
-    build:
-      context: ..
-      dockerfile: docker/dockerfile
-    env_file:
-      - ../.env.prod
+    image: simple_drf_blog:latest
+    container_name: simple_drf_blog-migrate_service
+    restart: "no"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      PYTHONPATH: /app/src
+    volumes:
+      - ../envs/.env.prod:/app/.env.prod:ro
     depends_on:
       db:
         condition: service_healthy
-    volumes:
-      - ../.env.prod:/app/.env.prod:ro
-    command: ["python", "src/manage.py", "migrate", "--noinput"]
+    command: [ "python", "src/manage.py", "migrate", "--noinput" ]
 
   web:
+    image: simple_drf_blog:latest
+    container_name: simple_drf_blog-prod-web
     build:
       context: ..
       dockerfile: docker/dockerfile
     restart: unless-stopped
-    working_dir: /src
-    env_file:
-      - ../.env.prod
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      PYTHONPATH: /app/src
+    volumes:
+      - ../envs/.env.prod:/app/.env.prod:ro
+      - media_files:/app/media
+      - static_files:/app/staticfiles
     depends_on:
       db:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    volumes:
-      - ../.env.prod:/app/.env.prod:ro
-      - media_files:/app/src/media
-      - static_files:/app/src/staticfiles
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:8000/health/"]
+      test: [ "CMD", "curl", "-sf", "http://localhost:8000/health/" ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
 
   celery_worker:
-    build:
-      context: ..
-      dockerfile: docker/dockerfile
+    image: simple_drf_blog:latest
+    container_name: simple_drf_blog-celery_worker
     restart: unless-stopped
     working_dir: /app/src
-    env_file:
-      - ../.env.prod
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+    volumes:
+      - ../envs/.env.prod:/app/.env.prod:ro
+      - media_files:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -73,34 +82,30 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    volumes:
-      - ../.env.prod:/app/.env.prod:ro
-      - media_files:/app/src/media
-    command: ["celery", "-A", "config", "worker", "-l", "info"]
+    command: [ "celery", "-A", "config", "worker", "-l", "info" ]
 
   celery_beat:
-    build:
-      context: ..
-      dockerfile: docker/dockerfile
+    image: simple_drf_blog:latest
+    container_name: simple_drf_blog-celery_beat
     restart: unless-stopped
     working_dir: /app/src
-    env_file:
-      - ../.env.prod
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.production
+    volumes:
+      - ../envs/.env.prod:/app/.env.prod:ro
     depends_on:
       redis:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    volumes:
-      - ../.env.prod:/app/.env.prod:ro
-    command: ["celery", "-A", "config", "beat", "-l", "info"]
+      db:
+        condition: service_healthy
+    command: [ "celery", "-A", "config", "beat", "-l", "info" ]
 
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.27.5-alpine
+    container_name: simple_drf_blog-prod-nginx
     restart: unless-stopped
-    depends_on:
-      web:
-        condition: service_healthy
     ports:
       - "80:80"
       - "443:443"
@@ -117,6 +122,9 @@ services:
       # Shared static/media with the web container
       - static_files:/app/staticfiles:ro
       - media_files:/app/media:ro
+    depends_on:
+      web:
+        condition: service_healthy
 
 volumes:
   mariadb_data:

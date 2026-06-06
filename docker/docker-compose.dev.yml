@@ -1,23 +1,24 @@
 services:
   db:
     image: mariadb:lts
-    healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    container_name: simple_drf_blog-dev-mariadb
     restart: unless-stopped
     env_file:
-      - ../.env.dev
+      - ../envs/.env.dev.db
     ports:
       - "3306:3306"
     volumes:
       - mariadb_dev:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,7 +34,7 @@ services:
       - DJANGO_SETTINGS_MODULE=config.settings.development
       - PYTHONPATH=/app/src
     env_file:
-      - ../.env.dev
+      - ../envs/.env.dev
     ports:
       - "8000:8000"
     volumes:
@@ -47,12 +48,12 @@ services:
     restart: unless-stopped
     command: >
       sh -c "
-      until python src/manage.py check --database default 2>/dev/null; do
-        echo 'Waiting for the database...';
-        sleep 2;
-      done;
-      python src/manage.py migrate &&
-      python src/manage.py runserver 0.0.0.0:8000
+        until python src/manage.py check --database default 2>/dev/null; do
+          echo 'Waiting for the database...';
+          sleep 2;
+        done;
+        python src/manage.py migrate &&
+        python src/manage.py runserver 0.0.0.0:8000
       "
 
   celery_worker:
@@ -64,7 +65,7 @@ services:
       - DJANGO_SETTINGS_MODULE=config.settings.development
       - PYTHONPATH=/app/src
     env_file:
-      - ../.env.dev
+      - ../envs/.env.dev
     volumes:
       - ..:/app
       - venv_data:/app/.venv
