@@ -44,16 +44,16 @@ COPY --chown=app-user:app-user . .
 RUN mkdir -p src/staticfiles src/media \
     && chown -R app-user:app-user src/staticfiles src/media
 
-COPY --chown=app-user:app-user docker/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /app/docker/entrypoint.sh
 
 USER app-user
 
 EXPOSE 8000
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["/app/docker/entrypoint.sh"]
+
 CMD ["gunicorn", "config.wsgi:application", \
-     "--chdir", "src", \
-     "--bind", "0.0.0.0:8000", \
-     "--workers", "4", \
-     "--timeout", "60"]
+    "--chdir", "src", \
+    "--bind", "0.0.0.0:8000", \
+    "--workers", "4", \
+    "--timeout", "60"]
