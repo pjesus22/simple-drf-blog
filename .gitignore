@@ -360,3 +360,5 @@ $RECYCLE.BIN/
 src/staticfiles/
 requests.http
 TODO
+envs/.env*
+!envs/.env.example*

@@ -19,6 +19,8 @@ htmlcov/
 # Secrets — never bake these in
 .env*
 !.env.example
+envs/.env*
+!envs/.env.example*
 
 # Editor / OS
 .git

@@ -7,13 +7,13 @@ from .base import *
 # -----------------------------------------------------------------------------
 # LOAD ENVIRONMENT
 # -----------------------------------------------------------------------------
-config = Config(RepositoryEnv(BASE_DIR.parent / ".env.test"))
+config = Config(RepositoryEnv(BASE_DIR.parent / "envs" / ".env.test"))
 
 # -----------------------------------------------------------------------------
 # CORE SETTINGS
 # -----------------------------------------------------------------------------
 SECRET_KEY = config("SECRET_KEY", default="test-secret-key")
-DEBUG = False
+DEBUG = config("DEBUG", default=False, cast=bool)
 ALLOWED_HOSTS = ["*"]
 MEDIA_ROOT = tempfile.mkdtemp()
 
