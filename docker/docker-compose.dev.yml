@@ -17,24 +17,26 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: simple_drf_blog-dev-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
 
   web:
+    image: simple_drf_blog:latest
+    container_name: simple_drf_blog-dev-web
     build:
       context: ..
       dockerfile: docker/dockerfile.dev
+    restart: unless-stopped
+    working_dir: /app/src
     environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.development
-      - PYTHONPATH=/app/src
-    env_file:
-      - ../envs/.env.dev
+      DJANGO_SETTINGS_MODULE: config.settings.development
     ports:
       - "8000:8000"
     volumes:
@@ -44,28 +46,24 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
-    restart: unless-stopped
+        condition: service_healthy
     command: >
       sh -c "
-        until python src/manage.py check --database default 2>/dev/null; do
+        until python manage.py check --database default 2>/dev/null; do
           echo 'Waiting for the database...';
           sleep 2;
         done;
-        python src/manage.py migrate &&
-        python src/manage.py runserver 0.0.0.0:8000
+        python manage.py migrate &&
+        python manage.py runserver 0.0.0.0:8000
       "
 
   celery_worker:
-    build:
-      context: ..
-      dockerfile: docker/dockerfile.dev
+    image: simple_drf_blog:latest
+    container_name: simple_drf_blog-dev-celery_worker
+    restart: unless-stopped
     working_dir: /app/src
     environment:
-      - DJANGO_SETTINGS_MODULE=config.settings.development
-      - PYTHONPATH=/app/src
-    env_file:
-      - ../envs/.env.dev
+      DJANGO_SETTINGS_MODULE: config.settings.development
     volumes:
       - ..:/app
       - venv_data:/app/.venv
@@ -73,8 +71,7 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
-    restart: unless-stopped
+        condition: service_healthy
     command: >
       sh -c "celery -A config worker -l info"
 

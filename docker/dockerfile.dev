@@ -12,13 +12,21 @@ RUN pip install --no-cache-dir uv
 
 RUN useradd --create-home --no-log-init app-user
 
+WORKDIR /app
+
+RUN mkdir -p .venv && chown app-user:app-user .venv
+
 USER app-user
 
 WORKDIR /app
 
 COPY --chown=app-user:app-user pyproject.toml uv.lock ./
 
-RUN uv sync --frozen
+COPY --chown=app-user:app-user docker/entrypoint.dev.sh /app/docker/entrypoint.dev.sh
+
+RUN chmod +x /app/docker/entrypoint.dev.sh
+
+ENTRYPOINT ["/app/docker/entrypoint.dev.sh"]
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
