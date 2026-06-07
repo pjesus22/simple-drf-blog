@@ -5,8 +5,6 @@ services:
     restart: unless-stopped
     env_file:
       - ../envs/.env.prod.db
-    ports:
-      - "3306:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
     healthcheck:
@@ -17,27 +15,33 @@ services:
 
   redis:
     image: redis:7.4-alpine
-    container_name: simple_drf_blog-redis
+    container_name: simple_drf_blog-prod-redis
     restart: unless-stopped
+    env_file:
+      - ../envs/.env.prod
+    command: [ "sh", "-c", "redis-server --requirepass $$REDIS_PASSWORD" ]
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: [ "CMD", "sh", "-c", "redis-cli -a $$REDIS_PASSWORD ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
 
   migrate:
     image: simple_drf_blog:latest
+    build:
+      context: ..
+      dockerfile: docker/dockerfile
     container_name: simple_drf_blog-migrate_service
     restart: "no"
+    working_dir: /app/src
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
-      PYTHONPATH: /app/src
     volumes:
-      - ../envs/.env.prod:/app/.env.prod:ro
+      - ../envs/.env.prod:/app/envs/.env.prod:ro
     depends_on:
       db:
         condition: service_healthy
-    command: [ "python", "src/manage.py", "migrate", "--noinput" ]
+    command: [ "python", "manage.py", "migrate", "--noinput" ]
 
   web:
     image: simple_drf_blog:latest
@@ -46,11 +50,11 @@ services:
       context: ..
       dockerfile: docker/dockerfile
     restart: unless-stopped
+    working_dir: /app/src
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
-      PYTHONPATH: /app/src
     volumes:
-      - ../envs/.env.prod:/app/.env.prod:ro
+      - ../envs/.env.prod:/app/envs/.env.prod:ro
       - media_files:/app/media
       - static_files:/app/staticfiles
     depends_on:
@@ -67,13 +71,16 @@ services:
 
   celery_worker:
     image: simple_drf_blog:latest
+    build:
+      context: ..
+      dockerfile: docker/dockerfile
     container_name: simple_drf_blog-celery_worker
     restart: unless-stopped
     working_dir: /app/src
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
     volumes:
-      - ../envs/.env.prod:/app/.env.prod:ro
+      - ../envs/.env.prod:/app/envs/.env.prod:ro
       - media_files:/app/media
     depends_on:
       db:
@@ -86,13 +93,16 @@ services:
 
   celery_beat:
     image: simple_drf_blog:latest
+    build:
+      context: ..
+      dockerfile: docker/dockerfile
     container_name: simple_drf_blog-celery_beat
     restart: unless-stopped
     working_dir: /app/src
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
     volumes:
-      - ../envs/.env.prod:/app/.env.prod:ro
+      - ../envs/.env.prod:/app/envs/.env.prod:ro
     depends_on:
       redis:
         condition: service_healthy
