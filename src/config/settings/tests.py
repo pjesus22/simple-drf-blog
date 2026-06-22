@@ -7,7 +7,7 @@ from .base import *
 # -----------------------------------------------------------------------------
 # LOAD ENVIRONMENT
 # -----------------------------------------------------------------------------
-config = Config(RepositoryEnv(BASE_DIR.parent / "envs" / ".env.test"))
+config = Config(RepositoryEnv(BASE_DIR.parent / ".env"))
 
 # -----------------------------------------------------------------------------
 # CORE SETTINGS
