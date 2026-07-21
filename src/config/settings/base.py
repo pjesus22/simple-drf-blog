@@ -163,6 +163,21 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/hour",
+        "user": "1000/hour",
+        "anon_read": "200/hour",
+        "user_read": "500/hour",
+        "login": "10/hour",
+        "token": "5/minute",
+        "write": "60/hour",
+        "upload_hour": "10/hour",
+        "upload_burst": "2/min",
+    },
 }
 
 # -----------------------------------------------------------------------------

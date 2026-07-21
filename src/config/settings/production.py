@@ -87,6 +87,7 @@ CACHES = {
         },
     }
 }
+REST_FRAMEWORK["NUM_PROXIES"] = config("NUM_PROXIES", default=1, cast=int)
 
 # -----------------------------------------------------------------------------
 # CELERY

@@ -44,6 +44,7 @@ CACHES = {
         "LOCATION": "tests",
     }
 }
+REST_FRAMEWORK["NUM_PROXIES"] = config("NUM_PROXIES", default=0, cast=int)
 
 # -----------------------------------------------------------------------------
 # REST FRAMEWORK

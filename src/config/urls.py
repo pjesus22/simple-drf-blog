@@ -16,19 +16,33 @@ from rest_framework_simplejwt.views import (
 
 from apps.accounts.permissions import IsAdmin
 from config.routers import router
-
-from .views import APIRootView
+from config.throttle import LoginThrottle, TokenThrottle
+from config.views import APIRootView
 
 urlpatterns = [
     path("", APIRootView.as_view(), name="root"),
     path("admin/", admin.site.urls),
     path("", include("apps.metrics.urls")),
     path("api/v1/", include((router.urls, "api"), namespace="v1")),
-    path("api/v1/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("api/v1/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("api/v1/token/verify/", TokenVerifyView.as_view(), name="token_verify"),
     path(
-        "api/v1/token/blacklist/", TokenBlacklistView.as_view(), name="token_blacklist"
+        "api/v1/token/",
+        TokenObtainPairView.as_view(throttle_classes=[LoginThrottle]),
+        name="token_obtain_pair",
+    ),
+    path(
+        "api/v1/token/refresh/",
+        TokenRefreshView.as_view(throttle_classes=[TokenThrottle]),
+        name="token_refresh",
+    ),
+    path(
+        "api/v1/token/verify/",
+        TokenVerifyView.as_view(throttle_classes=[TokenThrottle]),
+        name="token_verify",
+    ),
+    path(
+        "api/v1/token/blacklist/",
+        TokenBlacklistView.as_view(throttle_classes=[TokenThrottle]),
+        name="token_blacklist",
     ),
     path(
         "api/v1/schema/",
