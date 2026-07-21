@@ -13,7 +13,6 @@ from apps.content.schemas import (
     post_viewset_schema,
     remove_attachment_schema,
     restore_schema,
-    # soft_delete_schema,
     thumbnail_add_schema,
     thumbnail_remove_schema,
     trash_schema,
@@ -28,6 +27,13 @@ from apps.content.serializers import (
     PostStatusSerializer,
     PostThumbnailSerializer,
     PostUpdateSerializer,
+)
+from config.throttle import (
+    AnonReadThrottle,
+    UploadBurstThrottle,
+    UploadHourThrottle,
+    UserReadThrottle,
+    WriteThrottle,
 )
 
 
@@ -88,6 +94,20 @@ class PostViewSet(viewsets.ModelViewSet):
             "remove_attachment": PostAttachmentRemoveSerializer,
         }
         return serializer_map.get(self.action, PostSerializer)
+
+    def get_throttles(self):
+        method = self.request.method
+        if method in ("OPTIONS", "HEAD"):
+            return []
+        if self.action in ("thumbnail", "add_attachments") and method == "POST":
+            return [UploadHourThrottle(), UploadBurstThrottle()]
+        if self.action in ("list", "retrieve", "trash"):
+            return (
+                [UserReadThrottle()]
+                if self.request.user.is_authenticated
+                else [AnonReadThrottle()]
+            )
+        return [WriteThrottle()]
 
     def destroy(self, request, *args, **kwargs):
         post = self.get_object()
@@ -170,19 +190,6 @@ class PostViewSet(viewsets.ModelViewSet):
 
         post.attachments.remove(serializer.validated_data["attachment_id"])
         return Response(status=status.HTTP_204_NO_CONTENT)
-
-    # @soft_delete_schema
-    # @action(detail=True, methods=["post"])
-    # def soft_delete(self, request, slug=None):
-    #     post = self.get_object()
-
-    #     serializer = self.get_serializer(
-    #         post, data=request.data, context={"request": request}
-    #     )
-    #     serializer.is_valid(raise_exception=True)
-
-    #     serializer.save()
-    #     return Response(status=status.HTTP_204_NO_CONTENT)
 
     @restore_schema
     @action(detail=True, methods=["post"])

@@ -1,3 +1,4 @@
+from django.contrib.auth.models import AnonymousUser
 import pytest
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -15,6 +16,13 @@ from apps.content.serializers import (
     PostUpdateSerializer,
 )
 from apps.content.views import CategoryViewSet, PostViewSet, TagViewSet
+from config.throttle import (
+    AnonReadThrottle,
+    UploadBurstThrottle,
+    UploadHourThrottle,
+    UserReadThrottle,
+    WriteThrottle,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -57,6 +65,85 @@ def test_content_viewsets_return_correct_permissions(
     )
     for permission, expected_permission in zip(permissions, expected_permissions):
         assert isinstance(permission, expected_permission)
+
+
+@pytest.mark.parametrize(
+    "viewset_class, action, method, is_auth, expected_throttle_classes",
+    [
+        (CategoryViewSet, "list", "GET", False, [AnonReadThrottle]),
+        (CategoryViewSet, "list", "GET", True, [UserReadThrottle]),
+        (CategoryViewSet, "list", "OPTIONS", False, []),
+        (CategoryViewSet, "list", "OPTIONS", True, []),
+        (CategoryViewSet, "retrieve", "GET", False, [AnonReadThrottle]),
+        (CategoryViewSet, "retrieve", "GET", True, [UserReadThrottle]),
+        (CategoryViewSet, "create", "POST", True, [WriteThrottle]),
+        (CategoryViewSet, "partial_update", "PATCH", True, [WriteThrottle]),
+        (CategoryViewSet, "destroy", "DELETE", True, [WriteThrottle]),
+        (TagViewSet, "list", "GET", False, [AnonReadThrottle]),
+        (TagViewSet, "list", "GET", True, [UserReadThrottle]),
+        (TagViewSet, "list", "OPTIONS", False, []),
+        (TagViewSet, "list", "OPTIONS", True, []),
+        (TagViewSet, "retrieve", "GET", False, [AnonReadThrottle]),
+        (TagViewSet, "retrieve", "GET", True, [UserReadThrottle]),
+        (TagViewSet, "create", "POST", True, [WriteThrottle]),
+        (TagViewSet, "partial_update", "PATCH", True, [WriteThrottle]),
+        (TagViewSet, "destroy", "DELETE", True, [WriteThrottle]),
+        (PostViewSet, "list", "GET", False, [AnonReadThrottle]),
+        (PostViewSet, "list", "GET", True, [UserReadThrottle]),
+        (PostViewSet, "list", "OPTIONS", False, []),
+        (PostViewSet, "list", "OPTIONS", True, []),
+        (PostViewSet, "retrieve", "GET", False, [AnonReadThrottle]),
+        (PostViewSet, "retrieve", "GET", True, [UserReadThrottle]),
+        (PostViewSet, "trash", "GET", False, [AnonReadThrottle]),
+        (PostViewSet, "trash", "GET", True, [UserReadThrottle]),
+        (PostViewSet, "create", "POST", True, [WriteThrottle]),
+        (PostViewSet, "update", "PUT", True, [WriteThrottle]),
+        (PostViewSet, "partial_update", "PATCH", True, [WriteThrottle]),
+        (PostViewSet, "destroy", "DELETE", True, [WriteThrottle]),
+        (PostViewSet, "change_status", "POST", True, [WriteThrottle]),
+        (PostViewSet, "restore", "POST", True, [WriteThrottle]),
+        (
+            PostViewSet,
+            "thumbnail",
+            "POST",
+            True,
+            [UploadHourThrottle, UploadBurstThrottle],
+        ),
+        (PostViewSet, "thumbnail", "DELETE", True, [WriteThrottle]),
+        (
+            PostViewSet,
+            "add_attachments",
+            "POST",
+            True,
+            [UploadHourThrottle, UploadBurstThrottle],
+        ),
+        (PostViewSet, "remove_attachment", "DELETE", True, [WriteThrottle]),
+    ],
+)
+def test_content_viewsets_return_correct_throttle_for_action(
+    rf,
+    editor_factory,
+    viewset_class,
+    action,
+    method,
+    is_auth,
+    expected_throttle_classes,
+):
+    request = getattr(rf, method.lower())("/")
+    request.user = editor_factory() if is_auth else AnonymousUser()
+
+    viewset = viewset_class(action=action)
+    viewset.request = request
+    viewset.format_kwarg = None
+
+    throttles = viewset.get_throttles()
+
+    assert len(throttles) == len(expected_throttle_classes), (
+        f"Expected {len(expected_throttle_classes)} throttles for"
+        f"{viewset_class.__name__}:{action}, got {len(throttles)}"
+    )
+    for throttle, expected_class in zip(throttles, expected_throttle_classes):
+        assert isinstance(throttle, expected_class)
 
 
 class TestPostViewSet:

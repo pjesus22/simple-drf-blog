@@ -6,6 +6,7 @@ from apps.accounts.permissions import IsAdmin
 from apps.content.models import Category, Post
 from apps.content.schemas import category_viewset_schema
 from apps.content.serializers import CategorySerializer
+from config.throttle import AnonReadThrottle, UserReadThrottle, WriteThrottle
 
 
 @category_viewset_schema
@@ -29,3 +30,15 @@ class CategoryViewSet(viewsets.ModelViewSet):
         else:
             permission_classes = [AllowAny]
         return [permission() for permission in permission_classes]
+
+    def get_throttles(self):
+        method = self.request.method
+        if method in ("OPTIONS", "HEAD"):
+            return []
+        if self.action in ("list", "retrieve"):
+            return (
+                [UserReadThrottle()]
+                if self.request.user.is_authenticated
+                else [AnonReadThrottle()]
+            )
+        return [WriteThrottle()]
