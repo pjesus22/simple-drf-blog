@@ -54,23 +54,6 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 # -----------------------------------------------------------------------------
-# LOGGING
-# -----------------------------------------------------------------------------
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-        },
-    },
-    "root": {
-        "handlers": ["console"],
-        "level": "INFO",
-    },
-}
-
-# -----------------------------------------------------------------------------
 # METADATA
 # -----------------------------------------------------------------------------
 API_VERSION = config("API_VERSION", default="1.0")
@@ -117,14 +100,9 @@ DEDUP_EVENT_CONFIG["post_view"]["ttl"] = config(
 # -----------------------------------------------------------------------------
 # LOGGING
 # -----------------------------------------------------------------------------
+LOGGING["handlers"] = {"console": {"class": "logging.StreamHandler"}}
 LOGGING["root"]["level"] = "WARNING"
 LOGGING["loggers"] = {
-    "django": {
-        "level": "WARNING",
-        "propagate": False,
-    },
-    "django.request": {
-        "level": "ERROR",
-        "propagate": False,
-    },
+    "django": {"level": "WARNING", "propagate": False},
+    "django.request": {"level": "ERROR", "propagate": False},
 }
