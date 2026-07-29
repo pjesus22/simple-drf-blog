@@ -28,6 +28,7 @@ from apps.metrics.serializers import (
     StorageHealthSerializer,
 )
 from apps.uploads.storage import get_media_storage
+from config.throttle import UserReadThrottle
 
 
 @health_schema
@@ -36,6 +37,7 @@ class APIHealthView(APIView):
     permission_classes = [AllowAny]
     resource_name = "health"
     renderer_classes = [JSONRenderer]
+    throttle_classes = []
 
     def get(self, request, *args, **kwargs):
         data = {
@@ -57,6 +59,7 @@ class DatabaseHealthView(APIView):
     permission_classes = [IsAdmin]
     resource_name = "health"
     renderer_classes = [JSONRenderer]
+    throttle_classes = [UserReadThrottle]
 
     def get(self, request):
         start = time.monotonic()
@@ -85,6 +88,7 @@ class MetricRecordView(APIView):
     permission_classes = [IsAdmin]
     resource_name = "metric-records"
     renderer_classes = [JSONRenderer]
+    throttle_classes = [UserReadThrottle]
 
     def get(self, request):
         summary = request.query_params.get("summary") == "true"
@@ -112,6 +116,7 @@ class StorageHealthView(APIView):
     permission_classes = [IsAdmin]
     resource_name = "health"
     renderer_classes = [JSONRenderer]
+    throttle_classes = [UserReadThrottle]
 
     def get(self, request):
         storage = get_media_storage()
