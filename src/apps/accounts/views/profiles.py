@@ -13,16 +13,19 @@ from apps.accounts.schemas import (
     profile_viewset_schema,
 )
 from apps.accounts.serializers import PrivateProfileSerializer, PublicProfileSerializer
+from config.throttle import ReadWriteThrottleMixin
 
 
 @profile_viewset_schema
 class ProfileViewSet(
+    ReadWriteThrottleMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     mixins.UpdateModelMixin,
     viewsets.GenericViewSet,
 ):
-    http_method_names = ["get", "put", "patch", "head", "options"]
+    http_method_names = ["get", "post", "put", "patch", "head", "options"]
+    read_actions = ("list", "retrieve", "me")
 
     def get_queryset(self):
         user = self.request.user

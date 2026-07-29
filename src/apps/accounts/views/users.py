@@ -28,15 +28,17 @@ from apps.accounts.services import (
     change_user_role,
     force_user_password_change,
 )
+from config.throttle import PasswordChangeThrottle, ReadWriteThrottleMixin
 
 User = get_user_model()
 
 
 @user_viewset_schema
-class UserViewSet(ModelViewSet):
+class UserViewSet(ReadWriteThrottleMixin, ModelViewSet):
     queryset = User.objects.all()
     permission_classes = [IsAuthenticated]
     serializer_class = UserDetailSerializer
+    read_actions = ("list", "retrieve", "me")
 
     def get_serializer_class(self):
         serializer_map = {
@@ -63,6 +65,11 @@ class UserViewSet(ModelViewSet):
         }
         permission_classes = permission_map.get(self.action, self.permission_classes)
         return [p() for p in permission_classes]
+
+    def get_throttles(self):
+        if self.action == "change_password" and self.request.method == "POST":
+            return [PasswordChangeThrottle()]
+        return super().get_throttles()
 
     @user_me_action_schema
     @user_me_action_update_schema
