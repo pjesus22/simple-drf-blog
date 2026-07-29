@@ -34,3 +34,22 @@ class UploadBurstThrottle(UserRateThrottle):
 
 class PasswordChangeThrottle(UserRateThrottle):
     scope = "password_change"
+
+
+class ReadWriteThrottleMixin:
+    read_actions = ("list", "retrieve")
+    upload_actions = ()
+
+    def get_throttles(self):
+        request = self.request
+        method = self.request.method
+
+        if method in ("OPTIONS", "HEAD"):
+            return []
+        if method == "POST" and self.action in self.upload_actions:
+            return [UploadHourThrottle(), UploadBurstThrottle()]
+        if method == "GET" and self.action in self.read_actions:
+            if request.user and request.user.is_authenticated:
+                return [UserReadThrottle()]
+            return [AnonReadThrottle()]
+        return [WriteThrottle()]
