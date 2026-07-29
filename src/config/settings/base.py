@@ -177,6 +177,7 @@ REST_FRAMEWORK = {
         "write": "60/hour",
         "upload_hour": "10/hour",
         "upload_burst": "2/min",
+        "password_change": "10/hour",
     },
 }
 

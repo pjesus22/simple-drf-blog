@@ -30,3 +30,7 @@ class UploadHourThrottle(UserRateThrottle):
 
 class UploadBurstThrottle(UserRateThrottle):
     scope = "upload_burst"
+
+
+class PasswordChangeThrottle(UserRateThrottle):
+    scope = "password_change"

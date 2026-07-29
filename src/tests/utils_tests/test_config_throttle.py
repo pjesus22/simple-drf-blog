@@ -4,6 +4,7 @@ import pytest
 from config.throttle import (
     AnonReadThrottle,
     LoginThrottle,
+    PasswordChangeThrottle,
     TokenThrottle,
     UploadBurstThrottle,
     UploadHourThrottle,
@@ -24,6 +25,7 @@ USER_FOCUSED_THROTTLE = [
     UploadHourThrottle,
     UploadBurstThrottle,
     TokenThrottle,
+    PasswordChangeThrottle,
 ]
 
 
