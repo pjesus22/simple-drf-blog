@@ -1,23 +1,21 @@
+import uuid
+
 import factory
-from faker import Faker
 
 from apps.accounts.models import User
 
 from .profiles import ProfileFactory
 
-_fake = Faker()
-
 
 class BaseUserFactory(factory.django.DjangoModelFactory):
-    username = factory.Faker("user_name")
+    username = factory.LazyFunction(lambda: f"user_{uuid.uuid4().hex[:12]}")
     first_name = factory.Faker("first_name")
     last_name = factory.Faker("last_name")
-    email = factory.Faker("email")
+    email = factory.LazyAttribute(lambda o: f"{o.username}@example.com")
     password = factory.django.Password("defaultpassword")
 
     class Meta:
         abstract = True
-        django_get_or_create = ("username",)
         skip_postgeneration_save = True
 
 
