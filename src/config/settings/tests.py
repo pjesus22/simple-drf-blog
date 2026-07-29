@@ -2,6 +2,8 @@ import tempfile
 
 from decouple import Config, RepositoryEnv
 
+from config.settings.base import REST_FRAMEWORK
+
 from .base import *
 
 # -----------------------------------------------------------------------------
@@ -45,6 +47,19 @@ CACHES = {
     }
 }
 REST_FRAMEWORK["NUM_PROXIES"] = config("NUM_PROXIES", default=0, cast=int)
+REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
+    **REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"],
+    "anon": "10000/hour",
+    "user": "10000/hour",
+    "anon_read": "10000/hour",
+    "user_read": "10000/hour",
+    "login": "10000/hour",
+    "token": "10000/hour",
+    "write": "10000/hour",
+    "upload_hour": "10000/hour",
+    "upload_burst": "10000/min",
+    "password_change": "10000/hour",
+}
 
 # -----------------------------------------------------------------------------
 # REST FRAMEWORK
