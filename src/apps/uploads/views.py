@@ -19,15 +19,18 @@ from apps.uploads.serializers import (
     UploadUpdateSerializer,
 )
 from apps.uploads.services import UploadService
+from config.throttle import ReadWriteThrottleMixin
 
 User = get_user_model()
 
 
 @upload_viewset_schema
-class UploadViewSet(ModelViewSet):
+class UploadViewSet(ReadWriteThrottleMixin, ModelViewSet):
     queryset = Upload.objects.none()
     serializer_class = UploadSerializer
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
+    read_actions = ("list", "retrieve", "trash")
+    upload_actions = ("create",)
 
     def get_queryset(self):
         user = self.request.user
