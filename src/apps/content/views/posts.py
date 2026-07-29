@@ -29,21 +29,19 @@ from apps.content.serializers import (
     PostUpdateSerializer,
 )
 from config.throttle import (
-    AnonReadThrottle,
-    UploadBurstThrottle,
-    UploadHourThrottle,
-    UserReadThrottle,
-    WriteThrottle,
+    ReadWriteThrottleMixin,
 )
 
 
 @post_viewset_schema
-class PostViewSet(viewsets.ModelViewSet):
+class PostViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
     serializer_class = PostSerializer
     queryset = Post.objects.all()
     lookup_field = "slug"
     filter_backends = [DjangoFilterBackend]
     filterset_class = PostFilter
+    read_actions = ("list", "retrieve", "trash")
+    upload_actions = ("thumbnail", "add_attachments")
 
     def get_queryset(self):
         if self.action == "restore":
@@ -94,20 +92,6 @@ class PostViewSet(viewsets.ModelViewSet):
             "remove_attachment": PostAttachmentRemoveSerializer,
         }
         return serializer_map.get(self.action, PostSerializer)
-
-    def get_throttles(self):
-        method = self.request.method
-        if method in ("OPTIONS", "HEAD"):
-            return []
-        if self.action in ("thumbnail", "add_attachments") and method == "POST":
-            return [UploadHourThrottle(), UploadBurstThrottle()]
-        if self.action in ("list", "retrieve", "trash"):
-            return (
-                [UserReadThrottle()]
-                if self.request.user.is_authenticated
-                else [AnonReadThrottle()]
-            )
-        return [WriteThrottle()]
 
     def destroy(self, request, *args, **kwargs):
         post = self.get_object()

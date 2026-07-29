@@ -6,11 +6,13 @@ from apps.accounts.permissions import IsEditor
 from apps.content.models import Post, Tag
 from apps.content.schemas import tag_viewset_schema
 from apps.content.serializers import TagSerializer
-from config.throttle import AnonReadThrottle, UserReadThrottle, WriteThrottle
+from config.throttle import (
+    ReadWriteThrottleMixin,
+)
 
 
 @tag_viewset_schema
-class TagViewSet(viewsets.ModelViewSet):
+class TagViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     lookup_field = "slug"
@@ -30,15 +32,3 @@ class TagViewSet(viewsets.ModelViewSet):
         else:
             permission_classes = [AllowAny]
         return [permission() for permission in permission_classes]
-
-    def get_throttles(self):
-        method = self.request.method
-        if method in ("OPTIONS", "HEAD"):
-            return []
-        if self.action in ("list", "retrieve"):
-            return (
-                [UserReadThrottle()]
-                if self.request.user.is_authenticated
-                else [AnonReadThrottle()]
-            )
-        return [WriteThrottle()]
