@@ -1,9 +1,15 @@
+from django.contrib.auth.models import AnonymousUser
 import pytest
 from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from apps.accounts.permissions import IsOwner
 from apps.accounts.serializers import PrivateProfileSerializer, PublicProfileSerializer
 from apps.accounts.views import ProfileViewSet
+from config.throttle import (
+    AnonReadThrottle,
+    UserReadThrottle,
+    WriteThrottle,
+)
 
 
 class TestProfileViewSet:
@@ -84,6 +90,49 @@ class TestProfileViewSet:
         method_to_call = getattr(mock_manager, manager_method)
         method_to_call.assert_called_once_with(mock_user)
 
+    @pytest.mark.parametrize(
+        "action, method, is_auth, expected_throttle_classes",
+        [
+            ("list", "GET", False, [AnonReadThrottle]),
+            ("list", "GET", True, [UserReadThrottle]),
+            ("retrieve", "GET", False, [AnonReadThrottle]),
+            ("retrieve", "GET", True, [UserReadThrottle]),
+            ("me", "GET", True, [UserReadThrottle]),
+            ("me", "PATCH", True, [WriteThrottle]),
+            ("me", "PUT", True, [WriteThrottle]),
+            ("update", "PUT", True, [WriteThrottle]),
+            ("partial_update", "PATCH", True, [WriteThrottle]),
+            ("toggle_public", "POST", True, [WriteThrottle]),
+            ("list", "OPTIONS", False, []),
+            ("list", "OPTIONS", True, []),
+        ],
+    )
+    def test_profile_viewset_return_correct_throttle_for_action(
+        self,
+        db,
+        rf,
+        editor_factory,
+        action,
+        method,
+        is_auth,
+        expected_throttle_classes,
+    ):
+        request = getattr(rf, method.lower())("/")
+        request.user = editor_factory() if is_auth else AnonymousUser()
+
+        viewset = ProfileViewSet(action=action)
+        viewset.request = request
+        viewset.format_kwarg = None
+
+        throttles = viewset.get_throttles()
+
+        assert len(throttles) == len(expected_throttle_classes), (
+            f"Expected {len(expected_throttle_classes)} throttles for"
+            f"ProfileViewSet:{action}, got {len(throttles)}"
+        )
+        for throttle, expected_class in zip(throttles, expected_throttle_classes):
+            assert isinstance(throttle, expected_class)
+
     def test_profile_viewset_me_action_get_returns_user_profile(self, viewset, mocker):
         vs_instance, mock_request, mock_user = viewset(action="me", method="GET")
 
@@ -153,10 +202,9 @@ class TestProfileViewSet:
 
     def test_profile_viewset_http_methods_restricted(self):
         viewset = ProfileViewSet()
-        allowed = {"get", "put", "patch", "head", "options"}
-        assert set(viewset.http_method_names) == allowed
+        allowed = {"get", "post", "put", "patch", "head", "options"}
+        assert set(viewset.http_method_names) == set(allowed)
         assert "delete" not in viewset.http_method_names
-        assert "post" not in viewset.http_method_names
 
     def test_toggle_public_success(self, viewset, mocker, profile_factory, db):
         profile = profile_factory(is_public=False)

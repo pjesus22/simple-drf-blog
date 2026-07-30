@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 
+from django.contrib.auth.models import AnonymousUser
 from django.utils import timezone
 import pytest
 
@@ -7,6 +8,13 @@ from apps.accounts.permissions import IsEditor, IsOwner
 from apps.uploads.models import Upload
 from apps.uploads.serializers import UploadCreateSerializer, UploadSerializer
 from apps.uploads.views import UploadViewSet
+from config.throttle import (
+    AnonReadThrottle,
+    UploadBurstThrottle,
+    UploadHourThrottle,
+    UserReadThrottle,
+    WriteThrottle,
+)
 
 
 @pytest.mark.parametrize(
@@ -79,6 +87,41 @@ def test_upload_viewset_get_queryset_filtering(
     assert qs.count() == Upload.objects.count()
     assert upload_by_editor in qs
     assert upload_by_admin in qs
+
+
+@pytest.mark.parametrize(
+    "action, method, is_auth, expected_throttle_classes",
+    [
+        ("list", "GET", False, [AnonReadThrottle]),
+        ("list", "GET", True, [UserReadThrottle]),
+        ("retrieve", "GET", False, [AnonReadThrottle]),
+        ("retrieve", "GET", True, [UserReadThrottle]),
+        ("trash", "GET", False, [AnonReadThrottle]),
+        ("trash", "GET", True, [UserReadThrottle]),
+        ("create", "POST", True, [UploadHourThrottle, UploadBurstThrottle]),
+        ("partial_update", "PATCH", True, [WriteThrottle]),
+        ("destroy", "DELETE", True, [WriteThrottle]),
+        ("restore", "POST", True, [WriteThrottle]),
+    ],
+)
+def test_upload_viewset_returns_correct_throttle_for_action(
+    db, rf, editor_factory, action, method, is_auth, expected_throttle_classes
+):
+    request = getattr(rf, method.lower())("/")
+    request.user = editor_factory() if is_auth else AnonymousUser()
+
+    viewset = UploadViewSet(action=action)
+    viewset.request = request
+    viewset.format_kwarg = None
+
+    throttles = viewset.get_throttles()
+
+    assert len(throttles) == len(expected_throttle_classes), (
+        f"Expected {len(expected_throttle_classes)} throttles for"
+        f"UploadViewSet:{action}, got {len(throttles)}"
+    )
+    for throttle, expected_class in zip(throttles, expected_throttle_classes):
+        assert isinstance(throttle, expected_class)
 
 
 @pytest.mark.django_db

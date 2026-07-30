@@ -10,6 +10,7 @@ from apps.metrics.views import (
     MetricRecordView,
     StorageHealthView,
 )
+from config.throttle import UserReadThrottle
 
 
 @pytest.fixture
@@ -17,12 +18,11 @@ def api_client():
     return APIClient()
 
 
-@pytest.fixture
-def admin_user(mocker):
-    user = mocker.Mock()
-    user.is_authenticated = True
-    user.role = "admin"
-    return user
+def test_metrics_views_return_correct_throttle_for_action():
+    assert APIHealthView.throttle_classes == []
+    assert DatabaseHealthView.throttle_classes == [UserReadThrottle]
+    assert StorageHealthView.throttle_classes == [UserReadThrottle]
+    assert MetricRecordView.throttle_classes == [UserReadThrottle]
 
 
 class TestHealthView:
@@ -52,8 +52,8 @@ class TestDatabaseHealthView:
         assert len(permissions) == 1
         assert isinstance(permissions[0], IsAdmin)
 
-    def test_database_health_view_get_success(self, api_client, admin_user, db):
-        api_client.force_authenticate(user=admin_user)
+    def test_database_health_view_get_success(self, api_client, admin_factory, db):
+        api_client.force_authenticate(user=admin_factory())
         response = api_client.get("/health/database/")
         data = response.json().get("data")
 
@@ -63,7 +63,7 @@ class TestDatabaseHealthView:
         assert "db_latency_ms" in data["attributes"]
 
     def test_database_health_view_database_unavailable(
-        self, api_client, admin_user, db, mocker
+        self, api_client, admin_factory, db, mocker
     ):
         cursor = mocker.MagicMock()
         cursor.__enter__.side_effect = OperationalError()
@@ -71,7 +71,7 @@ class TestDatabaseHealthView:
             "default"
         ].cursor.return_value = cursor
 
-        api_client.force_authenticate(user=admin_user)
+        api_client.force_authenticate(user=admin_factory())
         response = api_client.get("/health/database/")
         data = response.json().get("data")
 
@@ -88,27 +88,24 @@ class TestMetricRecordView:
         assert isinstance(permissions[0], IsAdmin)
 
     def test_metric_event_view_get_success(
-        self, api_client, admin_user, db, metric_record_factory
+        self, api_client, admin_factory, db, metric_record_factory
     ):
         metric_record_factory.create_batch(size=5)
-        api_client.force_authenticate(user=admin_user)
+        api_client.force_authenticate(user=admin_factory())
 
         response = api_client.get("/metrics/")
         data = response.json().get("data", [])
-        print(data)
 
         assert response.status_code == 200
         assert len(data) == 5
 
     def test_metric_event_view_get_summary_success(
-        self, api_client, admin_user, db, metric_record_factory
+        self, api_client, admin_factory, db, metric_record_factory
     ):
         metric_record_factory.create_batch(size=5)
-        api_client.force_authenticate(user=admin_user)
+        api_client.force_authenticate(user=admin_factory())
 
         response = api_client.get("/metrics/?summary=true")
-        data = response.json().get("data", [])
-        print(data)
 
         assert response.status_code == 200
 
@@ -121,8 +118,8 @@ class TestStorageHealthView:
         assert len(permissions) == 1
         assert isinstance(permissions[0], IsAdmin)
 
-    def test_storage_health_view_get_success(self, api_client, admin_user, db):
-        api_client.force_authenticate(user=admin_user)
+    def test_storage_health_view_get_success(self, api_client, admin_factory, db):
+        api_client.force_authenticate(user=admin_factory())
         response = api_client.get("/health/storage/")
         data = response.json().get("data")
 

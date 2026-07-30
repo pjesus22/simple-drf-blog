@@ -1,3 +1,4 @@
+from django.contrib.auth.models import AnonymousUser
 import pytest
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -17,6 +18,7 @@ from apps.accounts.serializers import (
     UserListSerializer,
 )
 from apps.accounts.views import UserViewSet
+from config.throttle import PasswordChangeThrottle, UserReadThrottle, WriteThrottle
 
 
 @pytest.fixture
@@ -234,3 +236,48 @@ class TestUserViewSetActions:
             target_user=target_user,
             new_password="new_secure_pass",
         )
+
+
+class TestUserViewSetThrottle:
+    @pytest.mark.parametrize(
+        "action, method, is_auth, expected_throttle_classes",
+        [
+            ("list", "GET", True, [UserReadThrottle]),
+            ("retrieve", "GET", True, [UserReadThrottle]),
+            ("me", "GET", True, [UserReadThrottle]),
+            ("me", "PATCH", True, [WriteThrottle]),
+            ("create", "POST", True, [WriteThrottle]),
+            ("update", "PUT", True, [WriteThrottle]),
+            ("partial_update", "PATCH", True, [WriteThrottle]),
+            ("destroy", "DELETE", True, [WriteThrottle]),
+            ("change_role", "POST", True, [WriteThrottle]),
+            ("change_password", "POST", True, [PasswordChangeThrottle]),
+            ("force_password_change", "POST", True, [WriteThrottle]),
+            ("list", "OPTIONS", False, []),
+            ("list", "OPTIONS", True, []),
+        ],
+    )
+    def test_user_viewset_return_correct_throttle_for_action(
+        self,
+        rf,
+        editor_factory,
+        action,
+        method,
+        is_auth,
+        expected_throttle_classes,
+    ):
+        request = getattr(rf, method.lower())("/")
+        request.user = editor_factory() if is_auth else AnonymousUser()
+
+        viewset = UserViewSet(action=action)
+        viewset.request = request
+        viewset.format_kwarg = None
+
+        throttles = viewset.get_throttles()
+
+        assert len(throttles) == len(expected_throttle_classes), (
+            f"Expected {len(expected_throttle_classes)} throttles for"
+            f"UserViewSet:{action}, got {len(throttles)}"
+        )
+        for throttle, expected_class in zip(throttles, expected_throttle_classes):
+            assert isinstance(throttle, expected_class)
