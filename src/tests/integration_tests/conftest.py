@@ -1,3 +1,4 @@
+from django.core.cache import cache
 import pytest
 from pytest_factoryboy import register
 from rest_framework.test import APIClient
@@ -73,3 +74,10 @@ def clean_media(tmp_path, settings):
     """
     settings.MEDIA_ROOT = tmp_path
     yield
+
+
+@pytest.fixture(autouse=True)
+def clear_throttle_cache():
+    cache.clear()
+    yield
+    cache.clear()
