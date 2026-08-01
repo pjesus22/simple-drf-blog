@@ -46,7 +46,7 @@ class ProfileViewSet(
     def get_permissions(self):
         if self.action in ("update", "partial_update"):
             permission_classes = [IsOwner]
-        elif self.action == "me":
+        elif self.action in ("me", "toggle_public"):
             permission_classes = [IsAuthenticated]
         else:
             permission_classes = [AllowAny]
