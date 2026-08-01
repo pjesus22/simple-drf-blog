@@ -50,7 +50,7 @@ pytestmark = pytest.mark.django_db
         (PostViewSet, "soft_delete", [IsOwner, IsEditor]),
         (PostViewSet, "list", [AllowAny]),
         (PostViewSet, "retrieve", [AllowAny]),
-        (PostViewSet, "restore", [IsAdmin]),
+        (PostViewSet, "restore", [IsOwner, IsEditor]),
         (PostViewSet, "trash", [IsOwner, IsEditor]),
     ],
 )
@@ -188,7 +188,7 @@ class TestPostViewSet:
 
         mock_post = mocker.patch("apps.content.views.posts.Post")
         viewset.get_queryset()
-        mock_post.objects.with_deleted.assert_called_once()
+        mock_post.objects.only_deleted.assert_called_once()
 
     def test_get_queryset_restore_action_non_staff_user(
         self, rf, editor_factory, mocker
@@ -206,9 +206,18 @@ class TestPostViewSet:
         mock_post.objects.only_deleted.assert_called_once()
         mock_queryset.owned_by.assert_called_once_with(request.user)
 
-    def test_get_queryset_trash_action(self, rf, admin_factory, mocker):
+    def test_get_queryset_trash_action_staff_user(self, rf, admin_factory, mocker):
         request = rf.get("/posts/trash/")
         request.user = admin_factory()
+        viewset = PostViewSet(request=request, action="trash")
+
+        mock_post = mocker.patch("apps.content.views.posts.Post")
+        viewset.get_queryset()
+        mock_post.objects.only_deleted.assert_called_once()
+
+    def test_get_queryset_trash_action_non_staff_user(self, rf, editor_factory, mocker):
+        request = rf.get("/posts/trash/")
+        request.user = editor_factory()
         viewset = PostViewSet(request=request, action="trash")
 
         mock_post = mocker.patch("apps.content.views.posts.Post")
