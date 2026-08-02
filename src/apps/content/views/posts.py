@@ -4,7 +4,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_json_api.django_filters import DjangoFilterBackend
 
-from apps.accounts.permissions import IsAdmin, IsEditor, IsOwner
+from apps.accounts.permissions import IsEditor, IsOwner
 from apps.content.filters import PostFilter
 from apps.content.models import Post
 from apps.content.schemas import (
@@ -57,26 +57,26 @@ class PostViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
 
     def _get_restore_queryset(self):
         user = self.request.user
-        return (
-            Post.objects.with_deleted()
-            if user.is_staff
-            else Post.objects.only_deleted().owned_by(user)
-        )
+        qs = Post.objects.only_deleted()
+        if user.is_staff:
+            return qs
+        return qs.owned_by(user)
 
     def _get_trash_queryset(self):
-        return Post.objects.only_deleted().owned_by(self.request.user)
+        user = self.request.user
+        qs = Post.objects.only_deleted()
+        if user.is_staff:
+            return qs
+        return qs.owned_by(user)
 
     def _get_soft_delete_queryset(self):
         return Post.objects.owned_by(self.request.user)
 
     def get_permissions(self):
-        if self.action in ["list", "retrieve"]:
+        if self.action in ("list", "retrieve"):
             permission_classes = [AllowAny]
-        elif self.action == "restore":
-            permission_classes = [IsAdmin]
         else:
             permission_classes = [IsOwner, IsEditor]
-
         return [permission() for permission in permission_classes]
 
     def get_serializer_class(self):

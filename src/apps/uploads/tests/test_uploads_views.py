@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 from django.contrib.auth.models import AnonymousUser
+from django.http import Http404
 from django.utils import timezone
 import pytest
 
@@ -67,7 +68,7 @@ def test_upload_viewset_get_queryset_filtering(
     upload_by_editor = upload_factory(uploaded_by=editor)
     upload_by_admin = upload_factory(uploaded_by=admin)
 
-    viewset = UploadViewSet()
+    viewset = UploadViewSet(action="list")
 
     # 1. Test Regular User
     request = rf.get("/uploads/")
@@ -110,10 +111,7 @@ def test_upload_viewset_returns_correct_throttle_for_action(
     request = getattr(rf, method.lower())("/")
     request.user = editor_factory() if is_auth else AnonymousUser()
 
-    viewset = UploadViewSet(action=action)
-    viewset.request = request
-    viewset.format_kwarg = None
-
+    viewset = UploadViewSet(action=action, request=request, format_kwarg=None)
     throttles = viewset.get_throttles()
 
     assert len(throttles) == len(expected_throttle_classes), (
@@ -134,17 +132,12 @@ def test_upload_viewset_perform_create_implements_upload_service(mocker):
     user = mocker.Mock()
     mock_file = Mock()
 
-    request = Mock()
-    request.user = user
-    request.data = {
-        "purpose": Upload.Purpose.AVATAR,
-        "visibility": Upload.Visibility.PUBLIC,
-    }
-    request.FILES = {"file": mock_file}
-
-    viewset = UploadViewSet()
-    viewset.request = request
-
+    request = Mock(
+        user=user,
+        data={"purpose": Upload.Purpose.AVATAR, "visibility": Upload.Visibility.PUBLIC},
+        FILES={"file": mock_file},
+    )
+    viewset = UploadViewSet(request=request)
     mock_serializer = Mock()
 
     viewset.perform_create(mock_serializer)
@@ -171,24 +164,19 @@ def test_upload_restore_action(mocker, rf):
     upload = mocker.Mock(spec=Upload)
     upload.deleted_at = timezone.now()
 
-    mock_get_object = mocker.patch(
-        "apps.uploads.views.get_object_or_404", return_value=upload
-    )
-
     mock_serializer = mocker.Mock()
     mock_serializer.data = {"id": 123, "status": "restored"}
 
-    viewset = UploadViewSet()
-    viewset.action = "restore"
-    viewset.request = rf.post("/restore/")
+    viewset = UploadViewSet(action="restore", request=rf.post("/restore/"))
 
+    mock_get_object = mocker.patch.object(viewset, "get_object", return_value=upload)
     mocker.patch.object(viewset, "get_serializer", return_value=mock_serializer)
 
     response = viewset.restore(viewset.request, pk=123)
 
     assert response.status_code == 200
     assert response.data == mock_serializer.data
-    mock_get_object.assert_called_once_with(Upload.all_objects, pk=123)
+    mock_get_object.assert_called_once_with()
     assert upload.deleted_at is None
     upload.save.assert_called_once()
 
@@ -197,9 +185,8 @@ def test_upload_restore_returns_400_if_not_deleted(mocker, rf):
     upload = mocker.Mock(spec=Upload)
     upload.deleted_at = None
 
-    mocker.patch("apps.uploads.views.get_object_or_404", return_value=upload)
-
     viewset = UploadViewSet()
+    mocker.patch.object(viewset, "get_object", return_value=upload)
     viewset.action = "restore"
     viewset.request = rf.post("/restore/")
 
@@ -207,6 +194,28 @@ def test_upload_restore_returns_400_if_not_deleted(mocker, rf):
 
     assert response.status_code == 400
     assert response.data == {"detail": "Upload is not deleted."}
+
+
+@pytest.mark.django_db
+def test_upload_editor_cannot_restore_other_editors_upload(
+    rf, editor_factory, upload_factory
+):
+    owner = editor_factory()
+    other_editor = editor_factory()
+    upload = upload_factory(uploaded_by=owner, deleted_at=timezone.now())
+
+    request = rf.post("/restore/")
+    request.user = other_editor
+
+    viewset = UploadViewSet(
+        action="restore", filter_backends=[], request=request, kwargs={"pk": upload.pk}
+    )
+
+    with pytest.raises(Http404):
+        viewset.restore(request, pk=upload.pk)
+
+    upload.refresh_from_db()
+    assert upload.deleted_at is not None
 
 
 def test_upload_trash_action(mocker, rf):

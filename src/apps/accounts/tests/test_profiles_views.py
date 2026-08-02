@@ -34,8 +34,9 @@ class TestProfileViewSet:
             ("me", [IsAuthenticated]),
             ("list", [AllowAny]),
             ("retrieve", [AllowAny]),
+            ("toggle_public", [IsAuthenticated]),
         ],
-        ids=("update", "partial_update", "me", "list", "retrieve"),
+        ids=("update", "partial_update", "me", "list", "retrieve", "toggle_public"),
     )
     def test_profile_viewset_returns_correct_permissions(
         self, action, expected_permissions

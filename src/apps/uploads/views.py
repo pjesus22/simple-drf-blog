@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
@@ -34,11 +33,16 @@ class UploadViewSet(ReadWriteThrottleMixin, ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        if self.action == "restore":
+            qs = Upload.all_objects.filter(deleted_at__isnull=False)
+        elif self.action == "trash":
+            qs = Upload.objects.only_deleted()
+        else:
+            qs = Upload.objects.all()
 
-        if user.role == User.Role.ADMIN:
-            return Upload.objects.all()
-
-        return Upload.objects.filter(uploaded_by=user)
+        if user.role != User.Role.ADMIN:
+            qs = qs.filter(uploaded_by=user)
+        return qs
 
     def get_permissions(self):
         if self.action in ["list", "create"]:
@@ -69,7 +73,7 @@ class UploadViewSet(ReadWriteThrottleMixin, ModelViewSet):
     @upload_restore_action_schema
     @action(detail=True, methods=["post"])
     def restore(self, request, pk=None):
-        upload = get_object_or_404(Upload.all_objects, pk=pk)
+        upload = self.get_object()
 
         if upload.deleted_at is None:
             return Response(
