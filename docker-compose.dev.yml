@@ -65,6 +65,7 @@ services:
       - backend
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.development
+      DATABASE_URL: mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}
     volumes:
       - ./.env:/app/.env:ro
     depends_on:
@@ -79,6 +80,7 @@ services:
     working_dir: /app/src
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.development
+      DATABASE_URL: mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}
     networks:
       - backend
     ports:
@@ -107,6 +109,7 @@ services:
     working_dir: /app/src
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.development
+      DATABASE_URL: mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}
     networks:
       - backend
     volumes:
@@ -128,6 +131,7 @@ services:
     working_dir: /app/src
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.development
+      DATABASE_URL: mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}
     networks:
       - backend
     volumes:

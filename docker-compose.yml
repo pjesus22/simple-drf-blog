@@ -70,6 +70,7 @@ services:
       - backend
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
+      DATABASE_URL: mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}
       COLLECT_STATIC: "1"
     volumes:
       - ./.env:/app/.env:ro
@@ -85,6 +86,7 @@ services:
     working_dir: /app/src
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
+      DATABASE_URL: mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}
     networks:
       - backend
       - frontend
@@ -111,6 +113,7 @@ services:
     working_dir: /app/src
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
+      DATABASE_URL: mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}
     networks:
       - backend
     volumes:
@@ -132,6 +135,7 @@ services:
     working_dir: /app/src
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.production
+      DATABASE_URL: mysql://${MARIADB_USER}:${MARIADB_PASSWORD}@db:3306/${MARIADB_DATABASE}
     networks:
       - backend
     volumes:
