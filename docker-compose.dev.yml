@@ -87,8 +87,8 @@ services:
       - "8000:8000"
     volumes:
       - ./.env:/app/.env:ro
-      - media_files_dev:/app/media
-      - static_files_dev:/app/staticfiles
+      - media_files_dev:/app/src/media
+      - static_files_dev:/app/src/staticfiles
     depends_on:
       db:
         condition: service_healthy
@@ -114,7 +114,7 @@ services:
       - backend
     volumes:
       - ./.env:/app/.env:ro
-      - media_files_dev:/app/media
+      - media_files_dev:/app/src/media
     depends_on:
       db:
         condition: service_healthy

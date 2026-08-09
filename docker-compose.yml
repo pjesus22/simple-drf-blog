@@ -74,6 +74,7 @@ services:
       COLLECT_STATIC: "1"
     volumes:
       - ./.env:/app/.env:ro
+      - static_files:/app/src/staticfiles
     depends_on:
       db:
         condition: service_healthy
@@ -92,8 +93,8 @@ services:
       - frontend
     volumes:
       - ./.env:/app/.env:ro
-      - media_files:/app/media
-      - static_files:/app/staticfiles
+      - media_files:/app/src/media
+      - static_files:/app/src/staticfiles
     depends_on:
       db:
         condition: service_healthy
@@ -118,7 +119,7 @@ services:
       - backend
     volumes:
       - ./.env:/app/.env:ro
-      - media_files:/app/media
+      - media_files:/app/src/media
     depends_on:
       db:
         condition: service_healthy
