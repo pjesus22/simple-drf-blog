@@ -127,10 +127,10 @@ docker compose -f docker-compose.dev.yml up --build
 docker compose -f docker-compose.dev.yml exec web python manage.py createsuperuser
 ```
 
-> **Note:** The value of `DATABASE_URL` in `.env` is **not** read from the file inside
-> containers — `dj-database-url` reads it from the process environment. The compose
-> files already wire MariaDB/Redis up via their own variables (`MARIADB_*`,
-> `REDIS_PASSWORD`); see the comments in `.env.example`.
+> **Note:** You don't need to set `DATABASE_URL` for Docker — the compose files build
+> it from the `MARIADB_*` variables and inject it into every app service. (It is
+> intentionally absent from `.env.example`: `dj-database-url` reads it from the
+> process environment, not from `.env`.)
 
 ### Option B: Local (without Docker)
 
@@ -194,7 +194,7 @@ python -c "import secrets; print(secrets.token_urlsafe(50))"
 
 ## Environment Variables
 
-All variables are documented inline in [`.env.example`](.env.example). Summary:
+All variables except `DATABASE_URL` are documented inline in [`.env.example`](.env.example). Summary:
 
 | Variable | Required | Description |
 | --- | --- | --- |
@@ -203,7 +203,7 @@ All variables are documented inline in [`.env.example`](.env.example). Summary:
 | `ALLOWED_HOSTS` | prod | Comma-separated host list |
 | `NUM_PROXIES` | optional | Reverse proxies in front of the app (client-IP resolution). Default `1` prod, `0` dev |
 | `MARIADB_DATABASE` / `MARIADB_USER` / `MARIADB_PASSWORD` / `MARIADB_ROOT_PASSWORD` | prod, dev (Docker) | MariaDB container bootstrap credentials |
-| `DATABASE_URL` | prod, dev (Docker) | e.g. `mysql://user:password@db:3306/dbname`; read from the process env, not from `.env` (see note above). Falls back to SQLite |
+| `DATABASE_URL` | local (non-Docker) only | e.g. `mysql://user:password@localhost:3306/dbname`; **export** it in your shell — setting it in `.env` has no effect. Docker derives it from `MARIADB_*` automatically. Falls back to SQLite |
 | `CELERY_BROKER_URL` | prod | e.g. `redis://:<password>@redis:6379/0` |
 | `CELERY_RESULT_BACKEND` | prod | e.g. `redis://:<password>@redis:6379/1` |
 | `CACHE_URL` | prod | e.g. `redis://:<password>@redis:6379/2` |
@@ -338,7 +338,7 @@ pre-commit install
 
 ## Background Tasks
 
-Celery handles async work such as metrics ingestion and the daily cleanup of soft-deleted uploads (scheduled at 03:00 UTC via Celery beat). In Docker these run as dedicated services (`celery_worker`, `celery_beat`). To run them locally (requires a Redis broker):
+Celery handles async work such as metrics ingestion and the daily cleanup of soft-deleted uploads older than 30 days (scheduled at 03:00 UTC via Celery beat). In Docker these run as dedicated services (`celery_worker`, `celery_beat`). To run them locally (requires a Redis broker):
 
 ```bash
 cd src
