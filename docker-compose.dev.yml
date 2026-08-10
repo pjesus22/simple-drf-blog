@@ -1,3 +1,5 @@
+name: simple_drf_blog-dev
+
 x-app-image-builder: &app-image-builder
   image: simple_drf_blog:latest
   build:
@@ -19,7 +21,6 @@ services:
   db:
     <<: *logging-template
     image: mariadb:11.8
-    container_name: simple_drf_blog-dev-mariadb
     restart: unless-stopped
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
@@ -40,7 +41,6 @@ services:
   redis:
     <<: *logging-template
     image: redis:7.4-alpine
-    container_name: simple_drf_blog-dev-redis
     restart: unless-stopped
     environment:
       REDISCLI_AUTH: ${REDIS_PASSWORD}
@@ -58,7 +58,6 @@ services:
 
   migrate:
     <<: *app-base
-    container_name: simple_drf_blog-dev-migrate_service
     restart: "no"
     working_dir: /app/src
     networks:
@@ -75,7 +74,6 @@ services:
 
   web:
     <<: *app-base
-    container_name: simple_drf_blog-dev-web
     restart: unless-stopped
     working_dir: /app/src
     environment:
@@ -104,7 +102,6 @@ services:
 
   celery_worker:
     <<: *app-base
-    container_name: simple_drf_blog-dev-celery_worker
     restart: unless-stopped
     working_dir: /app/src
     environment:
@@ -126,7 +123,6 @@ services:
 
   celery_beat:
     <<: *app-base
-    container_name: simple_drf_blog-dev-celery_beat
     restart: unless-stopped
     working_dir: /app/src
     environment:
