@@ -176,8 +176,8 @@ volumes:
   mariadb_data:
   media_files:
   static_files:
-  certbot_webroot:
   redis_data:
+  certbot_webroot:
 
 networks:
   backend:

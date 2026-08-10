@@ -142,10 +142,10 @@ services:
     command: [ "celery", "-A", "config", "beat", "-l", "info" ]
 
 volumes:
-  mariadb_data_dev:
-  media_files_dev:
-  static_files_dev:
-  redis_data_dev:
+  mariadb_data:
+  media_files:
+  static_files:
+  redis_data:
 
 networks:
   backend:
