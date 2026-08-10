@@ -125,5 +125,4 @@ class TestStorageHealthView:
 
         assert response.status_code == 200
         assert data["attributes"]["status"] == "ok"
-        assert data["attributes"]["backend"] == "local"
         assert data["attributes"]["reachable"] is True

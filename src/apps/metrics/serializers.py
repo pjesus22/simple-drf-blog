@@ -38,5 +38,4 @@ class MetricRecordSerializer(serializers.ModelSerializer):
 
 class StorageHealthSerializer(serializers.Serializer):
     status = serializers.CharField()
-    backend = serializers.CharField()
     reachable = serializers.BooleanField()

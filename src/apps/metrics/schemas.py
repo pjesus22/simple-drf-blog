@@ -55,11 +55,11 @@ metric_event_schema = extend_schema(
 storage_health_schema = extend_schema(
     summary="health_storage",
     description=(
-        "Checks whether the active media storage backend (local, S3, or GCS) "
-        "is reachable and writable. Requires admin role."
+        "Checks whether the local media directory exists and is writable. "
+        "Requires admin role."
     ),
     responses={
         200: StorageHealthSerializer,
-        503: OpenApiResponse(description="Storage backend unreachable"),
+        503: OpenApiResponse(description="Media directory not writable"),
     },
 )

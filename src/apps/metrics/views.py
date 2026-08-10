@@ -1,3 +1,4 @@
+import os
 import time
 
 from django.conf import settings
@@ -27,7 +28,6 @@ from apps.metrics.serializers import (
     MetricRecordSummarySerializer,
     StorageHealthSerializer,
 )
-from apps.uploads.storage import get_media_storage
 from config.throttle import UserReadThrottle
 
 
@@ -119,12 +119,11 @@ class StorageHealthView(APIView):
     throttle_classes = [UserReadThrottle]
 
     def get(self, request):
-        storage = get_media_storage()
-        reachable = storage.health_check()
+        media_root = settings.MEDIA_ROOT
+        reachable = os.path.isdir(media_root) and os.access(media_root, os.W_OK)
 
         data = {
             "status": "ok" if reachable else "unavailable",
-            "backend": storage.get_backend_name(),
             "reachable": reachable,
         }
 
