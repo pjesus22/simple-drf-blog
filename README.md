@@ -8,7 +8,7 @@
 
 > ⚠️ **This project is currently under active development.** Expect breaking changes, incomplete features, and evolving documentation.
 
-A RESTful Blog API built with **Django REST Framework**, featuring JSON:API compliance, JWT authentication, role-based access control, media file uploads with pluggable storage (local / S3 / GCS), Celery background task processing, usage metrics tracking, and OpenAPI documentation.
+A RESTful Blog API built with **Django REST Framework**, featuring JSON:API compliance, JWT authentication, role-based access control, media file uploads, Celery background task processing, usage metrics tracking, and OpenAPI documentation.
 
 ---
 
@@ -37,7 +37,7 @@ A RESTful Blog API built with **Django REST Framework**, featuring JSON:API comp
 - **JWT authentication** with refresh-token rotation and blacklisting (`djangorestframework-simplejwt`)
 - **Role-based access control** — Admin and Editor roles implemented as proxy models with per-action permissions
 - **Blog content management** — posts with draft/published/archived status, soft-delete (trash/restore), categories, tags, thumbnails, and attachments
-- **Media uploads** — pluggable storage backends: local filesystem, AWS S3, or Google Cloud Storage; soft-delete with a scheduled cleanup task
+- **Media uploads** — local filesystem storage; soft-delete with a scheduled cleanup task
 - **Usage metrics** — post-view tracking middleware with bot filtering, Do-Not-Track respect, and Redis-based deduplication
 - **Health checks** — API, database, and storage liveness endpoints
 - **OpenAPI 3.0 documentation** — Swagger UI and ReDoc via drf-spectacular
@@ -54,7 +54,7 @@ A RESTful Blog API built with **Django REST Framework**, featuring JSON:API comp
 | API Spec | JSON:API (`djangorestframework-jsonapi`) |
 | Auth | JWT (`djangorestframework-simplejwt`) |
 | Schema | OpenAPI 3.0 (`drf-spectacular`) |
-| Storage | Local / AWS S3 / Google Cloud Storage (`django-storages`) |
+| Storage | Local filesystem (Django default) |
 | Task Queue | Celery 5 + Redis (broker, result backend & cache) |
 | Database | MariaDB 11.8 (Docker) / SQLite (local fallback & tests) |
 | Web Server | Gunicorn + nginx (TLS, reverse proxy) |
@@ -70,7 +70,7 @@ A RESTful Blog API built with **Django REST Framework**, featuring JSON:API comp
 
 - **`accounts`** — Custom user model with Admin/Editor roles, profiles, JWT authentication, password management
 - **`content`** — Blog posts, categories, and tags; post workflow (status changes, trash/restore, thumbnails, attachments)
-- **`uploads`** — Media file upload handling with local/S3/GCS storage backends and soft-delete cleanup
+- **`uploads`** — Media file upload handling and soft-delete cleanup
 - **`metrics`** — Health-check endpoints, post-view event tracking, and usage metrics
 
 ---
@@ -92,7 +92,7 @@ A RESTful Blog API built with **Django REST Framework**, featuring JSON:API comp
     ├── apps/
     │   ├── accounts/           # Users, profiles, roles, permissions
     │   ├── content/            # Posts, categories, tags
-    │   ├── uploads/            # Upload models, storage backends, cleanup task
+    │   ├── uploads/            # Upload models, cleanup task
     │   └── metrics/            # Health checks, event bus, tracking middleware
     ├── tests/                  # Shared factories, helpers, integration tests
     └── utils/                  # Base models, exception handler, text tools
@@ -209,9 +209,6 @@ All variables except `DATABASE_URL` are documented inline in [`.env.example`](.e
 | `CACHE_URL` | prod | e.g. `redis://:<password>@redis:6379/2` |
 | `REDIS_PASSWORD` | prod, dev (Docker) | Redis container password; must match the passwords embedded in the URLs above |
 | `POST_VIEW_DEDUP_TTL` | optional | Post-view deduplication window in seconds (default `300` prod, `5` dev) |
-| `MEDIA_STORAGE_BACKEND` | optional | `local` (default), `s3`, or `gcs` |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_STORAGE_BUCKET_NAME` / `AWS_S3_REGION_NAME` | when `s3` | S3 credentials and bucket config |
-| `GS_BUCKET_NAME` / `GOOGLE_APPLICATION_CREDENTIALS` | when `gcs` | GCS bucket and path to service-account JSON inside the container |
 | `SENTRY_DSN` | optional | Empty string disables Sentry |
 | `ENVIRONMENT` | optional | Sentry environment tag (default `production`) |
 | `API_VERSION` | optional | API metadata version (default `1.0`) |
