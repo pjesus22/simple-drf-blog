@@ -123,7 +123,6 @@ STORAGES = {
     "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
 }
 
-MEDIA_STORAGE_BACKEND = "local"
 
 # -----------------------------------------------------------------------------
 # USER & MODELS

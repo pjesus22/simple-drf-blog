@@ -19,22 +19,6 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 ALLOWED_HOSTS = config(
     "ALLOWED_HOSTS", cast=lambda v: [s.strip() for s in v.split(",")]
 )
-MEDIA_STORAGE_BACKEND = config("MEDIA_STORAGE_BACKEND", default="local")
-
-# -----------------------------------------------------------------------------
-# STORAGE
-# -----------------------------------------------------------------------------
-# S3
-AWS_ACCESS_KEY_ID = config("AWS_ACCESS_KEY_ID", cast=str, default=None)
-AWS_SECRET_ACCESS_KEY = config("AWS_SECRET_ACCESS_KEY", cast=str, default=None)
-AWS_STORAGE_BUCKET_NAME = config("AWS_STORAGE_BUCKET_NAME", cast=str, default=None)
-AWS_S3_REGION_NAME = config("AWS_S3_REGION_NAME", cast=str, default=None)
-
-# Google
-GS_BUCKET_NAME = config("GS_BUCKET_NAME", cast=str, default=None)
-GOOGLE_APPLICATION_CREDENTIALS = config(
-    "GOOGLE_APPLICATION_CREDENTIALS", cast=str, default=None
-)
 
 # -----------------------------------------------------------------------------
 # SECURITY SETTINGS
