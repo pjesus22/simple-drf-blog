@@ -123,16 +123,6 @@ def test_upload_service_validate_file_raises_error_on_missing_file():
         UploadService._validate_file(file=None)
 
 
-def test_upload_service_check_storage_health(editor_factory):
-    user = editor_factory()
-    service = UploadService(uploaded_by=user)
-
-    health_status = service.check_storage_health()
-
-    assert isinstance(health_status, bool)
-    assert health_status is True
-
-
 def test_upload_soft_delete(editor_factory, file_factory, clean_media):
     user = editor_factory()
     file = file_factory.create_real_text_file()

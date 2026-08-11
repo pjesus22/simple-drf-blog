@@ -3,8 +3,9 @@ import hashlib
 import logging
 import mimetypes
 import os
-from typing import Any, BinaryIO
+from typing import Any, BinaryIO, cast
 
+from django.core.files.base import File
 from django.utils.text import get_valid_filename
 import magic
 from PIL import Image, UnidentifiedImageError
@@ -82,12 +83,12 @@ class FileProcessor:
 
     def __init__(
         self,
-        file_obj: BinaryIO,
+        file_obj: BinaryIO | File,
         file_name: str | None = None,
         max_size: int | None = None,
         use_magic: bool = True,
     ):
-        self.file = file_obj
+        self.file = cast(BinaryIO, file_obj)
         self.file_name = file_name or getattr(file_obj, "name", "")
         self.use_magic = use_magic
         self.max_size = max_size or self.DEFAULT_MAX_SIZE

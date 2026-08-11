@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from django.core.files.base import File
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 
@@ -9,7 +10,6 @@ from apps.uploads.exceptions import (
     InvalidPurposeError,
     InvalidVisibilityError,
 )
-from apps.uploads.storage import get_media_storage
 
 from .models import Upload
 from .utils import FileProcessor
@@ -40,12 +40,8 @@ class UploadService:
         self.uploaded_by = uploaded_by
         self.purpose = purpose or Upload.Purpose.ATTACHMENT
         self.visibility = visibility or Upload.Visibility.INHERIT
-        self.storage = get_media_storage()
 
         self._validate_choices()
-
-    def check_storage_health(self) -> bool:
-        return self.storage.health_check()
 
     def create_upload(self, file: UploadedFile) -> Upload:
         """Create an Upload from an uploaded file."""
@@ -104,12 +100,12 @@ class UploadService:
             )
 
     @staticmethod
-    def _validate_file(file: UploadedFile | None) -> None:
+    def _validate_file(file: File | None) -> None:
         if not file:
             raise InvalidFileError()
 
     @staticmethod
-    def _process_file(file: UploadedFile, file_name: str | None = None) -> FileMetadata:
+    def _process_file(file: File, file_name: str | None = None) -> FileMetadata:
         processor = FileProcessor(
             file_obj=file,
             file_name=file_name or file.name,

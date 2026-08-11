@@ -2,11 +2,10 @@ import uuid
 
 from django.core.validators import RegexValidator
 from django.db import models
-from utils.base_models import BaseModel
 
 from apps.uploads.managers import UploadManager
-from apps.uploads.storage import get_media_storage
 from apps.uploads.utils import get_upload_path
+from utils.base_models import BaseModel
 
 
 class Upload(BaseModel):
@@ -23,7 +22,6 @@ class Upload(BaseModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     file = models.FileField(
         upload_to=get_upload_path,
-        storage=get_media_storage,
         max_length=512,
     )
     uploaded_by = models.ForeignKey(
