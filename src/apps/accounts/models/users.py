@@ -10,8 +10,8 @@ class User(AbstractUser):
         ADMIN = "admin", "Admin"
         EDITOR = "editor", "Editor"
 
-    base_role = Role.ADMIN
     objects = UserManager()
+    base_role = Role.EDITOR
     role = models.CharField(
         choices=Role.choices,
         max_length=16,

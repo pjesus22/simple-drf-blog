@@ -50,7 +50,7 @@ def test_user_default_role():
     )
 
     user.save()
-    assert user.role == User.Role.ADMIN
+    assert user.role == User.Role.EDITOR
 
 
 def test_username_min_length_validation():
