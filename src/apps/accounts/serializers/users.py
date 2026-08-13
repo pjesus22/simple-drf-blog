@@ -32,6 +32,10 @@ class BaseUserSerializer(serializers.ModelSerializer):
 
 
 class UserListSerializer(BaseUserSerializer):
+    included_serializers = {
+        "profile": "apps.accounts.serializers.profiles.PublicProfileSerializer"
+    }
+
     class Meta(BaseUserSerializer.Meta):
         fields = ("id", "username", "role", "profile")
         read_only_fields = ("id", "username", "role", "profile")

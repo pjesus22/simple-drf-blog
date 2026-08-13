@@ -12,7 +12,7 @@ class UploadSerializer(serializers.ModelSerializer):
     file = serializers.FileField(write_only=True, required=False)
 
     included_serializers = {
-        "uploaded_by": "apps.accounts.serializers.users.BaseUserSerializer",
+        "uploaded_by": "apps.accounts.serializers.users.UserListSerializer",
     }
 
     class Meta:
