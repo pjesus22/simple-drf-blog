@@ -1,3 +1,4 @@
+from django.contrib.auth.models import AnonymousUser
 import pytest
 
 from apps.accounts.serializers import (
@@ -191,7 +192,7 @@ class TestPublicProfileSerializer:
     def test_public_profile_serialization_filters_fields(
         self, db, profile_factory, profile_data
     ):
-        profile = profile_factory(**profile_data)
+        profile = profile_factory(**profile_data, is_public=True)
         serializer = PublicProfileSerializer(profile)
 
         data = serializer.data
@@ -204,7 +205,7 @@ class TestPublicProfileSerializer:
     def test_public_profile_social_media_read_only(
         self, db, profile_factory, profile_data
     ):
-        profile = profile_factory(**profile_data)
+        profile = profile_factory(**profile_data, is_public=True)
         data = {
             **profile_data,
             "social_media": [{"platform": "github", "url": "https://github.com/user"}],
@@ -213,3 +214,62 @@ class TestPublicProfileSerializer:
         serializer = PublicProfileSerializer(profile, data=data)
         assert serializer.is_valid()
         assert serializer.fields["social_media"].read_only is True
+
+    @pytest.mark.parametrize(
+        "is_public, user_type, is_owner, expect_full",
+        [
+            (True, None, False, True),
+            (True, "anonymous", False, True),
+            (True, "editor", False, True),
+            (False, None, False, False),
+            (False, "anonymous", False, False),
+            (False, "editor", False, False),
+            (False, "editor", True, True),
+            (False, "admin", False, True),
+        ],
+        ids=(
+            "public-none",
+            "public-anon",
+            "public-editor",
+            "private-none",
+            "private-anon",
+            "private-editor",
+            "private-owner",
+            "private-admin",
+        ),
+    )
+    def test_public_profile_visibility_guard(
+        self,
+        db,
+        editor_factory,
+        admin_factory,
+        profile_factory,
+        profile_data,
+        rf,
+        is_public,
+        user_type,
+        is_owner,
+        expect_full,
+    ):
+        owner = editor_factory()
+        profile = profile_factory(user=owner, is_public=is_public, **profile_data)
+
+        context = {}
+        if user_type is not None:
+            request = rf.get("/")
+            if user_type == "anonymous":
+                request.user = AnonymousUser()
+            elif user_type == "editor":
+                request.user = owner if is_owner else editor_factory()
+            else:
+                request.user = admin_factory()
+            context["request"] = request
+
+        data = PublicProfileSerializer(profile, context=context).data
+
+        if expect_full:
+            assert data["id"] == profile.id
+            assert all(k in data for k in profile_data)
+            assert data["biography"] == profile.biography
+        else:
+            assert data == {}

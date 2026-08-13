@@ -2,6 +2,7 @@ from django.db import transaction
 from rest_framework_json_api import serializers
 
 from apps.accounts.models import Profile, SocialMediaProfile
+from apps.accounts.permissions import IsOwner
 
 
 class SocialMediaProfileSerializer(serializers.ModelSerializer):
@@ -61,7 +62,18 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class PublicProfileSerializer(ProfileSerializer):
-    pass
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.is_public:
+            return data
+
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return {}
+
+        if IsOwner().has_object_permission(request, self.context.get("view"), instance):
+            return data
+        return {}
 
 
 class PrivateProfileSerializer(ProfileSerializer):
