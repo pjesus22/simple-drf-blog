@@ -392,3 +392,27 @@ class TestDeleteUpload:
             detail_contains="No Upload matches",
             code="not_found",
         )
+
+
+class TestUploadIncludePrivacy:
+    def test_include_uploaded_by_does_not_leak_pii(self, editor_client, upload_factory):
+        client, client_user = editor_client
+        upload = upload_factory(uploaded_by=client_user)
+
+        response = client.get(
+            path=reverse("v1:upload-detail", kwargs={"pk": upload.id}),
+            data={"include": "uploaded_by"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        included = response.json().get("included", [])
+        users = [r for r in included if r["type"] == "users"]
+        assert len(users) == 1
+
+        attributes = users[0].get("attributes", {})
+        assert set(attributes.keys()) == {"username", "role"}
+        for pii in ("email", "first_name", "last_name", "date_joined", "last_login"):
+            assert pii not in attributes
+
+        assert client_user.email not in response.content.decode()

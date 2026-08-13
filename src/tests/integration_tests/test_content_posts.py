@@ -396,3 +396,64 @@ class TestPostLifecycle:
         )
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert post.attachments.count() == 1
+
+
+class TestPostIncludePrivacy:
+    def test_include_author_does_not_leak_pii(
+        self, api_client, editor_factory, post_factory
+    ):
+        editor = editor_factory()
+        post = post_factory(status="published", author=editor)
+
+        response = api_client.get(
+            path=reverse("v1:post-detail", args=[post.slug]),
+            data={"include": "author"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        included = response.json().get("included", [])
+        users = [r for r in included if r["type"] == "users"]
+        assert len(users) == 1  # include rendered — not a vacuous test
+
+        attributes = users[0].get("attributes", {})
+        assert set(attributes.keys()) == {"username", "role"}
+        for pii in ("email", "first-name", "last-name", "date-joined", "last-login"):
+            assert pii not in attributes
+
+        assert editor.email not in response.content.decode()
+
+    @pytest.mark.parametrize(
+        "include",
+        ("author.profile", "attachments.uploaded-by"),
+        ids=("author-profile", "attachments-uploaded-by"),
+    )
+    def test_nested_includes_do_not_leak_private_profile_data(
+        self, api_client, editor_factory, post_factory, include
+    ):
+        """Privacy tripwire for nested includes. Drf-json-api resolves lazy-string
+        `included_serializers` during include validation, so nested paths that
+        resolve (e.g. `author.profile`) return 200 and must not leak private
+        profile data to anonymous clients. Unresolvable paths
+        (e.g. `attachments.uploaded-by`) must keep returning 400."""
+        post = post_factory(status="published", author=editor_factory(profile=True))
+
+        response = api_client.get(
+            path=reverse("v1:post-detail", args=[post.slug]),
+            data={"include": include},
+        )
+        status_code = response.status_code
+
+        if status_code == 200:
+            included = response.json().get("included", [])
+
+            profiles = [r for r in included if r["type"] == "profiles"]
+            assert profiles == []
+
+            users = [r for r in included if r["type"] == "users"]
+            for u in users:
+                attrs = u.get("attributes", {})
+                assert set(attrs.keys()).issubset({"username", "role"})
+
+        else:
+            assert status_code == status.HTTP_400_BAD_REQUEST
