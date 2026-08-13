@@ -1,3 +1,6 @@
+from typing import Any
+
+from django.contrib.auth.models import UserManager as DjangoUserManager
 from django.db import models
 from django.db.models import Q
 
@@ -38,3 +41,17 @@ class ProfileManager(models.Manager):
 
     def me(self, user):
         return self.get_queryset().me(user)
+
+
+class UserManager(DjangoUserManager):
+    use_in_migrations = True
+
+    def create_superuser(
+        self,
+        username: str,
+        email: str | None,
+        password: str | None,
+        **extra_fields: Any,
+    ) -> Any:
+        extra_fields.setdefault("role", "admin")
+        return super().create_superuser(username, email, password, **extra_fields)

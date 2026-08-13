@@ -2,6 +2,8 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.validators import MinLengthValidator
 from django.db import models
 
+from apps.accounts.managers import UserManager
+
 
 class User(AbstractUser):
     class Role(models.TextChoices):
@@ -9,6 +11,7 @@ class User(AbstractUser):
         EDITOR = "editor", "Editor"
 
     base_role = Role.ADMIN
+    objects = UserManager()
     role = models.CharField(
         choices=Role.choices,
         max_length=16,
