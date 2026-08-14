@@ -16,7 +16,9 @@ class TestUserServices:
         change_user_role(actor=actor, target_user=target_user, new_role=User.Role.ADMIN)
 
         assert target_user.role == User.Role.ADMIN
-        target_user.save.assert_called_once_with(update_fields=["role"])
+        target_user.save.assert_called_once_with(
+            update_fields=["role", "is_staff", "is_superuser"]
+        )
 
     def test_change_user_role_last_admin_demotion_raises_error(self, mocker):
         actor = mocker.Mock(spec=User)
