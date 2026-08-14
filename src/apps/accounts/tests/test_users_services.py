@@ -36,11 +36,13 @@ class TestUserServices:
     def test_change_own_password_success(self, mocker):
         user = mocker.Mock(spec=User)
         user.check_password.return_value = True
+        mock_blacklist = mocker.patch("apps.accounts.services._blacklist_user_tokens")
 
         change_own_password(user=user, old_password="old", new_password="new")
 
         user.set_password.assert_called_once_with("new")
         user.save.assert_called_once_with(update_fields=["password"])
+        mock_blacklist.assert_called_once_with(user=user)
 
     def test_change_own_password_wrong_old_password_raises_error(self, mocker):
         user = mocker.Mock(spec=User)

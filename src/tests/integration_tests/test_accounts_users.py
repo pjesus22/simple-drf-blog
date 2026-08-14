@@ -2,6 +2,11 @@ from django.urls import reverse
 from django.utils import timezone
 import pytest
 from rest_framework import status
+from rest_framework_simplejwt.token_blacklist.models import (
+    BlacklistedToken,
+    OutstandingToken,
+)
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.accounts.models import User
 from tests.helpers import (
@@ -572,6 +577,65 @@ class TestChangePassword:
         client_user.refresh_from_db()
 
         assert client_user.check_password("newpassword")
+
+    def test_change_own_password_revokes_refresh_tokens(self, editor_client):
+        client, client_user = editor_client
+
+        refresh_token = str(RefreshToken.for_user(client_user))
+        before = OutstandingToken.objects.filter(user=client_user).count()
+        assert before >= 1
+
+        response = client.post(
+            path=reverse("v1:user-change-password"),
+            data={"old_password": "defaultpassword", "new_password": "newpassword"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+        outstanding = OutstandingToken.objects.filter(user=client_user)
+        assert outstanding.count() == before
+        assert all(
+            BlacklistedToken.objects.filter(token=token).exists()
+            for token in outstanding
+        )
+
+        refresh_response = client.post(
+            path=reverse("token_refresh"),
+            data={"refresh": refresh_token},
+            format="json",
+        )
+        assert_drf_error_response(
+            response=refresh_response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="token_not_valid",
+            detail_contains="blacklisted",
+        )
+
+    def test_force_password_change_revokes_target_user_tokens(
+        self, admin_client, editor_factory
+    ):
+        admin_client, _ = admin_client
+        target = editor_factory()
+        target_refresh = str(RefreshToken.for_user(target))
+
+        response = admin_client.post(
+            path=reverse("v1:user-force-password-change", args=[target.id]),
+            data={"new_password": "newpassword"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+        refresh_response = admin_client.post(
+            path=reverse("token_refresh"),
+            data={"refresh": target_refresh},
+            format="json",
+        )
+        assert_drf_error_response(
+            response=refresh_response,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="token_not_valid",
+            detail_contains="blacklisted",
+        )
 
     def test_set_other_user_password_as_admin_success(
         self, admin_client, editor_factory
