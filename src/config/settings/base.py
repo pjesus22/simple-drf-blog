@@ -263,7 +263,7 @@ CELERY_BEAT_SCHEDULE = {
 }
 DEDUP_EVENT_CONFIG = {
     "post_view": {
-        "fields": ["post_slug", ["user_id", "ip"], "user_agent"],
+        "fields": ["post_slug", "ip_prefix", "browser", "os", "device"],
         "ttl": 300,
     }
 }
