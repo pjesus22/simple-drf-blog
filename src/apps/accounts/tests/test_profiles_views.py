@@ -104,8 +104,8 @@ class TestProfileViewSet:
             ("update", "PUT", True, [WriteThrottle]),
             ("partial_update", "PATCH", True, [WriteThrottle]),
             ("toggle_public", "POST", True, [WriteThrottle]),
-            ("list", "OPTIONS", False, []),
-            ("list", "OPTIONS", True, []),
+            ("list", "OPTIONS", False, [WriteThrottle]),
+            ("list", "OPTIONS", True, [WriteThrottle]),
         ],
     )
     def test_profile_viewset_return_correct_throttle_for_action(

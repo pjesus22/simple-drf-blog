@@ -1,3 +1,4 @@
+from rest_framework.request import Request
 from rest_framework.throttling import (
     AnonRateThrottle,
     UserRateThrottle,
@@ -39,13 +40,13 @@ class PasswordChangeThrottle(UserRateThrottle):
 class ReadWriteThrottleMixin:
     read_actions = ("list", "retrieve")
     upload_actions = ()
+    request: Request
+    action: str
 
     def get_throttles(self):
         request = self.request
         method = self.request.method
 
-        if method in ("OPTIONS", "HEAD"):
-            return []
         if method == "POST" and self.action in self.upload_actions:
             return [UploadHourThrottle(), UploadBurstThrottle()]
         if method == "GET" and self.action in self.read_actions:

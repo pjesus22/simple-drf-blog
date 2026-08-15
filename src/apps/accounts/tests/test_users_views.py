@@ -253,8 +253,8 @@ class TestUserViewSetThrottle:
             ("change_role", "POST", True, [WriteThrottle]),
             ("change_password", "POST", True, [PasswordChangeThrottle]),
             ("force_password_change", "POST", True, [WriteThrottle]),
-            ("list", "OPTIONS", False, []),
-            ("list", "OPTIONS", True, []),
+            ("list", "OPTIONS", False, [WriteThrottle]),
+            ("list", "OPTIONS", True, [WriteThrottle]),
         ],
     )
     def test_user_viewset_return_correct_throttle_for_action(
