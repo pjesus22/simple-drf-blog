@@ -1,3 +1,4 @@
+from kombu.exceptions import OperationalError
 import pytest
 
 from apps.content.views import PostViewSet
@@ -117,7 +118,7 @@ class TestPostViewTrackingMiddleware:
 
         mock_send.assert_called_once_with(mock_event)
 
-    @pytest.mark.parametrize("exc", [ConnectionError, TimeoutError])
+    @pytest.mark.parametrize("exc", [ConnectionError, TimeoutError, OperationalError])
     def test_response_returned_when_event_bus_raises_error(
         self, mocker, mock_request, exc
     ):
@@ -125,6 +126,7 @@ class TestPostViewTrackingMiddleware:
             "apps.metrics.events.bus.EventBus.send",
             side_effect=exc,
         )
+        mock_log = mocker.patch("apps.metrics.middleware.logger.exception")
         mock_event = mocker.MagicMock()
         mocker.patch(
             "apps.metrics.events.types.PostViewEvent.from_request",
@@ -138,3 +140,4 @@ class TestPostViewTrackingMiddleware:
 
         assert result == response
         mock_send.assert_called_once_with(mock_event)
+        mock_log.assert_called_once()

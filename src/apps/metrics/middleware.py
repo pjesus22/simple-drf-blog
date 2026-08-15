@@ -1,9 +1,11 @@
-import contextlib
+import logging
 
 from apps.content.views import PostViewSet
 from apps.metrics.events.bus import EventBus
 from apps.metrics.events.types import PostViewEvent
 from apps.metrics.utils import is_bot
+
+logger = logging.getLogger(__name__)
 
 
 class PostViewTrackingMiddleware:
@@ -41,7 +43,9 @@ class PostViewTrackingMiddleware:
 
         event = PostViewEvent.from_request(request, slug)
 
-        with contextlib.suppress(ConnectionError, TimeoutError):
+        try:
             EventBus.send(event)
+        except Exception:
+            logger.exception(f"Failed to record post view metric for slug={slug}")
 
         return response
