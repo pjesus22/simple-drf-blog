@@ -84,7 +84,7 @@ DATABASES = {
     )
 }
 
-if DATABASES["default"]["ENGINE"] == "django.db.backends.mysql":
+if DATABASES["default"].get("ENGINE") == "django.db.backends.mysql":
     DATABASES["default"].setdefault("OPTIONS", {}).update(
         {
             "charset": "utf8mb4",
