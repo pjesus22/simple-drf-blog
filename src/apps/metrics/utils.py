@@ -33,7 +33,9 @@ def anonymize_ip(ip: str | None = None) -> str | None:
 
 
 def get_best_client_ip(request):
-    client_ip, is_routable = get_client_ip(request)
+    client_ip, is_routable = get_client_ip(
+        request, proxy_count=settings.REST_FRAMEWORK.get("NUM_PROXIES")
+    )
 
     if not client_ip:
         return "0.0.0.0"
