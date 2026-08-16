@@ -119,7 +119,8 @@ class PrivateProfileSerializer(ProfileSerializer):
 
             else:
                 self._put_instance(instance, validated_data)
-                self._put_social_media(instance, social_media_data)
+                if social_media_data is not None:
+                    self._put_social_media(instance, social_media_data)
 
         return instance
 

@@ -180,6 +180,106 @@ class TestPrivateProfile:
         assert profile.biography == "New Bio"
         assert profile.social_media.count() == 1
 
+    @pytest.mark.parametrize(
+        "missing_field",
+        [
+            "biography",
+            "location",
+            "occupation",
+            "skills",
+            "experience_years",
+            "is_public",
+        ],
+    )
+    def test_full_update_require_all_fields(
+        self, db, editor_factory, profile_data, missing_field
+    ):
+        user = editor_factory(profile=True)
+        payload = {**profile_data, "is_public": False}
+        payload.pop(missing_field)
+
+        serializer = PrivateProfileSerializer(user.profile, data=payload)
+
+        assert not serializer.is_valid()
+        assert missing_field in serializer.errors
+        assert serializer.errors[missing_field][0].code == "required"
+
+    def test_full_update_success_writes_all_fields(
+        self, db, editor_factory, profile_data
+    ):
+        user = editor_factory(profile=True)
+        payload = {**profile_data, "is_public": True}
+
+        serializer = PrivateProfileSerializer(user.profile, data=payload)
+        assert serializer.is_valid(), serializer.errors
+
+        serializer.save()
+        user.profile.refresh_from_db()
+        for field, value in payload.items():
+            assert getattr(user.profile, field) == value
+
+    def test_full_update_without_social_media_preserves_socials(
+        self, db, editor_factory, profile_data, social_media_profile_factory
+    ):
+        user = editor_factory(profile=True)
+        social_media_profile_factory(
+            profile=user.profile, platform="github", url="https://github.com/keep"
+        )
+        payload = {**profile_data, "is_public": False}
+
+        serializer = PrivateProfileSerializer(user.profile, data=payload)
+        assert serializer.is_valid(), serializer.errors
+        serializer.save()
+
+        assert user.profile.social_media.count() == 1
+        assert user.profile.social_media.first().url == "https://github.com/keep"
+
+    def test_full_update_with_social_media_replaces(
+        self, db, editor_factory, profile_data, social_media_profile_factory
+    ):
+        user = editor_factory(profile=True)
+        social_media_profile_factory(
+            profile=user.profile, platform="github", url="https://github.com/keep"
+        )
+        payload = {
+            **profile_data,
+            "is_public": False,
+            "social_media": [{"platform": "twitter", "url": "https://twitter.com/new"}],
+        }
+
+        serializer = PrivateProfileSerializer(user.profile, data=payload)
+        assert serializer.is_valid(), serializer.errors
+        serializer.save()
+
+        socials = user.profile.social_media.all()
+        assert socials.count() == 1
+        assert socials.first().platform == "twitter"
+        assert not socials.filter(platform="github").exists()
+
+    def test_full_update_with_empty_social_media_clears(
+        self, db, editor_factory, profile_data, social_media_profile_factory
+    ):
+        user = editor_factory(profile=True)
+        social_media_profile_factory(profile=user.profile)
+        payload = {**profile_data, "is_public": False, "social_media": []}
+
+        serializer = PrivateProfileSerializer(user.profile, data=payload)
+        assert serializer.is_valid(), serializer.errors
+        serializer.save()
+
+        assert user.profile.social_media.count() == 0
+
+    def test_partial_update_missing_required_field_still_valid(
+        self, db, editor_factory
+    ):
+        user = editor_factory(profile=True)
+        serializer = PrivateProfileSerializer(
+            user.profile, data={"biography": "Only this"}, partial=True
+        )
+        assert serializer.is_valid(), serializer.errors
+        profile = serializer.save()
+        assert profile.biography == "Only this"
+
 
 class TestPublicProfileSerializer:
     def test_public_profile_serialization_filters_fields(

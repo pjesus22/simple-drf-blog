@@ -5,6 +5,7 @@ from rest_framework import status
 from apps.accounts.models import Profile
 from tests.helpers import (
     assert_drf_error_response,
+    assert_jsonapi_error_pointers,
     assert_jsonapi_error_response,
 )
 
@@ -334,6 +335,169 @@ class TestUpdateProfile:
 
         profile.refresh_from_db()
         assert profile.biography == "Admin full update"
+
+    @pytest.mark.parametrize(
+        "missing_field",
+        [
+            "biography",
+            "location",
+            "occupation",
+            "skills",
+            "experience_years",
+            "is_public",
+        ],
+    )
+    def test_full_update_missing_field_required_return_400(
+        self, editor_client, profile_factory, missing_field
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+        original_bio = profile.biography
+
+        payload = _full_put_payload()
+        payload.pop(missing_field)
+
+        response = client.put(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data=payload,
+            format="json",
+        )
+
+        assert_jsonapi_error_pointers(
+            response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            expected_pointers={missing_field},
+        )
+
+        profile.refresh_from_db()
+        assert profile.biography == original_bio
+
+    def test_full_update_without_social_media_preserves_existing(
+        self, editor_client, profile_factory, social_media_profile_factory
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+        social_media_profile_factory(
+            profile=profile, platform="github", url="https://github.com/testuser"
+        )
+        social_media_profile_factory(
+            profile=profile, platform="twitter", url="https://twitter.com/testuser"
+        )
+
+        response = client.put(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data=_full_put_payload(),
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        profile.refresh_from_db()
+        assert profile.social_media.count() == 2
+        assert set(profile.social_media.values_list("platform", flat=True)) == {
+            "github",
+            "twitter",
+        }
+
+    def test_full_update_with_social_media_replaces_existing(
+        self, editor_client, profile_factory, social_media_profile_factory
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+        old_social = social_media_profile_factory(
+            profile=profile, platform="github", url="https://github.com/olduser"
+        )
+
+        response = client.put(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={
+                **_full_put_payload(),
+                "social_media": [
+                    {
+                        "platform": "linkedin",
+                        "url": "https://www.linkedin.com/in/newuser",
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        profile.refresh_from_db()
+        assert profile.social_media.count() == 1
+        assert profile.social_media.first().platform == "linkedin"
+        assert not profile.social_media.filter(id=old_social.id).exists()
+
+    def test_full_update_with_social_media_empty_clears(
+        self, editor_client, profile_factory, social_media_profile_factory
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+        social_media_profile_factory(
+            profile=profile, platform="github", url="https://github.com/testuser"
+        )
+
+        response = client.put(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={**_full_put_payload(), "social_media": []},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        profile.refresh_from_db()
+        assert profile.social_media.count() == 0
+
+    @pytest.mark.parametrize(
+        "missing_field",
+        [
+            "biography",
+            "location",
+            "occupation",
+            "skills",
+            "experience_years",
+            "is_public",
+        ],
+    )
+    def test_full_update_me_missing_required_field_returns_400(
+        self, editor_client, profile_factory, missing_field
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+        original_bio = profile.biography
+
+        payload = _full_put_payload()
+        payload.pop(missing_field)
+
+        response = client.put(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data=payload,
+            format="json",
+        )
+
+        assert_jsonapi_error_pointers(
+            response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            expected_pointers={missing_field},
+        )
+        profile.refresh_from_db()
+        assert profile.biography == original_bio
+
+    def test_partial_update_does_not_require_other_fields(
+        self, editor_client, profile_factory
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+        original_occupation = profile.occupation
+
+        response = client.patch(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={"biography": "Only bio"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        profile.refresh_from_db()
+        assert profile.biography == "Only bio"
+        assert profile.occupation == original_occupation
 
 
 class TestProfileMe:
