@@ -88,6 +88,14 @@ class PrivateProfileSerializer(ProfileSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at")
+        extra_kwargs = {
+            "biography": {"required": True},
+            "location": {"required": True},
+            "occupation": {"required": True},
+            "skills": {"required": True},
+            "experience_years": {"required": True},
+            "is_public": {"required": True},
+        }
 
     class JSONAPIMeta:
         resource_name = "profiles"
@@ -121,19 +129,10 @@ class PrivateProfileSerializer(ProfileSerializer):
         instance.save()
 
     def _put_instance(self, instance, validated_data):
-        fields = (
-            "biography",
-            "location",
-            "occupation",
-            "skills",
-            "experience_years",
-        )
-
-        for field in fields:
-            default_value = [] if field == "skills" else None
-            value = validated_data.get(field, default_value)
-            setattr(instance, field, value)
-
+        for field_name, field in self.fields.items():
+            if field.read_only or field_name not in validated_data:
+                continue
+            setattr(instance, field_name, validated_data[field_name])
         instance.save()
 
     def _put_social_media(self, instance, social_data):

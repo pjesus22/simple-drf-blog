@@ -3,9 +3,25 @@ import pytest
 from rest_framework import status
 
 from apps.accounts.models import Profile
-from tests.helpers import assert_drf_error_response, assert_jsonapi_error_response
+from tests.helpers import (
+    assert_drf_error_response,
+    assert_jsonapi_error_response,
+)
 
 pytestmark = pytest.mark.django_db
+
+
+def _full_put_payload(**overrides):
+    payload = {
+        "biography": "Full update biography",
+        "location": "Full City",
+        "occupation": "Full Occupation",
+        "skills": "Python, Django",
+        "experience_years": 8,
+        "is_public": True,
+    }
+    payload.update(overrides)
+    return payload
 
 
 class TestReadProfile:
@@ -267,29 +283,30 @@ class TestUpdateProfile:
     def test_full_update_own_profile_success(self, editor_client, profile_factory):
         client, user = editor_client
         profile = profile_factory(user=user)
+        payload = {
+            "biography": "Completely new biography",
+            "location": "New City",
+            "occupation": "New Occupation",
+            "skills": "New Skills",
+            "experience_years": 10,
+            "is_public": False,
+        }
 
         response = client.put(
             path=reverse("v1:profile-detail", args=[profile.id]),
-            data={
-                "biography": "Completely new biography",
-                "location": "New City",
-                "occupation": "New Occupation",
-                "skills": "New Skills",
-                "experience_years": 10,
-                "is_public": False,
-            },
+            data=payload,
             format="json",
         )
 
         assert response.status_code == status.HTTP_200_OK
 
-        data = response.json().get("data")
-        assert data["attributes"]["biography"] == "Completely new biography"
-        assert data["attributes"]["experience_years"] == 10
+        attrs = response.json().get("data").get("attributes")
+        for field, expected in payload.items():
+            assert attrs[field] == expected
 
         profile.refresh_from_db()
-        assert profile.biography == "Completely new biography"
-        assert profile.experience_years == 10
+        for field, expected in payload.items():
+            assert getattr(profile, field) == expected
 
     def test_full_update_other_profile_as_admin_success(
         self, admin_client, profile_factory

@@ -59,9 +59,9 @@ profile_me_action_schema = extend_schema(
 profile_me_action_update_schema = extend_schema(
     summary="profiles_me_update",
     description=(
-        "Replace the authenticated user's profile. "
-        "Unspecified fields are reset. "
-        "`social_media` is fully replaced (omitted = deleted)."
+        "Replace the authenticated user's profile. All scalar fields are "
+        "required (unspecified = rejected); social_media replaced only when "
+        "provided, preserved when omitted."
     ),
     request=PrivateProfileSerializer,
     responses={200: PrivateProfileSerializer},

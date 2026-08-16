@@ -123,7 +123,7 @@ class TestPrivateProfile:
             {"platform": "github", "url": "https://github.com/username"},
             {"platform": "twitter", "url": "https://twitter.com/username"},
         ]
-        payload = {**profile_data, "social_media": links}
+        payload = {**profile_data, "social_media": links, "is_public": True}
 
         serializer = PrivateProfileSerializer(data=payload)
         assert serializer.is_valid()
@@ -138,10 +138,6 @@ class TestPrivateProfile:
     def test_private_profile_update_social_media_sync(
         self, db, editor_factory, profile_data, social_media_profile_factory
     ):
-        """
-        Test the 'sync' behavior of updating social media links:
-        Existing links are updated, new ones created, and omitted ones deleted.
-        """
         user = editor_factory(profile=True)
         link_to_update = social_media_profile_factory(
             profile=user.profile, platform="github", url="https://github.com/old"
@@ -153,13 +149,10 @@ class TestPrivateProfile:
         new_url = "https://github.com/new"
         data = {
             **profile_data,
+            "is_public": False,
             "social_media": [
-                {
-                    "id": link_to_update.id,
-                    "platform": "github",
-                    "url": new_url,
-                },  # Update
-                {"platform": "twitter", "url": "https://twitter.com/test"},  # Create
+                {"id": link_to_update.id, "platform": "github", "url": new_url},
+                {"platform": "twitter", "url": "https://twitter.com/test"},
             ],
         }
 
