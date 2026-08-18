@@ -130,7 +130,11 @@ class PostThumbnailSerializer(serializers.Serializer):
 
     def validate_id(self, value):
         try:
-            return Upload.objects.get(id=value, purpose=Upload.Purpose.THUMBNAIL)
+            return Upload.objects.get(
+                id=value,
+                purpose=Upload.Purpose.THUMBNAIL,
+                uploaded_by=self.context["request"].user,
+            )
         except Upload.DoesNotExist:
             raise serializers.ValidationError("Invalid thumbnail upload.") from None
 
@@ -145,6 +149,7 @@ class PostAttachmentAddSerializer(serializers.Serializer):
         uploads = Upload.objects.filter(
             id__in=values,
             purpose=Upload.Purpose.ATTACHMENT,
+            uploaded_by=self.context["request"].user,
         )
 
         if uploads.count() != len(values):

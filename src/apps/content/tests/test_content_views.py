@@ -254,11 +254,12 @@ class TestPostViewSet:
     def test_thumbnail_action_post_success(
         self, rf, post_factory, upload_factory, clean_media, editor_factory, mocker
     ):
+        user = editor_factory()
         post = post_factory()
-        thumbnail = upload_factory(purpose="thumbnail")
+        thumbnail = upload_factory(purpose="thumbnail", uploaded_by=user)
         data = {"id": str(thumbnail.id)}
         request = rf.post(f"/posts/{post.slug}/thumbnail/", data)
-        request.user = editor_factory()
+        request.user = user
         request.data = data
 
         viewset = PostViewSet(
@@ -296,15 +297,18 @@ class TestPostViewSet:
     def test_add_attachments_action_success(
         self, rf, post_factory, upload_factory, clean_media, editor_factory, mocker
     ):
+        user = editor_factory()
         post = post_factory()
-        attachments = upload_factory.create_batch(size=2, purpose="attachment")
+        attachments = upload_factory.create_batch(
+            size=2, purpose="attachment", uploaded_by=user
+        )
         data = {"attachments": [str(a.id) for a in attachments]}
         print(data)
         request = rf.post(
             f"/posts/{post.slug}/attachments/",
             data,
         )
-        request.user = editor_factory()
+        request.user = user
         request.data = data
 
         viewset = PostViewSet(

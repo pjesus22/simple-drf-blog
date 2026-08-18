@@ -354,7 +354,7 @@ class TestPostLifecycle:
     ):
         client, client_user = editor_client
         post = post_factory(author=client_user, thumbnail=None)
-        thumbnail = upload_factory(purpose="thumbnail")
+        thumbnail = upload_factory(purpose="thumbnail", uploaded_by=client_user)
 
         # Add
         response = client.post(
@@ -377,7 +377,9 @@ class TestPostLifecycle:
     ):
         client, client_user = editor_client
         post = post_factory(author=client_user)
-        attachments = upload_factory.create_batch(size=2, purpose="attachment")
+        attachments = upload_factory.create_batch(
+            size=2, purpose="attachment", uploaded_by=client_user
+        )
 
         # Add
         response = client.post(

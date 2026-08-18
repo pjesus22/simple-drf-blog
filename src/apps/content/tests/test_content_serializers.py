@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 import uuid
 
 import pytest
@@ -285,29 +286,38 @@ class TestPostUpdateSerializer:
 
 
 class TestPostThumbnailSerializer:
-    def test_serializer_validates_valid_thumbnail_id(self, upload_factory, clean_media):
-        thumbnail = upload_factory(purpose="thumbnail")
+    def test_serializer_validates_valid_thumbnail_id(
+        self, upload_factory, editor_factory, clean_media
+    ):
+        user = editor_factory()
+        thumbnail = upload_factory(purpose="thumbnail", uploaded_by=user)
         data = {"id": str(thumbnail.id)}
+        context = {"request": SimpleNamespace(user=user)}
 
-        serializer = PostThumbnailSerializer(data=data)
+        serializer = PostThumbnailSerializer(data=data, context=context)
 
         assert serializer.is_valid()
         assert serializer.validated_data["id"] == thumbnail
 
-    def test_serializer_rejects_invalid_thumbnail_id(self):
+    def test_serializer_rejects_invalid_thumbnail_id(self, editor_factory):
         data = {"id": str(uuid.uuid4())}
+        context = {"request": SimpleNamespace(user=editor_factory())}
 
-        serializer = PostThumbnailSerializer(data=data)
+        serializer = PostThumbnailSerializer(data=data, context=context)
 
         assert not serializer.is_valid()
         assert "id" in serializer.errors
         assert "Invalid thumbnail upload" in str(serializer.errors["id"])
 
-    def test_serializer_rejects_non_thumbnail_upload(self, upload_factory, clean_media):
-        attachment = upload_factory(purpose="attachment")
+    def test_serializer_rejects_non_thumbnail_upload(
+        self, upload_factory, editor_factory, clean_media
+    ):
+        user = editor_factory()
+        attachment = upload_factory(purpose="attachment", uploaded_by=user)
         data = {"id": str(attachment.id)}
+        context = {"request": SimpleNamespace(user=user)}
 
-        serializer = PostThumbnailSerializer(data=data)
+        serializer = PostThumbnailSerializer(data=data, context=context)
 
         assert not serializer.is_valid()
         assert "id" in serializer.errors
@@ -315,20 +325,25 @@ class TestPostThumbnailSerializer:
 
 class TestPostAttachmentAddSerializer:
     def test_serializer_validates_valid_attachment_ids(
-        self, upload_factory, clean_media
+        self, upload_factory, editor_factory, clean_media
     ):
-        attachments = upload_factory.create_batch(size=2, purpose="attachment")
+        user = editor_factory()
+        attachments = upload_factory.create_batch(
+            size=2, purpose="attachment", uploaded_by=user
+        )
         data = {"attachments": [str(att.id) for att in attachments]}
+        context = {"request": SimpleNamespace(user=user)}
 
-        serializer = PostAttachmentAddSerializer(data=data)
+        serializer = PostAttachmentAddSerializer(data=data, context=context)
 
         assert serializer.is_valid()
         assert len(serializer.validated_data["attachments"]) == 2
 
-    def test_serializer_rejects_invalid_attachment_ids(self):
+    def test_serializer_rejects_invalid_attachment_ids(self, editor_factory):
         data = {"attachments": [str(uuid.uuid4()), str(uuid.uuid4())]}
+        context = {"request": SimpleNamespace(user=editor_factory())}
 
-        serializer = PostAttachmentAddSerializer(data=data)
+        serializer = PostAttachmentAddSerializer(data=data, context=context)
 
         assert not serializer.is_valid()
         assert "attachments" in serializer.errors
@@ -345,12 +360,14 @@ class TestPostAttachmentAddSerializer:
         assert "attachments" in serializer.errors
 
     def test_serializer_rejects_non_attachment_uploads(
-        self, upload_factory, clean_media
+        self, upload_factory, editor_factory, clean_media
     ):
-        thumbnail = upload_factory(purpose="thumbnail")
+        user = editor_factory()
+        thumbnail = upload_factory(purpose="thumbnail", uploaded_by=user)
         data = {"attachments": [str(thumbnail.id)]}
+        context = {"request": SimpleNamespace(user=user)}
 
-        serializer = PostAttachmentAddSerializer(data=data)
+        serializer = PostAttachmentAddSerializer(data=data, context=context)
 
         assert not serializer.is_valid()
         assert "attachments" in serializer.errors
