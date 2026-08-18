@@ -30,12 +30,10 @@ class SlugMixin(models.Model):
     def _slug_exists(self, slug):
         ModelClass = self.__class__
         slug_field = self._get_slug_field()
-
-        qs = ModelClass.objects.filter(**{slug_field: slug})
-
+        manager = getattr(ModelClass, "all_objects", ModelClass.objects)
+        qs = manager.filter(**{slug_field: slug})
         if self.pk:
             qs = qs.exclude(pk=self.pk)
-
         return qs.exists()
 
     def _generate_base_slug(self):

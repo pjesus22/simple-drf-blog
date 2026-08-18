@@ -94,3 +94,15 @@ class TestSlugMixin:
             IntegrityError, match="Could not generate a unique slug after retries"
         ):
             post.save()
+
+    def test_slug_collition_with_soft_deleted_post_gets_suffix(self, post_factory):
+        deleted_post = post_factory(title="test", slug="test")
+        deleted_post.soft_delete()
+
+        new_post = post_factory(title="test")
+
+        assert new_post._generate_unique_slug() == "test-1"
+
+        new_post.save()
+
+        assert new_post.slug == "test-1"
