@@ -15,6 +15,8 @@ def _blacklist_user_tokens(*, user: User) -> None:
 
 @transaction.atomic
 def change_user_role(*, actor: User, target_user: User, new_role: User.Role) -> None:
+    if target_user.role == new_role:
+        return
     if actor == target_user and new_role != User.Role.ADMIN:
         admins = User.objects.select_for_update().filter(role=User.Role.ADMIN)
 

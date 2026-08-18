@@ -6,5 +6,5 @@ from .models import Profile, User
 
 @receiver(signal=post_save, sender=User)
 def create_profile(sender, instance, created, **kwargs):
-    if created and instance.role == User.Role.EDITOR:
+    if created:
         Profile.objects.get_or_create(user=instance)

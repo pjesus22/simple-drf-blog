@@ -35,6 +35,15 @@ class TestUserServices:
         with pytest.raises(CannotDemoteLastAdmin):
             change_user_role(actor=actor, target_user=actor, new_role=User.Role.EDITOR)
 
+    def test_change_user_role_same_role_noop(self, mocker):
+        actor = mocker.Mock(spec=User)
+        target_user = mocker.Mock(spec=User)
+        target_user.role = User.Role.ADMIN
+
+        change_user_role(actor=actor, target_user=target_user, new_role=User.Role.ADMIN)
+
+        target_user.save.assert_not_called()
+
     def test_change_own_password_success(self, mocker):
         user = mocker.Mock(spec=User)
         user.check_password.return_value = True
