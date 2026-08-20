@@ -4,6 +4,7 @@ import logging
 import mimetypes
 import os
 from typing import Any, BinaryIO, cast
+import warnings
 
 from django.core.files.base import File
 from django.utils.text import get_valid_filename
@@ -29,6 +30,8 @@ ALLOWED_MIME_EXTENSIONS = {
     "video/mp4": {"mp4"},
     "audio/mpeg": {"mp3"},
 }
+
+Image.MAX_IMAGE_PIXELS = 50_000_000
 
 
 def validate_extension(mime: str, filename: str) -> None:
@@ -57,18 +60,24 @@ class BaseStrategy(ABC):
 class ImageStrategy(BaseStrategy):
     def process(self, file: BinaryIO, head: bytes) -> dict[str, Any]:
         try:
-            with Image.open(file) as img:
-                img.verify()
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", Image.DecompressionBombWarning)
 
-            file.seek(0)
-            with Image.open(file) as img:
-                width, height = img.size
+                with Image.open(file) as img:
+                    img.verify()
 
-            return {"width": width, "height": height}
-        except (UnidentifiedImageError, OSError):
+                file.seek(0)
+                with Image.open(file) as img:
+                    width, height = img.size
+
+                return {"width": width, "height": height}
+
+        except (Image.DecompressionBombWarning, Image.DecompressionBombError) as exc:
+            raise InvalidFileError("Image exceeds maximum dimensions.") from exc
+        except (UnidentifiedImageError, OSError) as exc:
             raise InvalidFileError(
                 "Uploaded file is not a valid or supported image."
-            ) from None
+            ) from exc
 
 
 class DefaultStrategy(BaseStrategy):

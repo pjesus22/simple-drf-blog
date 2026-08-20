@@ -1,6 +1,7 @@
 import hashlib
 
 from django.core.files.uploadedfile import SimpleUploadedFile
+from PIL import Image
 import pytest
 
 from apps.uploads.exceptions import (
@@ -69,9 +70,40 @@ class TestStrategies:
         strategy = ImageStrategy()
 
         with pytest.raises(
-            InvalidFileError, match="Uploaded file is not a valid or supported image\\."
+            InvalidFileError,
+            match=r"Uploaded file is not a valid or supported image.",
         ):
             strategy.process(f, b"not image")
+
+    def test_decompression_bomb_warning_is_converted_to_invalid_file(
+        self, mocker, file_factory
+    ):
+        """Reject images exceeding MAX_IMAGE_PIXELS before PIL 2x error threshold."""
+        mocker.patch.object(Image, "MAX_IMAGE_PIXELS", 31)
+
+        image = file_factory.create_real_image_file(size=(6, 6))
+        strategy = ImageStrategy()
+
+        with pytest.raises(
+            InvalidFileError,
+            match=r"Image exceeds maximum dimensions.",
+        ):
+            strategy.process(image, b"")
+
+    def test_decompression_bomb_error_is_converted_to_invalid_file(
+        self, mocker, file_factory
+    ):
+        """Reject images exceeding PIL 2x MAX_IMAGE_PIXELS error threshold."""
+        mocker.patch.object(Image, "MAX_IMAGE_PIXELS", 31)
+
+        image = file_factory.create_real_image_file(size=(8, 8))
+        strategy = ImageStrategy()
+
+        with pytest.raises(
+            InvalidFileError,
+            match=r"Image exceeds maximum dimensions.",
+        ):
+            strategy.process(image, b"")
 
     def test_default_strategy_returns_empty_dict(self):
         f = SimpleUploadedFile("test.txt", b"test content")
