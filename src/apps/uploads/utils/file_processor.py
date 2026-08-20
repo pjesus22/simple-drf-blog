@@ -107,21 +107,36 @@ class FileProcessor:
         - Computes SHA-256
         - Captures head bytes
         - Computes size
+        - Early exits if file exceeds max_size
         """
         hasher = hashlib.sha256()
         size = 0
         head = b""
+        file_size = getattr(self.file, "size", None)
+
+        if isinstance(file_size, int) and file_size > self.max_size:
+            raise FileTooLargeError(
+                f"File size ({file_size:,} bytes) exceeds maximum allowed "
+                f"({self.max_size:,} bytes)."
+            )
 
         self.file.seek(0)
 
         for chunk in iter(lambda: self.file.read(chunk_size), b""):
-            if size < 2048:
-                head += chunk[: 2048 - size]
-            size += len(chunk)
-            hasher.update(chunk)
+            chunk_length = len(chunk)
+            previous_size = size
+            size += chunk_length
 
-        if size > self.max_size:
-            raise FileTooLargeError()
+            if size > self.max_size:
+                raise FileTooLargeError(
+                    f"File size exceeded maximum allowed "
+                    f"({self.max_size:,} bytes) while streaming."
+                )
+
+            if previous_size < 2048:
+                head += chunk[: 2048 - previous_size]
+
+            hasher.update(chunk)
 
         if size == 0:
             raise InvalidFileError("Empty or broken file.")

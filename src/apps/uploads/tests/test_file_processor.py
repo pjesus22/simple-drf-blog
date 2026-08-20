@@ -128,11 +128,39 @@ class TestFileProcessor:
         f.seek(0)
         assert sha256 == hashlib.sha256(f.read()).hexdigest()
 
-    def test_file_processor_stream_file_raises_file_too_large_error(self, file_factory):
-        f = file_factory.create_mock_file(content=b"0" * (10 * 1024**2 + 1))
-        processor = FileProcessor(file_obj=f)
+    def test_file_processor_rejects_file_too_large_from_size(self, mocker):
+        file_obj = mocker.Mock(name="test.txt", size=11_000)
 
-        with pytest.raises(FileTooLargeError, match="File size exceeds the limit\\."):
+        processor = FileProcessor(file_obj, max_size=10_000)
+
+        with pytest.raises(
+            FileTooLargeError,
+            match=(
+                r"File size \(11,000 bytes\) exceeds maximum allowed "
+                r"\(10,000 bytes\)"
+            ),
+        ):
+            processor._stream_file()
+
+        file_obj.seek.assert_not_called()
+
+    def test_file_processor_rejects_file_too_large_during_streaming(self, mocker):
+        file_obj = mocker.Mock(size=None)
+        file_obj.read.side_effect = [b"x" * 8192, b"x" * 2808, b""]
+
+        processor = FileProcessor(
+            file_obj,
+            max_size=10_000,
+            use_magic=False,
+        )
+
+        with pytest.raises(
+            FileTooLargeError,
+            match=(
+                r"File size exceeded maximum allowed \(10,000 bytes\) "
+                r"while streaming."
+            ),
+        ):
             processor._stream_file()
 
     def test_file_processor_stream_file_raises_invalid_file_error_for_empty_file(self):
@@ -213,11 +241,7 @@ class TestFileProcessor:
 
     @pytest.mark.parametrize(
         "size_offset, expected_error",
-        [
-            (1, FileTooLargeError),
-            (0, None),
-            (-1, None),
-        ],
+        [(1, FileTooLargeError), (0, None), (-1, None)],
         ids=["too_large", "max_size", "below_max_size"],
     )
     def test_file_processor_process_size_limits(
@@ -226,10 +250,14 @@ class TestFileProcessor:
         max_size = 100
         size = max_size + size_offset
         f = file_factory.create_mock_file(content=b"0" * size)
+
         processor = FileProcessor(file_obj=f, max_size=max_size)
 
         if expected_error:
-            with pytest.raises(expected_error, match="File size exceeds the limit\\."):
+            with pytest.raises(
+                expected_error,
+                match=r"File size \(101 bytes\) exceeds maximum allowed \(100 bytes\).",
+            ):
                 processor.process()
         else:
             result = processor.process()
