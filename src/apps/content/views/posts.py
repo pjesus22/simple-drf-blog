@@ -70,7 +70,11 @@ class PostViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
         return qs.owned_by(user)
 
     def _get_soft_delete_queryset(self):
-        return Post.objects.owned_by(self.request.user)
+        user = self.request.user
+        qs = Post.objects.all()
+        if user.is_staff:
+            return qs
+        return qs.owned_by(user)
 
     def get_permissions(self):
         if self.action in ("list", "retrieve"):

@@ -229,6 +229,35 @@ class TestPostViewSet:
         mock_post.objects.only_deleted.assert_called_once()
         mock_queryset.owned_by.assert_called_once_with(request.user)
 
+    def test_get_queryset_destroy_action_staff_user(self, rf, admin_factory, mocker):
+        request = rf.get("/posts/")
+        request.user = admin_factory()
+        viewset = PostViewSet(request=request, action="destroy")
+
+        mock_post = mocker.patch("apps.content.views.posts.Post")
+        mock_queryset = mock_post.objects.all.return_value
+
+        viewset.get_queryset()
+
+        mock_post.objects.all.assert_called_once()
+        mock_queryset.owned_by.assert_not_called()
+
+    def test_get_queryset_destroy_action_non_staff_user(
+        self, rf, editor_factory, mocker
+    ):
+        request = rf.get("/posts/")
+        request.user = editor_factory()
+        viewset = PostViewSet(request=request, action="destroy")
+
+        mock_post = mocker.patch("apps.content.views.posts.Post")
+        mock_queryset = mocker.MagicMock()
+        mock_post.objects.all.return_value = mock_queryset
+
+        viewset.get_queryset()
+
+        mock_post.objects.all.assert_called_once()
+        mock_queryset.owned_by.assert_called_once_with(request.user)
+
     def test_change_status_action_success(
         self, rf, post_factory, editor_factory, mocker
     ):
