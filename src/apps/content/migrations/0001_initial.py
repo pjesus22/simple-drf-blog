@@ -57,7 +57,7 @@ class Migration(migrations.Migration):
                 ('published_at', models.DateTimeField(blank=True, editable=False, null=True)),
                 ('attachments', models.ManyToManyField(blank=True, related_name='post_attachments', to='uploads.upload')),
                 ('author', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='posts', to=settings.AUTH_USER_MODEL)),
-                ('category', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='posts', to='content.category')),
+                ('category', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, related_name='posts', to='content.category')),
                 ('thumbnail', models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='post_thumbnail', to='uploads.upload')),
                 ('tags', models.ManyToManyField(blank=True, related_name='posts', to='content.tag')),
             ],

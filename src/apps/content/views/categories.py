@@ -1,5 +1,6 @@
-from django.db.models import Prefetch
+from django.db.models import Prefetch, ProtectedError
 from rest_framework import viewsets
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 
 from apps.accounts.permissions import IsAdmin
@@ -32,3 +33,11 @@ class CategoryViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
         else:
             permission_classes = [AllowAny]
         return [permission() for permission in permission_classes]
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError as exc:
+            raise ValidationError(
+                {"detail": "Cannot delete category with posts. Reassign posts first."}
+            ) from exc

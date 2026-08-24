@@ -41,7 +41,10 @@ category_viewset_schema = extend_schema_view(
     ),
     destroy=extend_schema(
         summary="categories_delete",
-        description="Delete a category (requires admin role).",
+        description=(
+            "Delete a category (requires admin role). Fails if category still has "
+            "posts; reassign first."
+        ),
         parameters=[CATEGORY_SLUG_PARAMETER],
         responses={204: OpenApiResponse(description="Category deleted successfully.")},
     ),

@@ -14,7 +14,7 @@ class Post(SlugMixin, BaseModel):
         ARCHIVED = "archived", "Archived"
         DELETED = "deleted", "Deleted"
 
-    objects = PostManager()
+    objects: PostManager = PostManager()
     all_objects = PostQueryset.as_manager()
     ALLOWED_TRANSITIONS = {
         Status.DRAFT: {Status.PUBLISHED, Status.DELETED},
@@ -35,7 +35,7 @@ class Post(SlugMixin, BaseModel):
     )
     category = models.ForeignKey(
         to="Category",
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="posts",
         null=False,
         blank=False,

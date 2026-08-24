@@ -296,7 +296,7 @@ class TestUpdateCategory:
 
 
 class TestDeleteCategory:
-    def test_delete_category_success(self, admin_client, category_factory):
+    def test_delete_empty_category_returns_204(self, admin_client, category_factory):
         client, _ = admin_client
         category = category_factory()
         initial_count = Category.objects.count()
@@ -335,3 +335,20 @@ class TestDeleteCategory:
             pointer="/data",
             code="permission_denied",
         )
+
+    def test_delete_category_with_post_returns_400(
+        self, admin_client, category_factory, post_factory
+    ):
+        client, admin = admin_client
+        category = category_factory()
+        post = post_factory(category=category, author=admin)
+
+        response = client.delete(
+            path=reverse("v1:category-detail", args=[category.slug])
+        )
+
+        print(response.json())
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert Category.objects.filter(pk=category.pk).exists()
+        assert post.__class__.objects.filter(pk=post.pk).exists()
