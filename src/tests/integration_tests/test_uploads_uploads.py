@@ -104,7 +104,10 @@ class TestCreateUpload:
                         content_type="text/plain",
                     ),
                 },
-                "size exceeds the limit.",
+                (
+                    "File size (11,534,336 bytes) exceeds maximum allowed "
+                    "(10,485,760 bytes)."
+                ),
                 "/data",
                 "invalid",
                 id="large_file",
