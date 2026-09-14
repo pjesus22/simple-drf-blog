@@ -11,6 +11,7 @@ from django.views.decorators.cache import never_cache
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_json_api.pagination import JsonApiPageNumberPagination
 from rest_framework_json_api.renderers import JSONRenderer
 
 from apps.accounts.permissions import IsAdmin
@@ -92,22 +93,29 @@ class MetricRecordView(APIView):
 
     def get(self, request):
         summary = request.query_params.get("summary") == "true"
+        paginator = JsonApiPageNumberPagination()
         if summary:
             self.resource_name = "metric-record-summaries"
             now = timezone.now()
             today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
             week_start = now - timezone.timedelta(days=7)
-            qs = MetricRecord.objects.values("event_type").annotate(
-                total=Count("id"),
-                last_7_days=Count("id", filter=Q(created_at__gte=week_start)),
-                today=Count("id", filter=Q(created_at__gte=today_start)),
+            qs = (
+                MetricRecord.objects.values("event_type")
+                .annotate(
+                    total=Count("id"),
+                    last_7_days=Count("id", filter=Q(created_at__gte=week_start)),
+                    today=Count("id", filter=Q(created_at__gte=today_start)),
+                )
+                .order_by("-total", "event_type")
             )
-            serializer = MetricRecordSummarySerializer(qs, many=True)
-            return Response(serializer.data)
+            page = paginator.paginate_queryset(qs, request, view=self)
+            serializer = MetricRecordSummarySerializer(page, many=True)
+            return paginator.get_paginated_response(serializer.data)
 
         qs = MetricRecord.objects.all()
-        serializer = MetricRecordSerializer(qs, many=True)
-        return Response(serializer.data)
+        page = paginator.paginate_queryset(qs, request, view=self)
+        serializer = MetricRecordSerializer(page, many=True)
+        return paginator.get_paginated_response(serializer.data)
 
 
 @storage_health_schema

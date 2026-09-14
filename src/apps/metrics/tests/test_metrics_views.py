@@ -1,3 +1,6 @@
+import warnings
+
+from django.core.paginator import UnorderedObjectListWarning
 from django.db.utils import OperationalError
 import pytest
 from rest_framework.permissions import AllowAny
@@ -108,6 +111,73 @@ class TestMetricRecordView:
         response = api_client.get("/metrics/?summary=true")
 
         assert response.status_code == 200
+
+    def test_metric_event_view_default_page(
+        self, api_client, admin_factory, db, metric_record_factory
+    ):
+        metric_record_factory.create_batch(size=12)
+        api_client.force_authenticate(user=admin_factory())
+
+        response = api_client.get("/metrics/")
+        body = response.json()
+
+        assert response.status_code == 200
+        assert len(body["data"]) == 10
+        assert body["meta"]["pagination"] == {"page": 1, "pages": 2, "count": 12}
+        assert body["links"]["first"].endswith("/metrics/?page%5Bnumber%5D=1")
+        assert body["links"]["last"].endswith("/metrics/?page%5Bnumber%5D=2")
+        assert body["links"]["next"].endswith("/metrics/?page%5Bnumber%5D=2")
+        assert body["links"]["prev"] is None
+
+    def test_metric_event_view_second_page(
+        self, api_client, admin_factory, db, metric_record_factory
+    ):
+        metric_record_factory.create_batch(size=12)
+        api_client.force_authenticate(user=admin_factory())
+
+        response = api_client.get("/metrics/?page[number]=2")
+        body = response.json()
+
+        assert response.status_code == 200
+        assert len(body["data"]) == 2
+        assert body["meta"]["pagination"]["page"] == 2
+        assert body["links"]["next"] is None
+        assert body["links"]["prev"].endswith("/metrics/?page%5Bnumber%5D=1")
+
+    def test_metric_event_view_page_size_and_cap(
+        self, api_client, admin_factory, db, metric_record_factory
+    ):
+        metric_record_factory.create_batch(size=120)
+        api_client.force_authenticate(user=admin_factory())
+
+        assert len(api_client.get("/metrics/?page[size]=5").json()["data"]) == 5
+        assert len(api_client.get("/metrics/?page[size]=500").json()["data"]) == 100
+
+    def test_metric_event_view_does_not_warn_on_unordered_queryset(
+        self, api_client, admin_factory, db, metric_record_factory
+    ):
+        metric_record_factory.create_batch(12)
+        api_client.force_authenticate(user=admin_factory())
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", UnorderedObjectListWarning)
+            response = api_client.get("/metrics/")
+
+        assert response.status_code == 200
+
+    def test_metric_event_view_summary_is_paginated(
+        self, api_client, admin_factory, db, metric_record_factory
+    ):
+        metric_record_factory.create_batch(size=12, event_type="page_view")
+        api_client.force_authenticate(user=admin_factory())
+
+        response = api_client.get("/metrics/?summary=true")
+        body = response.json()
+
+        assert response.status_code == 200
+        assert len(body["data"]) == 1
+        assert body["meta"]["pagination"]["count"] == 1
+        assert body["data"][0]["attributes"]["event_type"] == "page_view"
 
 
 class TestStorageHealthView:

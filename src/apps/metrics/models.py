@@ -14,3 +14,4 @@ class MetricRecord(BaseModel):
             models.Index(fields=["event_type", "created_at"]),
             models.Index(fields=["created_at"]),
         ]
+        ordering = ["-created_at"]
