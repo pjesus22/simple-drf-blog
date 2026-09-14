@@ -74,6 +74,11 @@ CACHES = {
 REST_FRAMEWORK["NUM_PROXIES"] = config("NUM_PROXIES", default=1, cast=int)
 
 # -----------------------------------------------------------------------------
+# STATIC & MEDIA FILES
+#
+# -----------------------------------------------------------------------------
+USE_X_ACCEL_REDIRECT = config("USE_X_ACCEL_REDIRECT", default=True, cast=bool)
+
 # CELERY
 # -----------------------------------------------------------------------------
 CELERY_BROKER_URL = config("CELERY_BROKER_URL")
