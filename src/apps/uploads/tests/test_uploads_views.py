@@ -4,6 +4,8 @@ from django.contrib.auth.models import AnonymousUser
 from django.http import Http404
 from django.utils import timezone
 import pytest
+from rest_framework.request import Request
+from rest_framework.response import Response
 
 from apps.accounts.permissions import IsEditor, IsOwner
 from apps.uploads.models import Upload
@@ -226,14 +228,18 @@ def test_upload_trash_action(mocker, rf):
     mock_serializer = mocker.Mock()
     mock_serializer.data = [{"id": 1}, {"id": 2}]
 
-    viewset = UploadViewSet()
-    viewset.action = "trash"
-    viewset.request = rf.get("/uploads/trash/")
+    request = Request(rf.get("/uploads/trash/"))
+
+    viewset = UploadViewSet(action="trash", request=request, filter_backends=[])
 
     mocker.patch.object(viewset, "get_queryset", return_value=mock_queryset)
     mocker.patch.object(viewset, "get_serializer", return_value=mock_serializer)
+    mocker.patch.object(viewset, "paginate_queryset", return_value=mock_deleted_qs)
+    mocker.patch.object(
+        viewset, "get_paginated_response", return_value=Response(mock_serializer.data)
+    )
 
-    response = viewset.trash(viewset.request)
+    response = viewset.trash(request)
 
     mock_queryset.deleted.assert_called_once()
     viewset.get_serializer.assert_called_once_with(mock_deleted_qs, many=True)

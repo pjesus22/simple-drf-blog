@@ -89,6 +89,7 @@ class UploadViewSet(ReadWriteThrottleMixin, ModelViewSet):
     @upload_trash_action_schema
     @action(detail=False, methods=["get"])
     def trash(self, request):
-        queryset = self.get_queryset().deleted()
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+        qs = self.filter_queryset(self.get_queryset().deleted())
+        page = self.paginate_queryset(qs)
+        serializer = self.get_serializer(page, many=True)
+        return self.get_paginated_response(serializer.data)

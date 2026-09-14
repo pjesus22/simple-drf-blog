@@ -459,3 +459,97 @@ class TestPostIncludePrivacy:
 
         else:
             assert status_code == status.HTTP_400_BAD_REQUEST
+
+
+class TestPostTrashPagination:
+    def test_trash_is_paginated(self, admin_client, post_factory):
+        client, admin = admin_client
+        post_factory.create_batch(size=12, status="deleted", author=admin)
+
+        response = client.get(reverse("v1:post-trash"))
+        body = response.json()
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(body["data"]) == 10
+        assert body["meta"]["pagination"] == {"page": 1, "pages": 2, "count": 12}
+        assert body["links"]["next"] is not None
+
+    def test_trash_second_page(self, admin_client, post_factory):
+        client, admin = admin_client
+        post_factory.create_batch(size=12, status="deleted", author=admin)
+
+        response = client.get(f"{reverse('v1:post-trash')}?page[number]=2")
+        body = response.json()
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(body["data"]) == 2
+        assert body["links"]["next"] is None
+
+    def test_trash_only_shows_own_for_editor(self, editor_client, post_factory):
+        client, editor = editor_client
+        post_factory.create_batch(size=3, status="deleted", author=editor)
+        post_factory.create_batch(size=3, status="deleted")
+
+        response = client.get(reverse("v1:post-trash"))
+        body = response.json()
+
+        assert response.status_code == status.HTTP_200_OK
+        assert body["meta"]["pagination"]["count"] == 3
+        assert all(
+            item["relationships"]["author"]["data"]["id"] == str(editor.id)
+            for item in body["data"]
+        )
+
+
+class TestPostPaginationBoundaries:
+    def test_invalid_page_number_returns_404(self, api_client, post_factory):
+        post_factory.create_batch(size=12, status="published")
+
+        response = api_client.get(f"{reverse('v1:post-list')}?page[number]=abc")
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail_contains="Invalid page",
+            code="not_found",
+        )
+
+    def test_out_of_range_page_returns_404(self, api_client, post_factory):
+        post_factory.create_batch(size=12, status="published")
+
+        response = api_client.get(f"{reverse('v1:post-list')}?page[number]=99")
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail_contains="Invalid page",
+            code="not_found",
+        )
+
+    def test_page_size_zero_falls_back_to_default(self, api_client, post_factory):
+        post_factory.create_batch(size=12, status="published")
+
+        response = api_client.get(f"{reverse('v1:post-list')}?page[size]=0")
+        body = response.json()
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(body["data"]) == 10
+        assert body["meta"]["pagination"]["count"] == 12
+
+    def test_page_size_is_capped_at_100(self, api_client, post_factory):
+        post_factory.create_batch(size=120, status="published")
+
+        response = api_client.get(f"{reverse('v1:post-list')}?page[size]=500")
+        body = response.json()
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(body["data"]) == 100
+
+    def test_unprefixed_page_param_is_ignored(self, api_client, post_factory):
+        post_factory.create_batch(size=12, status="published")
+
+        response = api_client.get(f"{reverse('v1:post-list')}?page=2")
+        body = response.json()
+
+        assert response.status_code == status.HTTP_200_OK
+        assert body["meta"]["pagination"]["page"] == 1

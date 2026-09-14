@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import timezone
 import pytest
 from rest_framework import status
 
@@ -419,3 +420,32 @@ class TestUploadIncludePrivacy:
             assert pii not in attributes
 
         assert client_user.email not in response.content.decode()
+
+
+class TestUploadTrashPagination:
+    def test_trash_is_paginated(self, admin_client, upload_factory):
+        client, admin = admin_client
+        upload_factory.create_batch(
+            size=12, uploaded_by=admin, deleted_at=timezone.now()
+        )
+
+        response = client.get(reverse("v1:upload-trash"))
+        body = response.json()
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(body["data"]) == 10
+        assert body["meta"]["pagination"] == {"page": 1, "pages": 2, "count": 12}
+        assert body["links"]["next"] is not None
+
+    def test_trash_second_page(self, admin_client, upload_factory):
+        client, admin = admin_client
+        upload_factory.create_batch(
+            size=12, uploaded_by=admin, deleted_at=timezone.now()
+        )
+
+        response = client.get(reverse("v1:upload-trash") + "?page[number]=2")
+        body = response.json()
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(body["data"]) == 2
+        assert body["links"]["next"] is None

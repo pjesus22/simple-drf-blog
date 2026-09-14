@@ -199,7 +199,6 @@ class PostViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def trash(self, request):
         qs = self.filter_queryset(self.get_queryset())
-        serializer = PostSerializer(
-            qs, many=True, context=self.get_serializer_context()
-        )
-        return Response(serializer.data)
+        page = self.paginate_queryset(qs)
+        serializer = self.get_serializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
