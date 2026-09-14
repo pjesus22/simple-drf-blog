@@ -40,7 +40,7 @@ class IsOwner(BasePermission):
     def has_object_permission(self, request, view, obj):
         user = request.user
 
-        if user.role == User.Role.ADMIN:
+        if user.is_admin:
             return True
 
         if isinstance(obj, User):
@@ -52,19 +52,11 @@ class IsOwner(BasePermission):
 class CanChangeUserRole(BasePermission):
     def has_permission(self, request, view):
         return bool(
-            request.user
-            and request.user.is_authenticated
-            and request.user.role == User.Role.ADMIN
+            request.user and request.user.is_authenticated and request.user.is_admin
         )
 
     def has_object_permission(self, request, view, obj):
-        if not isinstance(obj, User):
-            return False
-
-        if obj == request.user:
-            return False
-
-        return obj != request.user
+        return isinstance(obj, User) and obj != request.user
 
 
 class CanViewUser(BasePermission):
@@ -72,4 +64,4 @@ class CanViewUser(BasePermission):
         return bool(request.user and request.user.is_authenticated)
 
     def has_object_permission(self, request, view, obj):
-        return request.user.role == User.Role.ADMIN or request.user == obj
+        return request.user.is_admin or request.user == obj

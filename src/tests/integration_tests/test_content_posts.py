@@ -182,7 +182,7 @@ class TestReadPost:
             if (
                 item["attributes"]["status"] == "draft"
                 and client_user
-                and not client_user.is_staff
+                and not client_user.is_admin
             ):
                 assert item["relationships"]["author"]["data"]["id"] == str(
                     client_user.id

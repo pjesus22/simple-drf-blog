@@ -24,7 +24,7 @@ def change_user_role(*, actor: User, target_user: User, new_role: User.Role) -> 
             raise CannotDemoteLastAdmin()
 
     target_user.role = new_role
-    target_user.save(update_fields=["role", "is_staff", "is_superuser"])
+    target_user.save(update_fields=["role"])
 
 
 @transaction.atomic

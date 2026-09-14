@@ -8,24 +8,6 @@ pytestmark = pytest.mark.django_db
 
 class TestProfileQuerySet:
     @pytest.mark.parametrize(
-        "user_fixture, expected",
-        [
-            ("admin_factory", True),
-            ("editor_factory", False),
-            (lambda: AnonymousUser(), False),
-        ],
-        ids=("admin", "editor", "anonymous"),
-    )
-    def test_is_admin_detects_user_permissions(self, request, user_fixture, expected):
-        user = (
-            request.getfixturevalue(user_fixture)()
-            if isinstance(user_fixture, str)
-            else user_fixture()
-        )
-        qs = Profile.objects.all()
-        assert qs._is_admin(user) is expected
-
-    @pytest.mark.parametrize(
         "user_fixture, expected_count",
         [
             ("admin_factory", 2),

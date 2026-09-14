@@ -12,18 +12,16 @@ def test_base_user_method_properties(editor_factory):
 
 
 @pytest.mark.parametrize(
-    "user_class, role, expected_role, is_staff, is_superuser",
+    "user_class, role, expected_role",
     [
-        (Editor, None, User.Role.EDITOR, False, False),
-        (Admin, None, User.Role.ADMIN, True, True),
-        (User, User.Role.ADMIN, User.Role.ADMIN, True, True),
-        (User, User.Role.EDITOR, User.Role.EDITOR, False, False),
+        (Editor, None, User.Role.EDITOR),
+        (Admin, None, User.Role.ADMIN),
+        (User, User.Role.ADMIN, User.Role.ADMIN),
+        (User, User.Role.EDITOR, User.Role.EDITOR),
     ],
     ids=("editor_proxy", "admin_proxy", "user_admin_role", "user_editor_role"),
 )
-def test_user_save_sets_correct_role_and_permissions(
-    user_class, role, expected_role, is_staff, is_superuser
-):
+def test_user_save_sets_correct_role_and_permissions(user_class, role, expected_role):
     user_data = {
         "username": "testuser",
         "email": "testuser@example.com",
@@ -37,8 +35,6 @@ def test_user_save_sets_correct_role_and_permissions(
     user.save()
 
     assert user.role == expected_role
-    assert user.is_staff == is_staff
-    assert user.is_superuser == is_superuser
 
 
 def test_user_default_role():

@@ -15,7 +15,7 @@ class PostQueryset(models.QuerySet):
         if not user.is_authenticated:
             return qs.filter(status=self.model.Status.PUBLISHED)
 
-        if user.is_staff:
+        if user.is_admin:
             return qs
 
         return qs.filter(Q(status=self.model.Status.PUBLISHED) | Q(author=user))

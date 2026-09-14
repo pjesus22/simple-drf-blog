@@ -58,21 +58,21 @@ class PostViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
     def _get_restore_queryset(self):
         user = self.request.user
         qs = Post.objects.only_deleted()
-        if user.is_staff:
+        if user.is_admin:
             return qs
         return qs.owned_by(user)
 
     def _get_trash_queryset(self):
         user = self.request.user
         qs = Post.objects.only_deleted()
-        if user.is_staff:
+        if user.is_admin:
             return qs
         return qs.owned_by(user)
 
     def _get_soft_delete_queryset(self):
         user = self.request.user
         qs = Post.objects.all()
-        if user.is_staff:
+        if user.is_admin:
             return qs
         return qs.owned_by(user)
 

@@ -11,11 +11,10 @@ class User(AbstractUser):
         EDITOR = "editor", "Editor"
 
     objects = UserManager()
-    base_role = Role.EDITOR
     role = models.CharField(
         choices=Role.choices,
         max_length=16,
-        default=base_role,
+        default=Role.EDITOR,
     )
     username = models.CharField(
         max_length=32,
@@ -43,14 +42,9 @@ class User(AbstractUser):
     def __str__(self):
         return self.get_full_name()
 
-    def save(self, *args, **kwargs):
-        if self.role == self.Role.ADMIN:
-            self.is_staff = True
-            self.is_superuser = True
-        elif self.role == self.Role.EDITOR:
-            self.is_staff = False
-            self.is_superuser = False
-        super().save(*args, **kwargs)
+    @property
+    def is_admin(self):
+        return self.role == self.Role.ADMIN
 
     class Meta:
         ordering = ["-id"]
@@ -68,8 +62,8 @@ class Admin(User):
         proxy = True
 
     def save(self, *args, **kwargs):
-        if not self.pk or not self.role:
-            self.role = User.Role.ADMIN
+        self.role = User.Role.ADMIN
+
         super().save(*args, **kwargs)
 
 
@@ -79,13 +73,11 @@ class EditorManager(BaseUserManager):
 
 
 class Editor(User):
-    base_role = User.Role.EDITOR
     objects = EditorManager()
 
     class Meta:
         proxy = True
 
     def save(self, *args, **kwargs):
-        if not self.pk or not self.role:
-            self.role = User.Role.EDITOR
+        self.role = User.Role.EDITOR
         super().save(*args, **kwargs)

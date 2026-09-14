@@ -40,7 +40,7 @@ class UploadViewSet(ReadWriteThrottleMixin, ModelViewSet):
         else:
             qs = Upload.objects.all()
 
-        if user.role != User.Role.ADMIN:
+        if not user.is_admin:
             qs = qs.filter(uploaded_by=user)
         return qs
 

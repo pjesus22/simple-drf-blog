@@ -6,19 +6,16 @@ from django.db.models import Q
 
 
 class ProfileQuerySet(models.QuerySet):
-    def _is_admin(self, user):
-        return user and user.is_authenticated and (user.is_staff or user.is_superuser)
-
     def visible_for(self, user):
         if user and user.is_authenticated:
-            if self._is_admin(user):
+            if user.is_admin:
                 return self.all()
             return self.filter(Q(is_public=True) | Q(user=user))
         return self.filter(is_public=True)
 
     def editable_by(self, user):
         if user and user.is_authenticated:
-            if self._is_admin(user):
+            if user.is_admin:
                 return self.all()
             return self.filter(user=user)
         return self.none()
