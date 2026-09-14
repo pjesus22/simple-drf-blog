@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.urls import reverse
 from rest_framework_json_api import serializers
 
 from .models import Upload
@@ -49,14 +50,16 @@ class UploadSerializer(serializers.ModelSerializer):
     def get_url(self, obj) -> str | None:
         request = self.context.get("request")
 
+        if obj.deleted_at is not None:
+            return
+
         if obj.visibility == Upload.Visibility.PRIVATE:
             if not request or not request.user.is_authenticated:
                 return
-            if obj.uploaded_by != request.user and request.user.role != User.Role.ADMIN:
+            if obj.uploaded_by != request.user and not request.user.is_admin:
                 return
-
-        if obj.deleted_at is not None:
-            return
+            url = reverse("v1:upload-content", kwargs={"pk": obj.pk})
+            return request.build_absolute_uri(url)
 
         if request:
             return request.build_absolute_uri(obj.file.url)

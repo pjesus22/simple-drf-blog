@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 from django.contrib.auth.models import AnonymousUser
+from django.core.files.storage import default_storage
 from django.http import Http404
 from django.utils import timezone
 import pytest
@@ -29,8 +30,17 @@ from config.throttle import (
         ("update", [IsEditor, IsOwner]),
         ("partial_update", [IsEditor, IsOwner]),
         ("destroy", [IsEditor, IsOwner]),
+        ("content", [IsEditor, IsOwner]),
     ],
-    ids=("list", "retrieve", "create", "update", "partial_update", "destroy"),
+    ids=(
+        "list",
+        "retrieve",
+        "create",
+        "update",
+        "partial_update",
+        "destroy",
+        "content",
+    ),
 )
 def test_upload_viewset_gets_permissions(action, expected_permissions):
     viewset = UploadViewSet(action=action)
@@ -105,6 +115,8 @@ def test_upload_viewset_get_queryset_filtering(
         ("partial_update", "PATCH", True, [WriteThrottle]),
         ("destroy", "DELETE", True, [WriteThrottle]),
         ("restore", "POST", True, [WriteThrottle]),
+        ("content", "GET", False, [AnonReadThrottle]),
+        ("content", "GET", True, [UserReadThrottle]),
     ],
 )
 def test_upload_viewset_returns_correct_throttle_for_action(
@@ -245,3 +257,116 @@ def test_upload_trash_action(mocker, rf):
     viewset.get_serializer.assert_called_once_with(mock_deleted_qs, many=True)
     assert response.status_code == 200
     assert response.data == mock_serializer.data
+
+
+@pytest.mark.django_db
+class TestContentAction:
+    @staticmethod
+    def _viewset(request, upload, mocker):
+        viewset = UploadViewSet(action="content", request=request)
+        mocker.patch.object(viewset, "get_object", return_value=upload)
+        return viewset
+
+    def test_owner_gets_file_response(self, rf, editor_factory, upload_factory, mocker):
+        user = editor_factory()
+        upload = upload_factory(visibility=Upload.Visibility.PRIVATE, uploaded_by=user)
+
+        request = rf.get("/")
+        request.user = user
+        viewset = self._viewset(request, upload, mocker)
+
+        response = viewset.content(request, pk=str(upload.pk))
+
+        assert response.status_code == 200
+        assert response["Content-Type"] == upload.mime_type
+        assert response["Content-Disposition"] == (
+            f'inline; filename="{upload.original_filename}"'
+        )
+        assert response["Content-Length"] == str(upload.size)
+        assert response["Cache-Control"] == "private, no-store"
+        assert "X-Accel-Redirect" not in response
+
+        body = b"".join(response.streaming_content)
+        with upload.file.open("rb") as fh:
+            assert body == fh.read()
+
+    def test_non_private_upload_raises_404(
+        self, rf, editor_factory, upload_factory, mocker
+    ):
+        user = editor_factory()
+        upload = upload_factory(visibility=Upload.Visibility.PUBLIC, uploaded_by=user)
+
+        request = rf.get("/")
+        request.user = user
+        viewset = self._viewset(request, upload, mocker)
+
+        with pytest.raises(Http404):
+            viewset.content(request, pk=str(upload.pk))
+
+    def test_accel_redirect_header_when_enabled(
+        self, rf, settings, editor_factory, upload_factory, mocker
+    ):
+        settings.USE_X_ACCEL_REDIRECT = True
+        user = editor_factory()
+        upload = upload_factory(visibility=Upload.Visibility.PRIVATE, uploaded_by=user)
+
+        request = rf.get("/")
+        request.user = user
+        viewset = self._viewset(request, upload, mocker)
+
+        response = viewset.content(request, pk=str(upload.pk))
+
+        assert response.status_code == 200
+        assert response["X-Accel-Redirect"] == (f"/internal_media/{upload.file.name}")
+        assert response.content == b""
+
+    def test_content_disposition_strips_quotes_from_filename(
+        self, rf, editor_factory, upload_factory, mocker
+    ):
+        user = editor_factory()
+        upload = upload_factory(
+            visibility=Upload.Visibility.PRIVATE,
+            uploaded_by=user,
+            original_filename='we"ird.txt',
+        )
+
+        request = rf.get("/")
+        request.user = user
+        viewset = self._viewset(request, upload, mocker)
+
+        response = viewset.content(request, pk=str(upload.pk))
+
+        assert response["Content-Disposition"] == 'inline; filename="we\\"ird.txt"'
+
+    def test_missing_file_on_disk_raises_404(
+        self, rf, editor_factory, upload_factory, mocker
+    ):
+        user = editor_factory()
+        upload = upload_factory(visibility=Upload.Visibility.PRIVATE, uploaded_by=user)
+        default_storage.delete(upload.file.name)
+
+        request = rf.get("/")
+        request.user = user
+        viewset = self._viewset(request, upload, mocker)
+
+        with pytest.raises(Http404):
+            viewset.content(request, pk=str(upload.pk))
+
+    def test_other_editor_gets_404_from_queryset(
+        self, rf, editor_factory, upload_factory
+    ):
+        owner = editor_factory()
+        other_editor = editor_factory()
+        upload = upload_factory(visibility=Upload.Visibility.PRIVATE, uploaded_by=owner)
+
+        request = rf.get("/")
+        request.user = other_editor
+        viewset = UploadViewSet(
+            action="content",
+            filter_backends=[],
+            request=request,
+            kwargs={"pk": upload.pk},
+        )
+
+        with pytest.raises(Http404):
+            viewset.content(request, pk=upload.pk)

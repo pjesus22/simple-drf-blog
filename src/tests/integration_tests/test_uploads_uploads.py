@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from django.utils import timezone
@@ -6,6 +7,7 @@ import pytest
 from rest_framework import status
 
 from apps.uploads.models import Upload
+from apps.uploads.services import UploadService
 from tests.helpers import assert_drf_error_response, assert_jsonapi_error_response
 
 pytestmark = pytest.mark.django_db
@@ -352,6 +354,191 @@ class TestPartialUpdateUpload:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail_contains="credentials were not provided.",
         )
+
+    def test_partial_update_purpose_only_does_not_move_file(
+        self, admin_client, upload_factory
+    ):
+        client, _ = admin_client
+        upload = upload_factory.create(
+            purpose=Upload.Purpose.AVATAR,
+            visibility=Upload.Visibility.INHERIT,
+        )
+        old_name = upload.file.name
+
+        response = client.patch(
+            path=reverse("v1:upload-detail", kwargs={"pk": upload.id}),
+            data={"purpose": "attachment"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["data"]["attributes"]["purpose"] == "attachment"
+
+        upload.refresh_from_db()
+        assert upload.purpose == Upload.Purpose.ATTACHMENT
+        assert upload.file.name == old_name
+        assert default_storage.exists(old_name)
+
+    def test_partial_update_visibility_and_purpose_keeps_original_purpose_segment(
+        self, admin_client, upload_factory
+    ):
+        client, _ = admin_client
+        upload = upload_factory(
+            purpose=Upload.Purpose.AVATAR,
+            visibility=Upload.Visibility.PRIVATE,
+        )
+        old_name = upload.file.name
+        assert old_name.startswith("private/")
+        assert f"{Upload.Purpose.AVATAR}/" in old_name
+
+        response = client.patch(
+            path=reverse("v1:upload-detail", kwargs={"pk": upload.id}),
+            data={"visibility": "public", "purpose": "attachment"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        attrs = response.json()["data"]["attributes"]
+        assert attrs["visibility"] == "public"
+        assert attrs["purpose"] == "attachment"
+
+        upload.refresh_from_db()
+        assert upload.visibility == Upload.Visibility.PUBLIC
+        assert upload.purpose == Upload.Purpose.ATTACHMENT
+        assert not upload.file.name.startswith("private/")
+        assert f"{Upload.Purpose.AVATAR}/" in upload.file.name
+        assert f"{Upload.Purpose.ATTACHMENT}/" not in upload.file.name
+        assert not default_storage.exists(old_name)
+        assert default_storage.exists(upload.file.name)
+
+    def test_partial_update_empty_body_is_noop(
+        self, admin_client, upload_factory, mocker
+    ):
+        client, _ = admin_client
+        upload = upload_factory.create(visibility=Upload.Visibility.PRIVATE)
+        old_name = upload.file.name
+
+        move = mocker.spy(UploadService, "change_visibility")
+        save = mocker.spy(Upload, "save")
+
+        response = client.patch(
+            path=reverse("v1:upload-detail", kwargs={"pk": upload.id}),
+            data={},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        move.assert_not_called()
+        save.assert_not_called()
+
+        upload.refresh_from_db()
+        assert upload.file.name == old_name
+        assert default_storage.exists(old_name)
+
+
+class TestUploadContent:
+    @staticmethod
+    def _url(upload):
+        return reverse("v1:upload-content", kwargs={"pk": upload.id})
+
+    def test_owner_can_download_private_upload(self, editor_client, upload_factory):
+        client, user = editor_client
+        upload = upload_factory(visibility=Upload.Visibility.PRIVATE, uploaded_by=user)
+
+        response = client.get(self._url(upload))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response["Content-Type"] == upload.mime_type
+        assert response["Content-Disposition"] == (
+            f'inline; filename="{upload.original_filename}"'
+        )
+        assert response["Content-Length"] == str(upload.size)
+        assert response["Cache-Control"] == "private, no-store"
+
+        body = b"".join(response.streaming_content)
+        with upload.file.open("rb") as fh:
+            assert body == fh.read()
+
+    def test_admin_can_download_other_users_private_upload(
+        self, admin_client, editor_factory, upload_factory
+    ):
+        client, _ = admin_client
+        owner = editor_factory()
+        upload = upload_factory(visibility=Upload.Visibility.PRIVATE, uploaded_by=owner)
+
+        response = client.get(self._url(upload))
+
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_other_editor_gets_404(self, editor_client, upload_factory):
+        client, _ = editor_client
+        upload = upload_factory(visibility=Upload.Visibility.PRIVATE)
+
+        response = client.get(self._url(upload))
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_anonymous_gets_401(self, api_client, upload_factory):
+        upload = upload_factory(visibility=Upload.Visibility.PRIVATE)
+
+        response = api_client.get(self._url(upload))
+
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_public_upload_gets_404(self, editor_client, upload_factory):
+        client, user = editor_client
+        upload = upload_factory(visibility=Upload.Visibility.PUBLIC, uploaded_by=user)
+
+        response = client.get(self._url(upload))
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_trashed_upload_gets_404(self, editor_client, upload_factory):
+        client, user = editor_client
+        upload = upload_factory(
+            visibility=Upload.Visibility.PRIVATE,
+            uploaded_by=user,
+            deleted_at=timezone.now(),
+        )
+
+        response = client.get(self._url(upload))
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_accel_redirect_header_when_enabled(
+        self, editor_client, upload_factory, settings
+    ):
+        settings.USE_X_ACCEL_REDIRECT = True
+        client, user = editor_client
+        upload = upload_factory(visibility=Upload.Visibility.PRIVATE, uploaded_by=user)
+
+        response = client.get(self._url(upload))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response["X-Accel-Redirect"] == (f"/internal_media/{upload.file.name}")
+        assert response.content == b""
+
+    def test_content_url_404_after_visibility_flip_to_public(
+        self, editor_client, upload_factory
+    ):
+        client, user = editor_client
+        upload = upload_factory(visibility=Upload.Visibility.PRIVATE, uploaded_by=user)
+        content_url = self._url(upload)
+
+        patch_response = client.patch(
+            path=reverse("v1:upload-detail", kwargs={"pk": upload.id}),
+            data={"visibility": "public"},
+            format="json",
+        )
+        assert patch_response.status_code == status.HTTP_200_OK
+
+        response = client.get(content_url)
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+        detail = client.get(reverse("v1:upload-detail", kwargs={"pk": upload.id}))
+        url_attr = detail.json()["data"]["attributes"]["url"]
+        assert settings.MEDIA_URL in url_attr
+        assert "content" not in url_attr
 
 
 class TestDeleteUpload:

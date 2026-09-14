@@ -51,7 +51,11 @@ upload_viewset_schema = extend_schema_view(
         summary="uploads_partial_update",
         description=(
             "Update upload metadata (purpose, visibility). "
-            "User can only update their own uploads."
+            "User can only update their own uploads. "
+            "Storage path is inmutable after upload: changing 'purpose' "
+            "updates metadata only and does not move the file."
+            "Changing 'visibility' relocates the file between public and "
+            "private storage (private/ prefix)"
         ),
         request=UploadUpdateSerializer,
         responses={200: UploadSerializer},
@@ -80,4 +84,18 @@ upload_trash_action_schema = extend_schema(
     summary="uploads_trash",
     description="List deleted uploads.",
     responses={200: UploadSerializer(many=True)},
+)
+
+upload_content_action_schema = extend_schema(
+    summary="uploads_content",
+    description=(
+        "Stream/download the binary content of a private upload. "
+        "Only available for uploads with private visibility owned by the requester "
+        "(or accessed by an admin). "
+    ),
+    responses={
+        200: OpenApiResponse(description="Binary file stream."),
+        404: OpenApiResponse(description="Upload not found or is private"),
+    },
+    parameters=[UPLOAD_ID_PARAMETER],
 )

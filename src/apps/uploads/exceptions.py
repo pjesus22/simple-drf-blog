@@ -1,3 +1,6 @@
+from rest_framework.exceptions import APIException
+
+
 class UploadDomainError(Exception):
     """Base exception for upload domain errors"""
 
@@ -25,3 +28,8 @@ class UnsupportedMimeTypeError(UploadDomainError):
 
 class InvalidVisibilityError(UploadDomainError):
     default_message = "Invalid visibility setting."
+
+
+class Conflict(APIException):
+    status_code = 409
+    default_detail = "Upload file is out of sync with storage."
