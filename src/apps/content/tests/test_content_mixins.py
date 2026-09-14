@@ -65,6 +65,9 @@ class TestSlugMixin:
     ):
         editor = editor_factory()
         category = category_factory()
+
+        post_factory(title="test", category=category, author=editor)
+
         post = post_factory.build(title="test", category=category, author=editor)
         retries = []
         original_save = models.Model.save
@@ -82,13 +85,24 @@ class TestSlugMixin:
         assert len(retries) == 2
         assert post.pk is not None
 
-    def test_save_raises_exception_after_max_retries(self, post_factory, monkeypatch):
-        post = post_factory.build(title="test")
+    def test_save_raises_exception_after_max_retries(
+        self, post_factory, monkeypatch, editor_factory, category_factory
+    ):
+        editor = editor_factory()
+        category = category_factory()
+        post = post_factory.build(title="test", author=editor, category=category)
 
-        def always_fail(*args, **kwargs):
-            raise IntegrityError("Simulated race condition")
-
-        monkeypatch.setattr(models.Model, "save", always_fail)
+        monkeypatch.setattr(
+            type(post), "_generate_unique_slug", lambda self: "dupe", raising=False
+        )
+        monkeypatch.setattr(
+            type(post), "_slug_exists", lambda self, slug: True, raising=False
+        )
+        monkeypatch.setattr(
+            models.Model,
+            "save",
+            lambda instance, *a, **k: (_ for _ in ()).throw(IntegrityError("race")),
+        )
 
         with pytest.raises(
             IntegrityError, match="Could not generate a unique slug after retries"
@@ -106,3 +120,27 @@ class TestSlugMixin:
         new_post.save()
 
         assert new_post.slug == "test-1"
+
+    def test_save_reraises_non_slug_integrity_error(
+        self, post_factory, monkeypatch, editor_factory, category_factory
+    ):
+        editor = editor_factory()
+        category = category_factory()
+        post = post_factory.build(
+            title="test",
+            category=category,
+            author=editor,
+        )
+
+        save_calls = []
+
+        def failing_save(instance, *args, **kwargs):
+            save_calls.append(True)
+            raise IntegrityError("NOT NULL constraint failed: post.author_id")
+
+        monkeypatch.setattr(models.Model, "save", failing_save)
+
+        with pytest.raises(IntegrityError, match="NOT NULL constraint failed"):
+            post.save()
+
+        assert len(save_calls) == 1

@@ -17,6 +17,9 @@ class SlugMixin(models.Model):
                     self._set_slug()
                     return super().save(*args, **kwargs)
             except IntegrityError:
+                failed_slug = getattr(self, self.slug_field)
+                if not self._slug_exists(failed_slug):
+                    raise
                 setattr(self, self.slug_field, None)
 
         raise IntegrityError("Could not generate a unique slug after retries")
