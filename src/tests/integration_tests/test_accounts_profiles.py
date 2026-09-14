@@ -809,6 +809,62 @@ class TestSocialMediaProfile:
             pointer="/data/attributes/social_media/0/url",
         )
 
+    def test_platform_url_substring_bypass_rejected(
+        self, editor_client, profile_factory
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+
+        response = client.patch(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={
+                "social_media": [
+                    {
+                        "platform": "github",
+                        "url": "https://evil.com/?github.com",
+                    },
+                ],
+            },
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer="/data/attributes/social_media/0/url",
+        )
+
+    def test_platform_url_partial_key_bypass_rejected(
+        self, editor_client, profile_factory
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+
+        create = client.patch(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={
+                "social_media": [
+                    {"platform": "github", "url": "https://github.com/testuser"},
+                ],
+            },
+            format="json",
+        )
+        assert create.status_code == status.HTTP_200_OK
+        profile.refresh_from_db()
+        social_id = profile.social_media.get().pk
+
+        response = client.patch(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={
+                "social_media": [
+                    {"id": social_id, "url": "https://evil.com"},
+                ],
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
     def test_invalid_url_format_validation(self, editor_client, profile_factory):
         client, user = editor_client
         profile = profile_factory(user=user)

@@ -1,8 +1,29 @@
+from urllib.parse import urlparse
+
 from django.db import transaction
 from rest_framework_json_api import serializers
 
 from apps.accounts.models import Profile, SocialMediaProfile
 from apps.accounts.permissions import IsOwner
+
+PLATFORM_DOMAINS = {
+    "facebook": "facebook.com",
+    "github": "github.com",
+    "instagram": "instagram.com",
+    "linkedin": "linkedin.com",
+    "tiktok": "tiktok.com",
+    "twitter": "twitter.com",
+    "x": "x.com",
+    "youtube": "youtube.com",
+}
+
+
+def _platform_url_ok(platform, url):
+    if not platform or not url:
+        return True
+    host = (urlparse(url).hostname or "").lower()
+    domain = PLATFORM_DOMAINS.get(platform)
+    return not domain or host == domain or host.endswith(f".{domain}")
 
 
 class SocialMediaProfileSerializer(serializers.ModelSerializer):
@@ -17,26 +38,10 @@ class SocialMediaProfileSerializer(serializers.ModelSerializer):
         resource_name = "social-media-profiles"
 
     def validate(self, attrs):
-        platform = attrs.get("platform")
-        url = attrs.get("url")
-
-        if platform and url:
-            platform_domains = {
-                "facebook": ["facebook.com"],
-                "github": ["github.com"],
-                "instagram": ["instagram.com"],
-                "linkedin": ["linkedin.com"],
-                "tiktok": ["tiktok.com"],
-                "twitter": ["twitter.com"],
-                "x": ["x.com"],
-                "youtube": ["youtube.com"],
-            }
-
-            expected = platform_domains.get(platform)
-            if expected and not any(d in url for d in expected):
-                raise serializers.ValidationError(
-                    {"url": [f"The URL must be a valid {platform} link."]}
-                )
+        if not _platform_url_ok(attrs.get("platform"), attrs.get("url")):
+            raise serializers.ValidationError(
+                {"url": [f"The URL must be a valid {attrs['platform']} link."]}
+            )
 
         return attrs
 
@@ -168,6 +173,10 @@ class PrivateProfileSerializer(ProfileSerializer):
                 obj = existing[social_profile_id]
                 obj.platform = item.get("platform", obj.platform)
                 obj.url = item.get("url", obj.url)
+                if not _platform_url_ok(obj.platform, obj.url):
+                    raise serializers.ValidationError(
+                        {"url": [f"The URL must be a valid {obj.platform} link."]}
+                    )
                 to_update.append(obj)
                 incoming_ids.add(social_profile_id)
             else:
