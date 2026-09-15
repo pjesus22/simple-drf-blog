@@ -1,3 +1,4 @@
+from django.urls import reverse
 from django.utils import timezone
 import pytest
 from rest_framework.fields import DateTimeField
@@ -93,7 +94,11 @@ def test_get_url_private_file_access_control(
     serializer = UploadSerializer(upload, context={"request": request})
 
     if expected_access:
-        assert serializer.data["url"] == request.build_absolute_uri(upload.file.url)
+        expected_url = request.build_absolute_uri(
+            reverse("v1:upload-content", kwargs={"pk": upload.pk})
+        )
+        assert serializer.data["url"] == expected_url
+        assert "/media/" not in serializer.data["url"]
     else:
         assert serializer.data["url"] is None
 
