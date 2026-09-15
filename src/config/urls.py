@@ -1,5 +1,4 @@
 from django.conf import settings
-from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import (
@@ -62,4 +61,6 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:  # pragma: no cover
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    from config.views import dev_media_serve
+
+    urlpatterns += [path("media/<path:path>", dev_media_serve, name="media-serve")]

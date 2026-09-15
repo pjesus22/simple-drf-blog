@@ -1,4 +1,7 @@
-from config.views import APIRootView
+from django.http import Http404
+import pytest
+
+from config.views import APIRootView, dev_media_serve
 
 
 class TestAPIRootView:
@@ -28,3 +31,35 @@ class TestAPIRootView:
         for value in response.data.values():
             assert isinstance(value, str)
             assert value.startswith(("http://", "/"))
+
+
+class TestDevMediaServe:
+    def test_blocks_private_paths(self, rf, settings, tmp_path):
+        settings.MEDIA_ROOT = tmp_path
+        request = rf.get("/media/private/avatar/x.txt")
+
+        with pytest.raises(Http404):
+            dev_media_serve(request, "private/avatar/x.txt")
+
+    def test_serves_public_file(self, rf, settings, tmp_path):
+        settings.MEDIA_ROOT = tmp_path
+        target = tmp_path / "avatar" / "x.txt"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"hello")
+
+        request = rf.get("/media/avatar/x.txt")
+        response = dev_media_serve(request, "avatar/x.txt")
+
+        assert response.status_code == 200
+        assert b"".join(response.streaming_content) == b"hello"
+
+    def test_blocks_lookalike_prefix(self, rf, settings, tmp_path):
+        settings.MEDIA_ROOT = tmp_path
+        target = tmp_path / "privatex" / "x.txt"
+        target.parent.mkdir(parents=True)
+        target.write_bytes(b"ok")
+
+        request = rf.get("/media/privatex/x.txt")
+        response = dev_media_serve(request, "privatex/x.txt")
+
+        assert response.status_code == 200

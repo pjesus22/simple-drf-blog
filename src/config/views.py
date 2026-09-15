@@ -1,7 +1,17 @@
+from django.conf import settings
+from django.http import Http404
+from django.views.static import serve
 from drf_spectacular.utils import extend_schema
 from rest_framework.response import Response
 from rest_framework.reverse import reverse
 from rest_framework.views import APIView
+
+
+def dev_media_serve(request, path):
+    """DEBUG-only media serving; private/ tree blocked (use content endpoint)."""
+    if path.startswith("private/"):
+        raise Http404
+    return serve(request, path, document_root=settings.MEDIA_ROOT)
 
 
 @extend_schema(exclude=True)
