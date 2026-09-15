@@ -50,12 +50,12 @@ urlpatterns = [
     ),
     path(
         "api/v1/docs/",
-        SpectacularSwaggerView.as_view(url_name="schema"),
+        SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[IsAdmin]),
         name="swagger-ui",
     ),
     path(
         "api/v1/redoc/",
-        SpectacularRedocView.as_view(url_name="schema"),
+        SpectacularRedocView.as_view(url_name="schema", permission_classes=[IsAdmin]),
         name="redoc",
     ),
 ]
