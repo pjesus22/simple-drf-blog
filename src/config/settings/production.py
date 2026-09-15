@@ -15,7 +15,7 @@ SECRET_KEY = config("SECRET_KEY")
 if not SECRET_KEY:
     raise ValueError("SECRET_KEY must be set in production environment!")
 
-DEBUG = config("DEBUG", default=False, cast=bool)
+DEBUG = False
 ALLOWED_HOSTS = config(
     "ALLOWED_HOSTS", cast=lambda v: [s.strip() for s in v.split(",")]
 )
@@ -23,7 +23,7 @@ ALLOWED_HOSTS = config(
 # -----------------------------------------------------------------------------
 # SECURITY SETTINGS
 # -----------------------------------------------------------------------------
-SECURE_SSL_REDIRECT = False
+SECURE_SSL_REDIRECT = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True

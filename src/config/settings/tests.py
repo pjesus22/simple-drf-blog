@@ -15,7 +15,7 @@ config = Config(RepositoryEnv(BASE_DIR.parent / ".env"))
 # CORE SETTINGS
 # -----------------------------------------------------------------------------
 SECRET_KEY = config("SECRET_KEY", default="test-secret-key")
-DEBUG = config("DEBUG", default=False, cast=bool)
+DEBUG = False
 ALLOWED_HOSTS = ["*"]
 MEDIA_ROOT = tempfile.mkdtemp()
 
