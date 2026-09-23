@@ -32,7 +32,7 @@ dev = [
     "ipython>=9.6.0",
     "markdown>=3.9",
     "pre-commit>=4.5.1",
-    "ruff>=0.15.0",
+    "ruff>=0.16.8",
 ]
 test = [
     "pytest>=8.4.2",
