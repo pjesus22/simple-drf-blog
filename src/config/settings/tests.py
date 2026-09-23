@@ -25,7 +25,8 @@ MEDIA_ROOT = tempfile.mkdtemp()
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",
 ]
-AUTH_PASSWORD_VALIDATORS = []
+# AUTH_PASSWORD_VALIDATORS stays ON: password policy lives in base.py and the
+# 422 assertions in the API tests depend on it. Cost is one file read/process.
 
 # -----------------------------------------------------------------------------
 # DATABASE (IN-MEMORY)

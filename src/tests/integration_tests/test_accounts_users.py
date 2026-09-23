@@ -568,7 +568,7 @@ class TestChangePassword:
 
         response = client.post(
             path=reverse("v1:user-change-password"),
-            data={"old_password": "defaultpassword", "new_password": "newpassword"},
+            data={"old_password": "defaultpassword", "new_password": "newpassword1"},
             format="json",
         )
 
@@ -576,7 +576,7 @@ class TestChangePassword:
 
         client_user.refresh_from_db()
 
-        assert client_user.check_password("newpassword")
+        assert client_user.check_password("newpassword1")
 
     def test_change_own_password_revokes_refresh_tokens(self, editor_client):
         client, client_user = editor_client
@@ -587,7 +587,7 @@ class TestChangePassword:
 
         response = client.post(
             path=reverse("v1:user-change-password"),
-            data={"old_password": "defaultpassword", "new_password": "newpassword"},
+            data={"old_password": "defaultpassword", "new_password": "newpassword1"},
             format="json",
         )
         assert response.status_code == status.HTTP_204_NO_CONTENT
@@ -620,7 +620,7 @@ class TestChangePassword:
 
         response = admin_client.post(
             path=reverse("v1:user-force-password-change", args=[target.id]),
-            data={"new_password": "newpassword"},
+            data={"new_password": "newpassword1"},
             format="json",
         )
         assert response.status_code == status.HTTP_204_NO_CONTENT
@@ -645,7 +645,7 @@ class TestChangePassword:
 
         response = client.post(
             path=reverse("v1:user-force-password-change", args=[user.id]),
-            data={"new_password": "newpassword"},
+            data={"new_password": "newpassword1"},
             format="json",
         )
 
@@ -653,7 +653,7 @@ class TestChangePassword:
 
         user.refresh_from_db()
 
-        assert user.check_password("newpassword")
+        assert user.check_password("newpassword1")
 
     def test_set_password_unauthorized(self, api_client, editor_factory):
         client = api_client
@@ -661,7 +661,7 @@ class TestChangePassword:
 
         response = client.post(
             path=reverse("v1:user-force-password-change", args=[user.id]),
-            data={"new_password": "newpassword"},
+            data={"new_password": "newpassword1"},
             format="json",
         )
 
@@ -679,7 +679,7 @@ class TestChangePassword:
 
         response = client.post(
             path=reverse("v1:user-force-password-change", args=[user.id]),
-            data={"new_password": "newpassword"},
+            data={"new_password": "newpassword1"},
             format="json",
         )
 

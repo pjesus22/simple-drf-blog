@@ -46,7 +46,6 @@ class UserCreateSerializer(BaseUserSerializer):
         write_only=True,
         required=True,
         validators=[validate_password],
-        min_length=8,
     )
 
     class Meta(BaseUserSerializer.Meta):
@@ -91,7 +90,6 @@ class PasswordUpdateSerializer(serializers.Serializer):
     new_password = serializers.CharField(
         required=True,
         validators=[validate_password],
-        min_length=8,
     )
 
     def validate(self, attrs):
@@ -111,5 +109,4 @@ class PasswordResetSerializer(serializers.Serializer):
     new_password = serializers.CharField(
         required=True,
         validators=[validate_password],
-        min_length=8,
     )
