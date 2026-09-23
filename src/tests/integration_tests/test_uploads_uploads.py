@@ -33,11 +33,11 @@ class TestCreateUpload:
         attributes = data["attributes"]
 
         assert data.get("type") == "uploads"
-        assert settings.MEDIA_URL in attributes["url"]
-        assert "attachment" in attributes["url"]
+        assert f"/api/v1/uploads/{data['id']}/content" in attributes["url"]
+        assert settings.MEDIA_URL not in attributes["url"]
 
         assert attributes["original_filename"] == "test_text.txt"
-        assert attributes["visibility"] == "inherit"
+        assert attributes["visibility"] == "private"
         assert attributes["mime_type"] == "text/plain"
         assert attributes["size"] == 4
         assert attributes["width"] is None
@@ -195,7 +195,9 @@ class TestReadUpload:
 
     def test_retrieve_upload_success(self, editor_client, upload_factory):
         client, client_user = editor_client
-        upload = upload_factory.create(uploaded_by=client_user)
+        upload = upload_factory.create(
+            uploaded_by=client_user, visibility=Upload.Visibility.PUBLIC
+        )
 
         response = client.get(
             path=reverse("v1:upload-detail", kwargs={"pk": upload.id}),
@@ -361,7 +363,7 @@ class TestPartialUpdateUpload:
         client, _ = admin_client
         upload = upload_factory.create(
             purpose=Upload.Purpose.AVATAR,
-            visibility=Upload.Visibility.INHERIT,
+            visibility=Upload.Visibility.PRIVATE,
         )
         old_name = upload.file.name
 

@@ -35,8 +35,8 @@ from apps.uploads.utils.path import (
             "no_ext",
             "no_ext",
             "",
-            Upload.Visibility.INHERIT,
-            id="no_extension_inherit",
+            Upload.Visibility.PUBLIC,
+            id="no_extension_public",
         ),
     ],
 )

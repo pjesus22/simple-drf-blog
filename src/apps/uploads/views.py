@@ -129,7 +129,7 @@ class UploadViewSet(ReadWriteThrottleMixin, ModelViewSet):
     def content(self, request, pk=None):
         upload = self.get_object()
 
-        if upload.visibility != Upload.Visibility.PRIVATE:
+        if upload.visibility == Upload.Visibility.PUBLIC:
             raise Http404
 
         if settings.USE_X_ACCEL_REDIRECT:

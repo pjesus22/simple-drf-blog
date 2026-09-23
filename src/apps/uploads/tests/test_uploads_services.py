@@ -19,7 +19,12 @@ pytestmark = pytest.mark.django_db
 @pytest.mark.parametrize(
     "purpose, visibility, expected_purpose, expected_visibility",
     [
-        (None, None, Upload.Purpose.ATTACHMENT, Upload.Visibility.INHERIT),
+        (
+            None,
+            None,
+            Upload.Purpose.ATTACHMENT,
+            Upload.Visibility.PRIVATE,
+        ),
         (
             Upload.Purpose.ATTACHMENT,
             Upload.Visibility.PUBLIC,
@@ -59,7 +64,7 @@ def test_upload_service_creates_upload_object_successfully(
     assert Upload.objects.filter(pk=upload.pk).exists()
     assert upload.uploaded_by == user
     assert upload.purpose == Upload.Purpose.ATTACHMENT
-    assert upload.visibility == Upload.Visibility.INHERIT
+    assert upload.visibility == Upload.Visibility.PRIVATE
     assert upload.size == file.size
     assert upload.original_filename == file.name
     assert Upload.objects.count() == 1

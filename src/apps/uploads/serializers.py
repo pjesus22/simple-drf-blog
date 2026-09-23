@@ -53,7 +53,7 @@ class UploadSerializer(serializers.ModelSerializer):
         if obj.deleted_at is not None:
             return
 
-        if obj.visibility == Upload.Visibility.PRIVATE:
+        if obj.visibility != Upload.Visibility.PUBLIC:
             if not request or not request.user.is_authenticated:
                 return
             if obj.uploaded_by != request.user and not request.user.is_admin:

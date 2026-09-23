@@ -22,7 +22,6 @@ class Upload(BaseModel):
     class Visibility(models.TextChoices):
         PUBLIC = "public", "Public"
         PRIVATE = "private", "Private"
-        INHERIT = "inherit", "Inherit"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     file = models.FileField(
@@ -53,7 +52,7 @@ class Upload(BaseModel):
     visibility = models.CharField(
         max_length=16,
         choices=Visibility.choices,
-        default=Visibility.INHERIT,
+        default=Visibility.PRIVATE,
         db_index=True,
     )
     deleted_at = models.DateTimeField(null=True, blank=True)

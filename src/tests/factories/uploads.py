@@ -14,7 +14,7 @@ class UploadFactory(factory.django.DjangoModelFactory):
     uploaded_by = factory.SubFactory("tests.factories.accounts.EditorFactory")
     mime_type = "text/plain"
     purpose = Upload.Purpose.ATTACHMENT
-    visibility = Upload.Visibility.INHERIT
+    visibility = Upload.Visibility.PRIVATE
 
     @factory.lazy_attribute
     def file(self):

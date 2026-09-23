@@ -29,7 +29,7 @@ def get_upload_path(instance, filename: str) -> str:
     """
     relpath = build_upload_relpath(instance, filename)
 
-    if instance.visibility == instance.Visibility.PRIVATE:
+    if instance.visibility != instance.Visibility.PUBLIC:
         return os.path.join(PRIVATE_STORAGE_PREFIX, relpath)
 
     return relpath

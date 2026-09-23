@@ -15,7 +15,7 @@ def drf_datetime():
 def test_uploads_serializer_serializes_object_successfully(
     db, upload_factory, clean_media, drf_datetime
 ):
-    upload = upload_factory()
+    upload = upload_factory(visibility=Upload.Visibility.PUBLIC)
     serializer = UploadSerializer(upload)
 
     expected = {
@@ -40,10 +40,10 @@ def test_uploads_serializer_serializes_object_successfully(
     "visibility, expected_url_is_none",
     [
         (Upload.Visibility.PUBLIC, False),
-        (Upload.Visibility.INHERIT, False),
+        ("unknown", True),
         (Upload.Visibility.PRIVATE, True),
     ],
-    ids=("public", "inherit", "private"),
+    ids=("public", "unknown", "private"),
 )
 def test_get_url_visibility_no_context(
     db, upload_factory, clean_media, visibility, expected_url_is_none
