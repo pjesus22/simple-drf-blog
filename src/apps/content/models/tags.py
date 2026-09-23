@@ -1,7 +1,7 @@
 from django.db import models
-from utils.base_models import BaseModel
 
 from apps.content.mixins import SlugMixin
+from utils.base_models import BaseModel
 
 
 class Tag(SlugMixin, BaseModel):

@@ -2,16 +2,16 @@ from django.core.cache import cache
 from django.test import RequestFactory
 import pytest
 from pytest_factoryboy import register
+
+from apps.metrics.events.base import MetricEvent
+from apps.metrics.events.registry import EventRegistry
+from apps.metrics.events.types import PostViewEvent
 from tests.factories import (
     AdminFactory,
     EditorFactory,
     MetricRecordFactory,
     UploadFactory,
 )
-
-from apps.metrics.events.base import MetricEvent
-from apps.metrics.events.registry import EventRegistry
-from apps.metrics.events.types import PostViewEvent
 
 register(EditorFactory)
 register(UploadFactory)

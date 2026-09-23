@@ -2,10 +2,10 @@ import uuid
 
 from django.core.validators import RegexValidator
 from django.db import models
-from utils.base_models import BaseModel
 
 from apps.uploads.managers import UploadManager
 from apps.uploads.utils import get_upload_path
+from utils.base_models import BaseModel
 
 
 class Upload(BaseModel):

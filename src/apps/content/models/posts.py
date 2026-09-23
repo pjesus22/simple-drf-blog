@@ -1,10 +1,10 @@
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.utils import timezone
-from utils.base_models import BaseModel
 
 from apps.content.managers import PostManager, PostQueryset
 from apps.content.mixins import SlugMixin
+from utils.base_models import BaseModel
 
 
 class Post(SlugMixin, BaseModel):
