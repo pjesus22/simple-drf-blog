@@ -18,6 +18,8 @@ SECRET_KEY = config("SECRET_KEY", default="test-secret-key")
 DEBUG = False
 ALLOWED_HOSTS = ["*"]
 MEDIA_ROOT = tempfile.mkdtemp()
+JWT_SIGNING_KEY = config("JWT_SIGNING_KEY", default=SECRET_KEY)
+SIMPLE_JWT["SIGNING_KEY"] = JWT_SIGNING_KEY
 
 # -----------------------------------------------------------------------------
 # SECURITY OPTIMIZATION (FOR SPEED)

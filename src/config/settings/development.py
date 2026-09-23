@@ -13,6 +13,8 @@ config = Config(RepositoryEnv(BASE_DIR.parent / ".env"))
 SECRET_KEY = config("SECRET_KEY", default="django-insecure-dev-key")
 DEBUG = True
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",")
+JWT_SIGNING_KEY = config("JWT_SIGNING_KEY", default=SECRET_KEY)
+SIMPLE_JWT["SIGNING_KEY"] = JWT_SIGNING_KEY
 
 # -----------------------------------------------------------------------------
 # APPS

@@ -19,6 +19,8 @@ DEBUG = False
 ALLOWED_HOSTS = config(
     "ALLOWED_HOSTS", cast=lambda v: [s.strip() for s in v.split(",")]
 )
+JWT_SIGNING_KEY = config("JWT_SIGNING_KEY")
+SIMPLE_JWT["SIGNING_KEY"] = JWT_SIGNING_KEY
 
 # -----------------------------------------------------------------------------
 # SECURITY SETTINGS
