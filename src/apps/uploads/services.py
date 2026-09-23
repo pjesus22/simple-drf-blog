@@ -46,7 +46,7 @@ class UploadService:
     ):
         self.uploaded_by = uploaded_by
         self.purpose = purpose or Upload.Purpose.ATTACHMENT
-        self.visibility = visibility or Upload.Visibility.INHERIT
+        self.visibility = visibility or Upload.Visibility.PRIVATE
 
         self._validate_choices()
 
