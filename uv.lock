@@ -1114,15 +1114,20 @@ wheels = [
 
 [[package]]
 name = "sentry-sdk"
-version = "2.53.0"
+version = "2.70.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d3/06/66c8b705179bc54087845f28fd1b72f83751b6e9a195628e2e9af9926505/sentry_sdk-2.53.0.tar.gz", hash = "sha256:6520ef2c4acd823f28efc55e43eb6ce2e6d9f954a95a3aa96b6fd14871e92b77", size = 412369, upload-time = "2026-02-16T11:11:14.743Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/52/0a/e37553f3106d0f7f0d4b8ad2c7b92410d131929786ffd116833d3b8164df/sentry_sdk-2.70.0.tar.gz", hash = "sha256:27e4b512f47be93136645dbe8f02d430473ee73a389ce430b2b7104baa66cf75", size = 1047234, upload-time = "2026-09-22T09:40:11.721Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/47/d4/2fdf854bc3b9c7f55219678f812600a20a138af2dd847d99004994eada8f/sentry_sdk-2.53.0-py2.py3-none-any.whl", hash = "sha256:46e1ed8d84355ae54406c924f6b290c3d61f4048625989a723fd622aab838899", size = 437908, upload-time = "2026-02-16T11:11:13.227Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/ff/b1e56f009bfb9b8023910b533d5ebf4ec5650da49891f2b8c7f3d4815401/sentry_sdk-2.70.0-py3-none-any.whl", hash = "sha256:89600e8bb5fc5239cad5c4434217f453204f2207ad29399ea58947460b37a62e", size = 531752, upload-time = "2026-09-22T09:40:10.063Z" },
+]
+
+[package.optional-dependencies]
+celery = [
+    { name = "celery" },
 ]
 
 [[package]]
@@ -1147,7 +1152,7 @@ dependencies = [
     { name = "python-magic" },
     { name = "redis" },
     { name = "requests" },
-    { name = "sentry-sdk" },
+    { name = "sentry-sdk", extra = ["celery"] },
     { name = "user-agents" },
 ]
 
@@ -1186,7 +1191,7 @@ requires-dist = [
     { name = "python-magic", specifier = ">=0.4.27" },
     { name = "redis", specifier = ">=6.4.0" },
     { name = "requests", specifier = ">=2.32.5" },
-    { name = "sentry-sdk", specifier = ">=2.53.0" },
+    { name = "sentry-sdk", extras = ["celery"], specifier = ">=2.70.0" },
     { name = "user-agents", specifier = ">=2.2.0" },
 ]
 

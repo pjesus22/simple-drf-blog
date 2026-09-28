@@ -42,7 +42,7 @@ A RESTful Blog API built with **Django REST Framework**, featuring JSON:API comp
 - **Health checks** — API, database, and storage liveness endpoints
 - **OpenAPI 3.0 documentation** — Swagger UI and ReDoc via drf-spectacular
 - **Rate throttling** — per-endpoint throttle scopes (login, token refresh, uploads, writes, …)
-- **Observability** — optional Sentry integration in production
+- **Observability** — optional Sentry error and trace capture in production (health probes and metrics tasks excluded from tracing)
 
 ---
 
@@ -172,7 +172,7 @@ The production compose stack runs Gunicorn behind nginx (ports 80/443, HTTP→HT
 # Configure secrets
 cp .env.example .env
 # Edit .env: SECRET_KEY, ALLOWED_HOSTS, MARIADB_*, REDIS_PASSWORD, CACHE_URL,
-# CELERY_* URLs, DATABASE_URL — see the annotations in .env.example
+# CELERY_* URLs, DATABASE_URL (SENTRY_DSN optional) — see .env.example
 
 # (optional) regenerate the self-signed certificate
 ./nginx/scripts/gen-self-signed.sh
@@ -199,7 +199,6 @@ All variables except `DATABASE_URL` are documented inline in [`.env.example`](.e
 | Variable | Required | Description |
 | --- | --- | --- |
 | `SECRET_KEY` | prod | Django secret key |
-| `DEBUG` | optional | Defaults to `True` in dev, `False` in prod/tests |
 | `ALLOWED_HOSTS` | prod | Comma-separated host list |
 | `NUM_PROXIES` | optional | Reverse proxies in front of the app (client-IP resolution). Default `1` prod, `0` dev |
 | `MARIADB_DATABASE` / `MARIADB_USER` / `MARIADB_PASSWORD` / `MARIADB_ROOT_PASSWORD` | prod, dev (Docker) | MariaDB container bootstrap credentials |
@@ -209,8 +208,8 @@ All variables except `DATABASE_URL` are documented inline in [`.env.example`](.e
 | `CACHE_URL` | prod | e.g. `redis://:<password>@redis:6379/2` |
 | `REDIS_PASSWORD` | prod, dev (Docker) | Redis container password; must match the passwords embedded in the URLs above |
 | `POST_VIEW_DEDUP_TTL` | optional | Post-view deduplication window in seconds (default `300` prod, `5` dev) |
-| `SENTRY_DSN` | optional | Empty string disables Sentry |
-| `ENVIRONMENT` | optional | Sentry environment tag (default `production`) |
+| `SENTRY_DSN` | optional | Sentry DSN; empty string disables Sentry entirely |
+| `SENTRY_TRACES_RATE` | optional | Fraction of requests traced (`0.1` default; `0.0` off, `1.0` all). Health probes and metrics tasks are always excluded |
 | `API_VERSION` | optional | API metadata version (default `1.0`) |
 
 ---

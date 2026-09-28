@@ -1,5 +1,6 @@
 from decouple import Config, RepositoryEnv
 import sentry_sdk
+from sentry_sdk.integrations.django import DjangoIntegration
 
 from .base import *
 
@@ -44,17 +45,6 @@ SECURE_HSTS_PRELOAD = True
 # -----------------------------------------------------------------------------
 API_VERSION = config("API_VERSION", default="1.0")
 
-
-# -----------------------------------------------------------------------------
-# MONITORING
-# -----------------------------------------------------------------------------
-
-sentry_sdk.init(
-    dsn=config("SENTRY_DSN", default=""),
-    environment=config("ENVIRONMENT", default="production"),
-    traces_sample_rate=0.1,
-)
-
 # -----------------------------------------------------------------------------
 # CACHE
 # -----------------------------------------------------------------------------
@@ -98,3 +88,30 @@ LOGGING["loggers"] = {
     "django": {"level": "WARNING", "propagate": False},
     "django.request": {"level": "ERROR", "propagate": False},
 }
+
+# -----------------------------------------------------------------------------
+# MONITORING
+# -----------------------------------------------------------------------------
+_SENTRY_EXCLUDED_PATHS = ("/health",)
+_SENTRY_EXCLUDED_TASKS = ("apps.metrics.tasks.",)
+_SENTRY_TRACES_RATE = config("SENTRY_TRACES_RATE", default=0.1, cast=float)
+SENTRY_DSN = config("SENTRY_DSN", default="")
+
+
+def _sentry_traces_sampler(ctx):
+    if ctx.get("transaction", "").startswith(_SENTRY_EXCLUDED_TASKS):
+        return 0.0
+    path = (ctx.get("wsgi_environ") or {}).get("PATH_INFO", "")
+    if path.startswith(_SENTRY_EXCLUDED_PATHS):
+        return 0.0
+    return _SENTRY_TRACES_RATE
+
+
+if SENTRY_DSN:
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment="production",
+        integrations=[DjangoIntegration()],
+        traces_sampler=_sentry_traces_sampler,
+        send_default_pii=False,
+    )
