@@ -1,7 +1,7 @@
 from django.contrib.auth.models import AnonymousUser
 import pytest
 
-from apps.accounts.models import Profile
+from apps.accounts.models import Profile, User
 
 pytestmark = pytest.mark.django_db
 
@@ -106,3 +106,15 @@ class TestProfileManager:
         qs_method = getattr(Profile.objects.all(), method_name)
 
         assert manager_method(editor).count() == qs_method(editor).count()
+
+
+class TestUserManager:
+    def test_create_superuser_defaults_role_to_admin(self, db):
+        user = User.objects.create_superuser(
+            username="root",
+            email="root@example.com",
+            password="pw",
+        )
+
+        assert user.role == "admin"
+        assert user.is_staff and user.is_superuser
