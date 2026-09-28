@@ -114,4 +114,7 @@ exclude_lines = [
 [tool.coverage.run]
 omit = [
     "src/config/settings/*",
+    "src/config/asgi.py",
+    "src/config/wsgi.py",
+    "src/manage.py",
 ]
