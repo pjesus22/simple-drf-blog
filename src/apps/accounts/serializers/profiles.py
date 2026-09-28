@@ -173,10 +173,6 @@ class PrivateProfileSerializer(ProfileSerializer):
                 obj = existing[social_profile_id]
                 obj.platform = item.get("platform", obj.platform)
                 obj.url = item.get("url", obj.url)
-                if not _platform_url_ok(obj.platform, obj.url):
-                    raise serializers.ValidationError(
-                        {"url": [f"The URL must be a valid {obj.platform} link."]}
-                    )
                 to_update.append(obj)
                 incoming_ids.add(social_profile_id)
             else:

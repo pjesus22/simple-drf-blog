@@ -97,6 +97,9 @@ class TestSocialMediaProfileSerializer:
         assert "url" in serializer.errors
         assert expected_error in str(serializer.errors["url"])
 
+    def test_validate_skips_domain_check_when_platform_and_url_absent(self):
+        assert SocialMediaProfileSerializer().validate({}) == {}
+
 
 class TestPrivateProfile:
     def test_private_profile_serializer_serializes_object_successfully(
