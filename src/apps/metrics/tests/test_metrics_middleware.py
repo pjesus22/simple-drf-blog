@@ -126,7 +126,7 @@ class TestPostViewTrackingMiddleware:
             "apps.metrics.events.bus.EventBus.send",
             side_effect=exc,
         )
-        mock_log = mocker.patch("apps.metrics.middleware.logger.exception")
+        mock_log = mocker.patch("apps.metrics.middleware.logger.warning")
         mock_event = mocker.MagicMock()
         mocker.patch(
             "apps.metrics.events.types.PostViewEvent.from_request",

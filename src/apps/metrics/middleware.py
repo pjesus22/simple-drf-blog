@@ -46,6 +46,8 @@ class PostViewTrackingMiddleware:
         try:
             EventBus.send(event)
         except Exception:
-            logger.exception(f"Failed to record post view metric for slug={slug}")
-
+            logger.warning(
+                f"Failed to record post view metric for slug={slug}",
+                exc_info=True,
+            )
         return response
