@@ -437,6 +437,24 @@ class TestPartialUpdateUpload:
         assert upload.file.name == old_name
         assert default_storage.exists(old_name)
 
+    def test_partial_update_visibility_conflict_returns_409(
+        self, admin_client, upload_factory, mocker
+    ):
+        client, _ = admin_client
+        upload = upload_factory.create(visibility=Upload.Visibility.PRIVATE)
+        mocker.patch(
+            "apps.uploads.views.UploadService.change_visibility",
+            side_effect=FileExistsError,
+        )
+
+        response = client.patch(
+            path=reverse("v1:upload-detail", kwargs={"pk": upload.id}),
+            data={"visibility": "public"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+
 
 class TestUploadContent:
     @staticmethod

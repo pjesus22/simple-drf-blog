@@ -304,3 +304,47 @@ class TestChangeVisibility:
         upload.refresh_from_db()
         assert upload.file.name == new_name
         assert upload.visibility == Upload.Visibility.PUBLIC
+
+    def test_change_visibility_without_file_raises_error(
+        self, upload_factory, clean_media
+    ):
+        upload = upload_factory(visibility=Upload.Visibility.PRIVATE)
+        Upload.objects.filter(pk=upload.pk).update(file="")
+        upload.refresh_from_db()
+
+        with pytest.raises(FileNotFoundError, match=r"Upload has no file\."):
+            UploadService.change_visibility(upload, Upload.Visibility.PUBLIC)
+
+    def test_change_visibility_syncs_when_target_path_already_matches(
+        self, upload_factory, clean_media
+    ):
+        upload = upload_factory(visibility=Upload.Visibility.PRIVATE)
+        old_name = upload.file.name
+        assert old_name.startswith("private/")
+
+        Upload.objects.filter(pk=upload.pk).update(visibility=Upload.Visibility.PUBLIC)
+        upload.refresh_from_db()
+
+        result = UploadService.change_visibility(upload, Upload.Visibility.PRIVATE)
+
+        assert result.visibility == Upload.Visibility.PRIVATE
+        assert result.file.name == old_name
+
+    def test_change_visibility_uses_open_save_when_storage_has_no_path(
+        self, upload_factory, mocker, clean_media
+    ):
+        upload = upload_factory(visibility=Upload.Visibility.PRIVATE)
+        old_name = upload.file.name
+        new_name = UploadService._target_path(old_name, Upload.Visibility.PUBLIC)
+
+        storage = mocker.Mock(spec=["exists", "open", "save", "delete"])
+        storage.exists.side_effect = lambda name: name == old_name
+        storage.open.return_value = mocker.mock_open(read_data=b"data")()
+
+        mocker.patch("apps.uploads.services.default_storage", storage)
+
+        result = UploadService.change_visibility(upload, Upload.Visibility.PUBLIC)
+
+        assert result.file.name == new_name
+        storage.save.assert_called_once()
+        storage.delete.assert_called_once_with(old_name)
