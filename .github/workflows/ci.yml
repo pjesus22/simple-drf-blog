@@ -15,7 +15,7 @@ jobs:
     env:
       DJANGO_SETTINGS_MODULE: config.settings.tests
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install system deps
         run: |
