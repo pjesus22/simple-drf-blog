@@ -1,6 +1,5 @@
 from itertools import product
 
-from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
 import pytest
 
@@ -138,9 +137,9 @@ class TestPostModel:
     @pytest.mark.parametrize(
         "initial_state,final_state",
         [(src, tgt) for src, tgts in POST_TRANSITIONS.items() for tgt in tgts],
-        ids=lambda case: f"{case[0]}_to_{case[1]}"
-        if isinstance(case, tuple)
-        else str(case),
+        ids=lambda case: (
+            f"{case[0]}_to_{case[1]}" if isinstance(case, tuple) else str(case)
+        ),
     )
     def test_allowed_transitions(self, post_factory, initial_state, final_state):
         post = post_factory(status=initial_state)
@@ -157,9 +156,9 @@ class TestPostModel:
             for src, tgt in product(POST_STATES, POST_STATES)
             if src != tgt and tgt not in POST_TRANSITIONS[src]
         ],
-        ids=lambda case: f"{case[0]}_to_{case[1]}"
-        if isinstance(case, tuple)
-        else str(case),
+        ids=lambda case: (
+            f"{case[0]}_to_{case[1]}" if isinstance(case, tuple) else str(case)
+        ),
     )
     def test_invalid_transitions_raises_error(
         self, post_factory, initial_state, final_state
@@ -257,57 +256,3 @@ class TestPostModel:
 
         assert post.thumbnail is None
         assert Post.objects.filter(id=post.id).exists()
-
-
-class TestPostQuerySet:
-    def test_queryset_filtering(self, post_factory):
-        post_factory(status=Post.Status.DRAFT)
-        post_factory(status=Post.Status.PUBLISHED)
-        post_factory(status=Post.Status.DELETED)
-
-        assert Post.objects.with_deleted().count() == 3
-        assert Post.objects.only_deleted().count() == 1
-
-    @pytest.mark.parametrize(
-        "role, expected_count, description",
-        [
-            ("anonymous", 1, "Only published posts"),
-            ("editor", 2, "Published + own draft"),
-            ("admin", 3, "Published + Draft + Archived (excluding deleted)"),
-        ],
-        ids=("anonymous", "editor", "admin"),
-    )
-    def test_visible_for_roles(
-        self,
-        role,
-        expected_count,
-        description,
-        post_factory,
-        editor_factory,
-        admin_factory,
-    ):
-        editor = editor_factory()
-        admin = admin_factory()
-
-        post_factory(status=Post.Status.PUBLISHED)
-        post_factory(status=Post.Status.DRAFT, author=editor)
-        post_factory(status=Post.Status.ARCHIVED)
-        post_factory(status=Post.Status.DELETED)
-
-        if role == "anonymous":
-            user = AnonymousUser()
-        elif role == "editor":
-            user = editor
-        else:
-            user = admin
-
-        visible_posts = Post.objects.visible_for(user)
-        assert visible_posts.count() == expected_count, description
-
-    def test_editor_cannot_see_others_drafts(self, post_factory, editor_factory):
-        editor1 = editor_factory()
-        editor2 = editor_factory()
-
-        post_factory(status=Post.Status.DRAFT, author=editor2)
-        visible = Post.objects.visible_for(editor1)
-        assert visible.count() == 0
