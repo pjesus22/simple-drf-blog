@@ -8,7 +8,7 @@ class CategoryFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Category
 
-    name = factory.Faker("name")
+    name = factory.Sequence(lambda n: f"Category {n}")
     slug = factory.LazyAttribute(lambda obj: slugify(obj.name))
     description = factory.Faker("text")
 
@@ -17,7 +17,7 @@ class TagFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Tag
 
-    name = factory.Faker("name")
+    name = factory.Sequence(lambda n: f"Tag {n}")
     slug = factory.LazyAttribute(lambda obj: slugify(obj.name))
 
 
