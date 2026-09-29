@@ -5,8 +5,8 @@
 ![DRF](https://img.shields.io/badge/DRF-3.16%2B-red)
 ![License](https://img.shields.io/badge/License-AGPL--3.0-blue)
 ![Ruff](https://img.shields.io/badge/linted%20with-ruff-black)
-
-> ⚠️ **This project is currently under active development.** Expect breaking changes, incomplete features, and evolving documentation.
+![CI](https://github.com/pjesus22/simple-drf-blog/actions/workflows/ci.yml/badge.svg)
+![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 
 A RESTful Blog API built with **Django REST Framework**, featuring JSON:API compliance, JWT authentication, role-based access control, media file uploads, Celery background task processing, usage metrics tracking, and OpenAPI documentation.
 
@@ -48,21 +48,21 @@ A RESTful Blog API built with **Django REST Framework**, featuring JSON:API comp
 
 ## Tech Stack
 
-| Layer | Technology |
-| --- | --- |
-| Framework | Django 5.2 + Django REST Framework 3.16 |
-| API Spec | JSON:API (`djangorestframework-jsonapi`) |
-| Auth | JWT (`djangorestframework-simplejwt`) |
-| Schema | OpenAPI 3.0 (`drf-spectacular`) |
-| Storage | Local filesystem (Django default) |
-| Task Queue | Celery 5 + Redis (broker, result backend & cache) |
-| Database | MariaDB 11.8 (Docker) / SQLite (local fallback & tests) |
-| Web Server | Gunicorn + nginx (TLS, reverse proxy) |
-| Monitoring | Sentry (optional) |
-| Containerization | Docker + Docker Compose |
-| Package Manager | [uv](https://github.com/astral-sh/uv) |
-| Linting / Formatting | Ruff (+ pre-commit hooks) |
-| Testing | pytest + pytest-django + factory-boy |
+| Layer                | Technology                                              |
+| -------------------- | ------------------------------------------------------- |
+| Framework            | Django 5.2 + Django REST Framework 3.16                 |
+| API Spec             | JSON:API (`djangorestframework-jsonapi`)                |
+| Auth                 | JWT (`djangorestframework-simplejwt`)                   |
+| Schema               | OpenAPI 3.0 (`drf-spectacular`)                         |
+| Storage              | Local filesystem (Django default)                       |
+| Task Queue           | Celery 5 + Redis (broker, result backend & cache)       |
+| Database             | MariaDB 11.8 (Docker) / SQLite (local fallback & tests) |
+| Web Server           | Gunicorn + nginx (TLS, reverse proxy)                   |
+| Monitoring           | Sentry (optional)                                       |
+| Containerization     | Docker + Docker Compose                                 |
+| Package Manager      | [uv](https://github.com/astral-sh/uv)                   |
+| Linting / Formatting | Ruff (+ pre-commit hooks)                               |
+| Testing              | pytest + pytest-django + factory-boy                    |
 
 ---
 
@@ -114,7 +114,7 @@ Spins up MariaDB, Redis, the Django dev server (with auto-migrations), a Celery 
 
 ```bash
 # Clone the repo
-git clone https://github.com/<your-username>/simple-drf-blog.git
+git clone https://github.com/pjesus22/simple-drf-blog.git
 cd simple-drf-blog
 
 # Configure environment (edit passwords/secrets as needed)
@@ -138,7 +138,7 @@ Uses SQLite and the in-process cache by default — no database or Redis server 
 
 ```bash
 # Clone the repo
-git clone https://github.com/<your-username>/simple-drf-blog.git
+git clone https://github.com/pjesus22/simple-drf-blog.git
 cd simple-drf-blog
 
 # Create virtual environment and install dependencies
@@ -171,8 +171,8 @@ The production compose stack runs Gunicorn behind nginx (ports 80/443, HTTP→HT
 ```bash
 # Configure secrets
 cp .env.example .env
-# Edit .env: SECRET_KEY, ALLOWED_HOSTS, MARIADB_*, REDIS_PASSWORD, CACHE_URL,
-# CELERY_* URLs, DATABASE_URL (SENTRY_DSN optional) — see .env.example
+# Edit .env: SECRET_KEY, JWT_SIGNING_KEY, ALLOWED_HOSTS, MARIADB_*, REDIS_PASSWORD,
+# CACHE_URL, CELERY_* URLs, DATABASE_URL (SENTRY_DSN optional) — see .env.example
 
 # (optional) regenerate the self-signed certificate
 ./nginx/scripts/gen-self-signed.sh
@@ -196,21 +196,22 @@ python -c "import secrets; print(secrets.token_urlsafe(50))"
 
 All variables except `DATABASE_URL` are documented inline in [`.env.example`](.env.example). Summary:
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| `SECRET_KEY` | prod | Django secret key |
-| `ALLOWED_HOSTS` | prod | Comma-separated host list |
-| `NUM_PROXIES` | optional | Reverse proxies in front of the app (client-IP resolution). Default `1` prod, `0` dev |
-| `MARIADB_DATABASE` / `MARIADB_USER` / `MARIADB_PASSWORD` / `MARIADB_ROOT_PASSWORD` | prod, dev (Docker) | MariaDB container bootstrap credentials |
-| `DATABASE_URL` | local (non-Docker) only | e.g. `mysql://user:password@localhost:3306/dbname`; **export** it in your shell — setting it in `.env` has no effect. Docker derives it from `MARIADB_*` automatically. Falls back to SQLite |
-| `CELERY_BROKER_URL` | prod | e.g. `redis://:<password>@redis:6379/0` |
-| `CELERY_RESULT_BACKEND` | prod | e.g. `redis://:<password>@redis:6379/1` |
-| `CACHE_URL` | prod | e.g. `redis://:<password>@redis:6379/2` |
-| `REDIS_PASSWORD` | prod, dev (Docker) | Redis container password; must match the passwords embedded in the URLs above |
-| `POST_VIEW_DEDUP_TTL` | optional | Post-view deduplication window in seconds (default `300` prod, `5` dev) |
-| `SENTRY_DSN` | optional | Sentry DSN; empty string disables Sentry entirely |
-| `SENTRY_TRACES_RATE` | optional | Fraction of requests traced (`0.1` default; `0.0` off, `1.0` all). Health probes and metrics tasks are always excluded |
-| `API_VERSION` | optional | API metadata version (default `1.0`) |
+| Variable                                                                           | Required                | Description                                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SECRET_KEY`                                                                       | prod                    | Django secret key                                                                                                                                                                            |
+| `JWT_SIGNING_KEY`                                                                  | prod                    | Dedicated HS256 JWT signing key; keep separate from `SECRET_KEY` so tokens can be revoked independently                                                                                      |
+| `ALLOWED_HOSTS`                                                                    | prod                    | Comma-separated host list                                                                                                                                                                    |
+| `NUM_PROXIES`                                                                      | optional                | Reverse proxies in front of the app (client-IP resolution). Default `1` prod, `0` dev                                                                                                        |
+| `MARIADB_DATABASE` / `MARIADB_USER` / `MARIADB_PASSWORD` / `MARIADB_ROOT_PASSWORD` | prod, dev (Docker)      | MariaDB container bootstrap credentials                                                                                                                                                      |
+| `DATABASE_URL`                                                                     | local (non-Docker) only | e.g. `mysql://user:password@localhost:3306/dbname`; **export** it in your shell — setting it in `.env` has no effect. Docker derives it from `MARIADB_*` automatically. Falls back to SQLite |
+| `CELERY_BROKER_URL`                                                                | prod                    | e.g. `redis://:<password>@redis:6379/0`                                                                                                                                                      |
+| `CELERY_RESULT_BACKEND`                                                            | prod                    | e.g. `redis://:<password>@redis:6379/1`                                                                                                                                                      |
+| `CACHE_URL`                                                                        | prod                    | e.g. `redis://:<password>@redis:6379/2`                                                                                                                                                      |
+| `REDIS_PASSWORD`                                                                   | prod, dev (Docker)      | Redis container password; must match the passwords embedded in the URLs above                                                                                                                |
+| `POST_VIEW_DEDUP_TTL`                                                              | optional                | Post-view deduplication window in seconds (default `300` prod, `5` dev)                                                                                                                      |
+| `SENTRY_DSN`                                                                       | optional                | Sentry DSN; empty string disables Sentry entirely                                                                                                                                            |
+| `SENTRY_TRACES_RATE`                                                               | optional                | Fraction of requests traced (`0.1` default; `0.0` off, `1.0` all). Health probes and metrics tasks are always excluded                                                                       |
+| `API_VERSION`                                                                      | optional                | API metadata version (default `1.0`)                                                                                                                                                         |
 
 ---
 
@@ -218,15 +219,15 @@ All variables except `DATABASE_URL` are documented inline in [`.env.example`](.e
 
 Base URL (dev): `http://localhost:8000`. All resources are versioned under `/api/v1/` and speak JSON:API — send `Content-Type: application/vnd.api+json` for writes.
 
-| What | URL |
-| --- | --- |
-| API root (discovery) | `GET /` |
-| Swagger UI | `GET /api/v1/docs/` |
-| ReDoc | `GET /api/v1/redoc/` |
-| OpenAPI schema | `GET /api/v1/schema/` (admin only) |
-| Django admin | `/admin/` |
-| Health checks | `GET /health/`, `/health/database/`, `/health/storage/` |
-| Usage metrics | `GET /metrics/` |
+| What                 | URL                                                     |
+| -------------------- | ------------------------------------------------------- |
+| API root (discovery) | `GET /`                                                 |
+| Swagger UI           | `GET /api/v1/docs/`                                     |
+| ReDoc                | `GET /api/v1/redoc/`                                    |
+| OpenAPI schema       | `GET /api/v1/schema/` (admin only)                      |
+| Django admin         | `/admin/`                                               |
+| Health checks        | `GET /health/`, `/health/database/`, `/health/storage/` |
+| Usage metrics        | `GET /metrics/`                                         |
 
 ### Authentication
 
@@ -248,14 +249,14 @@ Use the access token as `Authorization: Bearer <access>`.
 
 ### Resources
 
-| Endpoint | Description | Notes |
-| --- | --- | --- |
-| `/api/v1/posts/` | Blog posts | Public read; writes require Editor role |
-| `/api/v1/categories/` | Post categories | |
-| `/api/v1/tags/` | Post tags | |
-| `/api/v1/uploads/` | Media uploads | Editor role required |
-| `/api/v1/users/` | User management | Admin only (list/create/update/delete); `GET/PATCH /api/v1/users/me/` for self-service |
-| `/api/v1/profiles/` | User profiles | `GET/PUT/PATCH /api/v1/profiles/me/` |
+| Endpoint              | Description     | Notes                                                                                  |
+| --------------------- | --------------- | -------------------------------------------------------------------------------------- |
+| `/api/v1/posts/`      | Blog posts      | Public read; writes require Editor role                                                |
+| `/api/v1/categories/` | Post categories |                                                                                        |
+| `/api/v1/tags/`       | Post tags       |                                                                                        |
+| `/api/v1/uploads/`    | Media uploads   | Editor role required                                                                   |
+| `/api/v1/users/`      | User management | Admin only (list/create/update/delete); `GET/PATCH /api/v1/users/me/` for self-service |
+| `/api/v1/profiles/`   | User profiles   | `GET/PUT/PATCH /api/v1/profiles/me/`                                                   |
 
 Notable sub-resource actions:
 
