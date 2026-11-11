@@ -1,8 +1,13 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.filters import SearchFilter
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_json_api.django_filters import DjangoFilterBackend
+from rest_framework_json_api.filters import (
+    OrderingFilter,
+    QueryParameterValidationFilter,
+)
 
 from apps.accounts.permissions import IsEditor, IsOwner
 from apps.content.filters import PostFilter
@@ -38,8 +43,15 @@ class PostViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
     serializer_class = PostSerializer
     queryset = Post.objects.all()
     lookup_field = "slug"
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [
+        QueryParameterValidationFilter,
+        OrderingFilter,
+        DjangoFilterBackend,
+        SearchFilter,
+    ]
     filterset_class = PostFilter
+    search_fields = ["title", "content"]
+    ordering_fields = ["title", "published_at", "created_at"]
     read_actions = ("list", "retrieve", "trash")
     upload_actions = ("thumbnail", "add_attachments")
 

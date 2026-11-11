@@ -25,7 +25,7 @@ POST_SLUG_PARAMETER = OpenApiParameter(
 )
 
 POST_SEARCH_PARAMETER = OpenApiParameter(
-    name="search",
+    name="filter[search]",
     type=str,
     location=OpenApiParameter.QUERY,
     description="Case-insensitive search across post title and content.",
@@ -33,7 +33,7 @@ POST_SEARCH_PARAMETER = OpenApiParameter(
 )
 
 POST_TAGS_PARAMETER = OpenApiParameter(
-    name="tags",
+    name="filter[tags]",
     type=str,
     location=OpenApiParameter.QUERY,
     description=(
@@ -43,7 +43,7 @@ POST_TAGS_PARAMETER = OpenApiParameter(
 )
 
 POST_CATEGORY_PARAMETER = OpenApiParameter(
-    name="category",
+    name="filter[category]",
     type=str,
     location=OpenApiParameter.QUERY,
     description="Filter by category slug (case-insensitive).",
@@ -55,6 +55,14 @@ POST_ATTACHMENT_ID_PARAMETER = OpenApiParameter(
     type=str,
     location=OpenApiParameter.PATH,
     description="UUID of the attachment to remove.",
+)
+
+POST_SORT_PARAMETER = OpenApiParameter(
+    name="sort",
+    type=str,
+    location=OpenApiParameter.QUERY,
+    description=("Comma-separated ordering fields. Prefix with `-` for descending."),
+    required=False,
 )
 
 post_viewset_schema = extend_schema_view(
@@ -116,6 +124,7 @@ post_viewset_schema = extend_schema_view(
             POST_SEARCH_PARAMETER,
             POST_TAGS_PARAMETER,
             POST_CATEGORY_PARAMETER,
+            POST_SORT_PARAMETER,
         ],
     ),
     destroy=extend_schema(exclude=True),

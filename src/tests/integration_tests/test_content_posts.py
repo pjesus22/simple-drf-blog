@@ -304,6 +304,45 @@ class TestReadPost:
         )
 
 
+class TestPostFiltering:
+    def test_filter_search_matches_title_and_content(self, api_client, post_factory):
+        match = post_factory(status="published", title="Python tips", content="alpha")
+        post_factory(status="published", title="Rust tips", content="beta")
+
+        response = api_client.get(reverse("v1:post-list"), {"filter[search]": "python"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()["data"]] == [str(match.id)]
+
+    def test_sort_by_title(self, api_client, post_factory):
+        post_factory(status="published", title="Beta")
+        post_factory(status="published", title="Alpha")
+
+        response = api_client.get(reverse("v1:post-list"), {"sort": "title"})
+
+        assert response.status_code == status.HTTP_200_OK
+        titles = [item["attributes"]["title"] for item in response.json()["data"]]
+        assert titles == ["Alpha", "Beta"]
+
+    def test_invalid_sort_returns_400(self, api_client):
+        response = api_client.get(reverse("v1:post-list"), {"sort": "bogus"})
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail_contains="invalid sort parameter",
+        )
+
+    def test_unknown_query_param_returns_400(self, api_client):
+        response = api_client.get(reverse("v1:post-list"), {"bogus": "1"})
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail_contains="invalid query parameter",
+        )
+
+
 class TestUpdatePost:
     def test_partial_update_post_success(self, editor_client, post_factory):
         client, client_user = editor_client
