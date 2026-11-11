@@ -91,11 +91,6 @@ class UploadViewSet(ReadWriteThrottleMixin, ModelViewSet):
             logger.exception("Upload visibility move failed", exc_info=exc)
             raise Conflict() from exc
 
-        if not data:
-            return
-
-        return super().perform_update(serializer)
-
     def perform_destroy(self, instance):
         instance.deleted_at = timezone.now()
         instance.save(update_fields=["deleted_at", "updated_at"])
@@ -111,7 +106,7 @@ class UploadViewSet(ReadWriteThrottleMixin, ModelViewSet):
             )
 
         upload.deleted_at = None
-        upload.save()
+        upload.save(update_fields=["deleted_at", "updated_at"])
 
         serializer = self.get_serializer(upload)
         return Response(serializer.data)
