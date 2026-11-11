@@ -234,8 +234,6 @@ def test_upload_editor_cannot_restore_other_editors_upload(
 
 def test_upload_trash_action(mocker, rf):
     mock_queryset = mocker.MagicMock()
-    mock_deleted_qs = mocker.MagicMock()
-    mock_queryset.deleted.return_value = mock_deleted_qs
 
     mock_serializer = mocker.Mock()
     mock_serializer.data = [{"id": 1}, {"id": 2}]
@@ -246,15 +244,14 @@ def test_upload_trash_action(mocker, rf):
 
     mocker.patch.object(viewset, "get_queryset", return_value=mock_queryset)
     mocker.patch.object(viewset, "get_serializer", return_value=mock_serializer)
-    mocker.patch.object(viewset, "paginate_queryset", return_value=mock_deleted_qs)
+    mocker.patch.object(viewset, "paginate_queryset", return_value=mock_queryset)
     mocker.patch.object(
         viewset, "get_paginated_response", return_value=Response(mock_serializer.data)
     )
 
     response = viewset.trash(request)
 
-    mock_queryset.deleted.assert_called_once()
-    viewset.get_serializer.assert_called_once_with(mock_deleted_qs, many=True)
+    viewset.get_serializer.assert_called_once_with(mock_queryset, many=True)
     assert response.status_code == 200
     assert response.data == mock_serializer.data
 
