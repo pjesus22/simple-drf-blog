@@ -65,6 +65,14 @@ POST_SORT_PARAMETER = OpenApiParameter(
     required=False,
 )
 
+soft_delete_schema = extend_schema(
+    summary="posts_soft_delete",
+    description="Mark a post as deleted. Requires confirmation.",
+    request=PostSoftDeleteSerializer,
+    responses={204: OpenApiResponse(description="Post soft deleted")},
+    parameters=[POST_SLUG_PARAMETER],
+)
+
 post_viewset_schema = extend_schema_view(
     create=extend_schema(
         summary="posts_create",
@@ -127,7 +135,7 @@ post_viewset_schema = extend_schema_view(
             POST_SORT_PARAMETER,
         ],
     ),
-    destroy=extend_schema(exclude=True),
+    destroy=soft_delete_schema,
 )
 
 change_status_schema = extend_schema(
@@ -177,13 +185,6 @@ remove_attachment_schema = extend_schema(
     parameters=[POST_SLUG_PARAMETER, POST_ATTACHMENT_ID_PARAMETER],
 )
 
-soft_delete_schema = extend_schema(
-    summary="posts_soft_delete",
-    description="Mark a post as deleted. Requires confirmation.",
-    request=PostSoftDeleteSerializer,
-    responses={204: OpenApiResponse(description="Post soft deleted")},
-    parameters=[POST_SLUG_PARAMETER],
-)
 
 restore_schema = extend_schema(
     summary="posts_restore",
