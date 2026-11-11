@@ -332,7 +332,6 @@ class TestPostViewSet:
             size=2, purpose="attachment", uploaded_by=user
         )
         data = {"attachments": [str(a.id) for a in attachments]}
-        print(data)
         request = rf.post(
             f"/posts/{post.slug}/attachments/",
             data,

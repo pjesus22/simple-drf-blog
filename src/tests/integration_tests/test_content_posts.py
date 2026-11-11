@@ -394,9 +394,6 @@ class TestUpdatePost:
             format="json",
         )
 
-        print(response.json())
-        print(response.status_code)
-
         assert_jsonapi_error_response(
             response=response,
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -427,7 +424,6 @@ class TestDeletePost:
         response = client.post(
             path=reverse("v1:post-restore", args=[post.slug]),
             data={"confirm": True},
-            query_params={"include_deleted": "true"},
             format="json",
         )
 
