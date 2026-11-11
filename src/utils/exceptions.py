@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import (
     AuthenticationFailed,
     ErrorDetail,
@@ -37,6 +38,10 @@ def custom_exception_handler(exc, context):
     DRF and common clients
     """
     DOMAIN_ERRORS = (UploadDomainError, AccountDomainError)
+
+    if isinstance(exc, DjangoValidationError):
+        detail = getattr(exc, "message_dict", None) or exc.messages
+        exc = DRFValidationError(detail)
 
     if isinstance(exc, DOMAIN_ERRORS):
         exc = DRFValidationError({"detail": str(exc)})

@@ -349,6 +349,24 @@ class TestPostLifecycle:
         if expected_published:
             assert post.published_at is not None
 
+    def test_change_status_invalid_transition_returns_400(
+        self, editor_client, post_factory
+    ):
+        client, client_user = editor_client
+        post = post_factory(author=client_user, status="draft")
+
+        response = client.post(
+            path=reverse("v1:post-change-status", args=[post.slug]),
+            data={"status": "archived"},
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail_contains="Cannot transition from draft to archived",
+        )
+
     def test_manage_thumbnail_flow(
         self, editor_client, post_factory, upload_factory, clean_media
     ):
