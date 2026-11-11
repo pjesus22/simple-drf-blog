@@ -336,7 +336,7 @@ class TestDeleteCategory:
             code="permission_denied",
         )
 
-    def test_delete_category_with_post_returns_400(
+    def test_delete_category_with_post_returns_409(
         self, admin_client, category_factory, post_factory
     ):
         client, admin = admin_client
@@ -347,8 +347,10 @@ class TestDeleteCategory:
             path=reverse("v1:category-detail", args=[category.slug])
         )
 
-        print(response.json())
-
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_409_CONFLICT,
+            detail_contains="Cannot delete category with posts",
+        )
         assert Category.objects.filter(pk=category.pk).exists()
         assert post.__class__.objects.filter(pk=post.pk).exists()

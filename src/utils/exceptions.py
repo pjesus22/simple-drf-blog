@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework.exceptions import (
+    APIException,
     AuthenticationFailed,
     ErrorDetail,
     NotAuthenticated,
@@ -58,3 +59,9 @@ def custom_exception_handler(exc, context):
         response.data = _normalize_error_detail(response.data)
 
     return response
+
+
+class Conflict(APIException):
+    status_code = 409
+    default_detail = "Resource conflict."
+    default_code = "conflict"
