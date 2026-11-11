@@ -24,7 +24,10 @@ health_diagnostic_schema = extend_schema(
     description=(
         "Health check endpoint with database diagnostics (requires admin role)."
     ),
-    responses={200: DatabaseHealthSerializer},
+    responses={
+        200: DatabaseHealthSerializer,
+        503: OpenApiResponse(description="Database unavailable"),
+    },
 )
 
 metric_event_schema = extend_schema(
