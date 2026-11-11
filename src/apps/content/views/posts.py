@@ -132,7 +132,9 @@ class PostViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
             post.save(update_fields=["thumbnail"])
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-        serializer = self.get_serializer(data=request.data)
+        context = self.get_serializer_context()
+        context["post"] = post
+        serializer = self.get_serializer(data=request.data, context=context)
         serializer.is_valid(raise_exception=True)
 
         post.thumbnail = serializer.validated_data["id"]

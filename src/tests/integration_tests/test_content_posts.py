@@ -131,6 +131,91 @@ class TestCreatePost:
             code="does_not_exist",
         )
 
+    def test_create_post_with_foreign_thumbnail_returns_400(
+        self,
+        editor_client,
+        post_data,
+        category_factory,
+        upload_factory,
+        editor_factory,
+    ):
+        client, _ = editor_client
+        category = category_factory()
+        thumbnail = upload_factory(purpose="thumbnail", uploaded_by=editor_factory())
+        payload = {
+            **post_data,
+            "category": {"type": "categories", "id": str(category.id)},
+            "thumbnail": {"type": "uploads", "id": str(thumbnail.id)},
+        }
+
+        response = client.post(
+            path=reverse("v1:post-list"), data=payload, format="json"
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer="/data/relationships/thumbnail",
+            detail_contains="Invalid thumbnail upload",
+        )
+
+    def test_create_post_with_foreign_attachment_returns_400(
+        self,
+        editor_client,
+        post_data,
+        category_factory,
+        upload_factory,
+        editor_factory,
+    ):
+        client, _ = editor_client
+        category = category_factory()
+        attachment = upload_factory(purpose="attachment", uploaded_by=editor_factory())
+        payload = {
+            **post_data,
+            "category": {"type": "categories", "id": str(category.id)},
+            "attachments": [{"type": "uploads", "id": str(attachment.id)}],
+        }
+
+        response = client.post(
+            path=reverse("v1:post-list"), data=payload, format="json"
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer="/data/relationships/attachments",
+            detail_contains="One or more attachments are invalid",
+        )
+
+    def test_create_post_with_used_thumbnail_returns_400(
+        self,
+        editor_client,
+        post_data,
+        category_factory,
+        post_factory,
+        upload_factory,
+    ):
+        client, user = editor_client
+        category = category_factory()
+        thumbnail = upload_factory(purpose="thumbnail", uploaded_by=user)
+        post_factory(thumbnail=thumbnail)
+        payload = {
+            **post_data,
+            "category": {"type": "categories", "id": str(category.id)},
+            "thumbnail": {"type": "uploads", "id": str(thumbnail.id)},
+        }
+
+        response = client.post(
+            path=reverse("v1:post-list"), data=payload, format="json"
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer="/data/relationships/thumbnail",
+            detail_contains="already used by another post",
+        )
+
     def test_create_post_unauthorized(self, api_client, post_data, category_factory):
         category = category_factory()
         payload = {
@@ -365,6 +450,26 @@ class TestPostLifecycle:
             response=response,
             status_code=status.HTTP_400_BAD_REQUEST,
             detail_contains="Cannot transition from draft to archived",
+        )
+
+    def test_set_thumbnail_already_used_returns_400(
+        self, editor_client, post_factory, upload_factory
+    ):
+        client, client_user = editor_client
+        thumbnail = upload_factory(purpose="thumbnail", uploaded_by=client_user)
+        post_factory(thumbnail=thumbnail)
+        post = post_factory(author=client_user, thumbnail=None)
+
+        response = client.post(
+            path=reverse("v1:post-thumbnail", args=[post.slug]),
+            data={"id": str(thumbnail.id)},
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail_contains="already used by another post",
         )
 
     def test_manage_thumbnail_flow(
