@@ -52,8 +52,6 @@ class PostSerializer(serializers.ModelSerializer):
 
 
 class PostCreateSerializer(PostSerializer):
-    status = serializers.ChoiceField(choices=Post.Status.choices, required=False)
-
     class Meta(PostSerializer.Meta):
         read_only_fields = (*PostSerializer.Meta.read_only_fields, "slug", "author")
 
@@ -89,8 +87,6 @@ class PostCreateSerializer(PostSerializer):
 
     def create(self, validated_data):
         validated_data["author"] = self.context["request"].user
-        validated_data["status"] = Post.Status.DRAFT
-
         return super().create(validated_data)
 
 
