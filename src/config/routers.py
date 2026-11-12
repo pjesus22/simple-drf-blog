@@ -1,3 +1,4 @@
+from rest_framework.permissions import AllowAny
 from rest_framework.routers import DefaultRouter
 
 from apps.accounts.views import ProfileViewSet, UserViewSet
@@ -10,6 +11,7 @@ class MasterRouter(DefaultRouter):
         root_view = super().get_api_root_view(api_urls=api_urls)
         root_view.cls.__doc__ = "Welcome to the API Browser."
         root_view.cls.get_view_name = lambda self: "API Browser"
+        root_view.cls.permission_classes = [AllowAny]
         return root_view
 
 
