@@ -216,6 +216,32 @@ class TestCreatePost:
             detail_contains="already used by another post",
         )
 
+    def test_create_post_as_admin_with_foreign_uploads_success(
+        self,
+        admin_client,
+        post_data,
+        category_factory,
+        upload_factory,
+        editor_factory,
+    ):
+        client, _ = admin_client
+        owner = editor_factory()
+        category = category_factory()
+        thumbnail = upload_factory(purpose="thumbnail", uploaded_by=owner)
+        attachment = upload_factory(purpose="attachment", uploaded_by=owner)
+        payload = {
+            **post_data,
+            "category": {"type": "categories", "id": str(category.id)},
+            "thumbnail": {"type": "uploads", "id": str(thumbnail.id)},
+            "attachments": [{"type": "uploads", "id": str(attachment.id)}],
+        }
+
+        response = client.post(
+            path=reverse("v1:post-list"), data=payload, format="json"
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+
     def test_create_post_unauthorized(self, api_client, post_data, category_factory):
         category = category_factory()
         payload = {
