@@ -41,13 +41,12 @@ class UploadViewSet(ReadWriteThrottleMixin, ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if self.action == "restore":
-            qs = Upload.all_objects.filter(deleted_at__isnull=False)
-        elif self.action == "trash":
+        if self.action in ("restore", "trash"):
             qs = Upload.objects.only_deleted()
         else:
             qs = Upload.objects.all()
 
+        qs = qs.select_related("uploaded_by")
         if not user.is_admin:
             qs = qs.filter(uploaded_by=user)
         return qs
