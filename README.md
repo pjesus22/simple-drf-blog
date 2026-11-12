@@ -245,18 +245,18 @@ POST /api/v1/token/verify/
 POST /api/v1/token/blacklist/
 ```
 
-Use the access token as `Authorization: Bearer <access>`.
+Use the access token as `Authorization: Bearer <access>`. Password changes (`change-password` and `force_password_change`) blacklist all outstanding refresh tokens for the user, while already-issued access tokens remain valid until they expire.
 
 ### Resources
 
-| Endpoint              | Description     | Notes                                                                                  |
-| --------------------- | --------------- | -------------------------------------------------------------------------------------- |
-| `/api/v1/posts/`      | Blog posts      | Public read; writes require Editor role                                                |
-| `/api/v1/categories/` | Post categories |                                                                                        |
-| `/api/v1/tags/`       | Post tags       |                                                                                        |
-| `/api/v1/uploads/`    | Media uploads   | Editor role required                                                                   |
-| `/api/v1/users/`      | User management | Admin only (list/create/update/delete); `GET/PATCH /api/v1/users/me/` for self-service |
-| `/api/v1/profiles/`   | User profiles   | `GET/PUT/PATCH /api/v1/profiles/me/`                                                   |
+| Endpoint              | Description     | Notes                                                                                                                                                                                                                   |
+| --------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/v1/posts/`      | Blog posts      | Public read; writes require Editor role                                                                                                                                                                                 |
+| `/api/v1/categories/` | Post categories |                                                                                                                                                                                                                         |
+| `/api/v1/tags/`       | Post tags       |                                                                                                                                                                                                                         |
+| `/api/v1/uploads/`    | Media uploads   | Editor role required                                                                                                                                                                                                    |
+| `/api/v1/users/`      | User management | Admin only (list/create/update/delete; self-delete and self-role change blocked with `403`, hard-delete cascades posts/uploads in DB while leaving media files on disk); `GET/PATCH /api/v1/users/me/` for self-service |
+| `/api/v1/profiles/`   | User profiles   | `GET/PUT/PATCH /api/v1/profiles/me/`                                                                                                                                                                                    |
 
 Notable sub-resource actions:
 
