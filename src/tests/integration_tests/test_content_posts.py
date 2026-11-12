@@ -737,3 +737,30 @@ class TestPostPaginationBoundaries:
 
         assert response.status_code == status.HTTP_200_OK
         assert body["meta"]["pagination"]["page"] == 1
+
+
+class TestPostQueryCounts:
+    def test_post_list_query_count(
+        self, api_client, django_assert_num_queries, post_factory, tag_factory
+    ):
+        tags = tag_factory.create_batch(2)
+        for _ in range(3):
+            p = post_factory(status=Post.Status.PUBLISHED)
+            p.tags.set(tags)
+
+        # 1 count + 1 posts + 1 tags prefetch + 1 attachments prefetch = 4
+        with django_assert_num_queries(4):
+            res = api_client.get(reverse("v1:post-list"))
+        assert res.status_code == status.HTTP_200_OK
+
+    def test_post_detail_query_count(
+        self, api_client, django_assert_num_queries, post_factory, tag_factory
+    ):
+        tags = tag_factory.create_batch(2)
+        post = post_factory(status=Post.Status.PUBLISHED)
+        post.tags.set(tags)
+
+        # 1 post/select_related + 1 tags prefetch + 1 attachments prefetch = 3
+        with django_assert_num_queries(3):
+            res = api_client.get(reverse("v1:post-detail", args=[post.slug]))
+        assert res.status_code == status.HTTP_200_OK

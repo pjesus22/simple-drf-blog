@@ -3,6 +3,17 @@ from django.db.models import Q
 
 
 class PostQueryset(models.QuerySet):
+    def with_related(self):
+        return self.select_related(
+            "author",
+            "author__profile",
+            "category",
+            "thumbnail",
+        ).prefetch_related(
+            "tags",
+            "attachments",
+        )
+
     def alive(self):
         return self.exclude(status=self.model.Status.DELETED)
 
@@ -27,6 +38,9 @@ class PostQueryset(models.QuerySet):
 class PostManager(models.Manager):
     def get_queryset(self):
         return PostQueryset(self.model, using=self._db).alive()
+
+    def with_related(self):
+        return self.get_queryset().with_related()
 
     def with_deleted(self):
         return PostQueryset(self.model, using=self._db)

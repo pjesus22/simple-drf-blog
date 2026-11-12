@@ -23,7 +23,7 @@ class CategoryViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
         return Category.objects.prefetch_related(
             Prefetch(
                 lookup="posts",
-                queryset=Post.objects.visible_for(self.request.user),
+                queryset=Post.objects.visible_for(self.request.user).with_related(),
             )
         )
 

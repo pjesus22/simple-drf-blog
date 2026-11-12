@@ -354,3 +354,27 @@ class TestDeleteCategory:
         )
         assert Category.objects.filter(pk=category.pk).exists()
         assert post.__class__.objects.filter(pk=post.pk).exists()
+
+
+class TestCategoryQueryCounts:
+    def test_category_detail_with_included_posts_query_count(
+        self,
+        api_client,
+        django_assert_num_queries,
+        category_factory,
+        post_factory,
+        tag_factory,
+    ):
+        category = category_factory()
+        tags = tag_factory.create_batch(2)
+        for _ in range(3):
+            p = post_factory(category=category, status="published")
+            p.tags.set(tags)
+
+        # 1 category + 1 posts + 1 tags prefetch + 1 attachments prefetch = 4
+        with django_assert_num_queries(4):
+            res = api_client.get(
+                reverse("v1:category-detail", args=[category.slug]),
+                data={"include": "posts"},
+            )
+        assert res.status_code == status.HTTP_200_OK

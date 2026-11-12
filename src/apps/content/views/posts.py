@@ -57,15 +57,15 @@ class PostViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):
         if self.action == "restore":
-            return self._get_restore_queryset()
+            return self._get_restore_queryset().with_related()
 
         elif self.action == "trash":
-            return self._get_trash_queryset()
+            return self._get_trash_queryset().with_related()
 
         elif self.action == "destroy":
             return self._get_soft_delete_queryset()
 
-        return Post.objects.visible_for(self.request.user)
+        return Post.objects.visible_for(self.request.user).with_related()
 
     def _get_restore_queryset(self):
         user = self.request.user
