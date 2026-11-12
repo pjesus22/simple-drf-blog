@@ -49,7 +49,7 @@ class PostManager(models.Manager):
         return self.with_deleted().deleted()
 
     def visible_for(self, user):
-        return self.get_queryset().visible_for(user)
+        return self.with_deleted().visible_for(user)
 
     def owned_by(self, user):
         return self.get_queryset().owned_by(user)
