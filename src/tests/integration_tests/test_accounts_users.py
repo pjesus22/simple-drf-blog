@@ -393,6 +393,20 @@ class TestDeleteUser:
             code="permission_denied",
         )
 
+    def test_delete_self_as_admin_forbidden(self, admin_client):
+        client, admin = admin_client
+
+        response = client.delete(path=reverse("v1:user-detail", args=[admin.id]))
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_403_FORBIDDEN,
+            pointer="/data",
+            detail_contains="cannot delete your own account.",
+            code="permission_denied",
+        )
+        assert User.objects.filter(id=admin.id).exists()
+
 
 class TestUserMe:
     @pytest.mark.parametrize(

@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
@@ -70,6 +70,11 @@ class UserViewSet(ReadWriteThrottleMixin, ModelViewSet):
         if self.action == "change_password" and self.request.method == "POST":
             return [PasswordChangeThrottle()]
         return super().get_throttles()
+
+    def perform_destroy(self, instance):
+        if instance == self.request.user:
+            raise PermissionDenied("You cannot delete your own account.")
+        super().perform_destroy(instance)
 
     @user_me_action_schema
     @user_me_action_update_schema
