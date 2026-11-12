@@ -1034,3 +1034,21 @@ class TestSocialMediaProfile:
             detail_contains="Duplicate platform or URL",
         )
         assert profile.social_media.count() == 0
+
+
+class TestProfilesQueryCount:
+    def test_profile_list_query_count(
+        self,
+        api_client,
+        django_assert_num_queries,
+        profile_factory,
+        social_media_profile_factory,
+    ):
+        for _ in range(3):
+            p = profile_factory(is_public=True)
+            social_media_profile_factory(profile=p)
+
+        # 1 count + 1 profiles/user + 1 social_media prefetch = 3
+        with django_assert_num_queries(3):
+            res = api_client.get(reverse("v1:profile-list"))
+        assert res.status_code == status.HTTP_200_OK

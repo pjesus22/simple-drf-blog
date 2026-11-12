@@ -155,7 +155,9 @@ class TestProfileViewSet:
         response = vs_instance.me(mock_request)
 
         mock_manager.me.assert_called_once_with(mock_user)
-        mock_get_object_or_404.assert_called_once_with(mock_queryset)
+        mock_get_object_or_404.assert_called_once_with(
+            mock_queryset.with_related.return_value
+        )
 
         call_kwargs = mock_serializer_class.return_value.call_args[1]
         assert "data" not in call_kwargs

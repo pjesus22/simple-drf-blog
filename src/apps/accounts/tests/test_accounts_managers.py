@@ -107,6 +107,10 @@ class TestProfileManager:
 
         assert manager_method(editor).count() == qs_method(editor).count()
 
+    def test_with_related_delegates_to_queryset(self, profile_factory):
+        profile_factory()
+        assert Profile.objects.with_related().count() == 1
+
 
 class TestUserManager:
     def test_create_superuser_defaults_role_to_admin(self, db):

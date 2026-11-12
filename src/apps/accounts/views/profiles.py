@@ -31,12 +31,12 @@ class ProfileViewSet(
         user = self.request.user
 
         if self.action in ("update", "partial_update"):
-            return Profile.objects.editable_by(user)
+            return Profile.objects.editable_by(user).with_related()
 
         if self.action == "me":
-            return Profile.objects.me(user)
+            return Profile.objects.me(user).with_related()
 
-        return Profile.objects.visible_for(user)
+        return Profile.objects.visible_for(user).with_related()
 
     def get_serializer_class(self):
         if self.action in ("update", "partial_update", "me"):
@@ -57,7 +57,7 @@ class ProfileViewSet(
     @profile_me_action_partial_update_schema
     @action(detail=False, methods=["get", "put", "patch"])
     def me(self, request):
-        queryset = Profile.objects.me(request.user)
+        queryset = Profile.objects.me(request.user).with_related()
         profile = get_object_or_404(queryset)
 
         if request.method == "GET":
