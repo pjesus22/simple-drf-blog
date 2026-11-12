@@ -722,3 +722,16 @@ class TestChangePassword:
             status_code=status.HTTP_400_BAD_REQUEST,
             pointer="/data/attributes/new_password",
         )
+
+
+class TestUsersQueryCount:
+    def test_user_list_query_count(
+        self, admin_client, django_assert_num_queries, editor_factory
+    ):
+        client, _ = admin_client
+        editor_factory.create_batch(3)
+
+        # 1 JWT auth user lookup + 1 count + 1 users/profile = 3
+        with django_assert_num_queries(3):
+            res = client.get(reverse("v1:user-list"))
+        assert res.status_code == status.HTTP_200_OK

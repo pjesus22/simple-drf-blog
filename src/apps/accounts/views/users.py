@@ -35,7 +35,7 @@ User = get_user_model()
 
 @user_viewset_schema
 class UserViewSet(ReadWriteThrottleMixin, ModelViewSet):
-    queryset = User.objects.all()
+    queryset = User.objects.select_related("profile")
     permission_classes = [IsAuthenticated]
     serializer_class = UserDetailSerializer
     read_actions = ("list", "retrieve", "me")

@@ -9,8 +9,11 @@ from apps.accounts.models import User
 
 
 def _blacklist_user_tokens(*, user: User) -> None:
-    for outstanding in OutstandingToken.objects.filter(user=user):
-        BlacklistedToken.objects.get_or_create(token=outstanding)
+    tokens = OutstandingToken.objects.filter(user=user)
+    BlacklistedToken.objects.bulk_create(
+        [BlacklistedToken(token=t) for t in tokens],
+        ignore_conflicts=True,
+    )
 
 
 @transaction.atomic
