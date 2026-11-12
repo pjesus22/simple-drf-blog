@@ -69,10 +69,7 @@ class PostCreateSerializer(PostSerializer):
                 raise serializers.ValidationError(
                     {"thumbnail": ["Invalid thumbnail upload."]}
                 )
-            used = Post.all_objects.filter(thumbnail=thumbnail)
-            if self.instance is not None:
-                used = used.exclude(pk=self.instance.pk)
-            if used.exists():
+            if Post.all_objects.filter(thumbnail=thumbnail).exists():
                 raise serializers.ValidationError(
                     {"thumbnail": ["Thumbnail is already used by another post."]}
                 )
