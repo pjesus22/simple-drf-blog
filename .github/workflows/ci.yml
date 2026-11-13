@@ -43,8 +43,14 @@ jobs:
       - name: Check formatting
         run: uv run ruff format --check .
 
+      - name: Django system check
+        run: uv run python src/manage.py check
+
       - name: Check migrations
         run: uv run python src/manage.py makemigrations --check --dry-run
+
+      - name: Validate OpenAPI schema
+        run: uv run python src/manage.py spectacular --validate --file /dev/null
 
       - name: Test
         run: uv run pytest --cov=src --cov-report=term-missing --cov-fail-under=95
