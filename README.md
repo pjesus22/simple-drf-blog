@@ -219,19 +219,18 @@ All variables except `DATABASE_URL` are documented inline in [`.env.example`](.e
 
 Base URL (dev): `http://localhost:8000`. All resources are versioned under `/api/v1/` and speak JSON:API — send `Content-Type: application/vnd.api+json` for writes.
 
-| What                 | URL                                                     |
-| -------------------- | ------------------------------------------------------- |
-| API root (discovery) | `GET /`                                                 |
-| Swagger UI           | `GET /api/v1/docs/`                                     |
-| ReDoc                | `GET /api/v1/redoc/`                                    |
-| OpenAPI schema       | `GET /api/v1/schema/` (admin only)                      |
-| Django admin         | `/admin/`                                               |
-| Health checks        | `GET /health/`, `/health/database/`, `/health/storage/` |
-| Usage metrics        | `GET /metrics/`                                         |
+| What                 | URL                                                                           |
+| -------------------- | ----------------------------------------------------------------------------- |
+| API root (discovery) | `GET /` (public)                                                              |
+| Swagger UI           | `GET /api/v1/docs/` (admin only)                                              |
+| ReDoc                | `GET /api/v1/redoc/` (admin only)                                             |
+| OpenAPI schema       | `GET /api/v1/schema/` (admin only)                                            |
+| Health checks        | `GET /health/` (public); `GET /health/database/`, `/health/storage/` (admin)  |
+| Usage metrics        | `GET /metrics/` (admin only)                                                  |
 
 ### Authentication
 
-Users are created by admins (there is no public signup) — e.g. via `createsuperuser` or the Django admin.
+Users are created by admins via `POST /api/v1/users/` or `python src/manage.py createsuperuser` (there is no public signup, and no models are registered in the Django admin site).
 
 ```bash
 # Obtain a token pair
@@ -245,36 +244,50 @@ POST /api/v1/token/verify/
 POST /api/v1/token/blacklist/
 ```
 
-Use the access token as `Authorization: Bearer <access>`. Password changes (`change-password` and `force_password_change`) blacklist all outstanding refresh tokens for the user, while already-issued access tokens remain valid until they expire.
+Use the access token as `Authorization: Bearer <access>`. Password changes (`change-password` and `force_password_change`) blacklist all outstanding refresh tokens for the user; already-issued JWT access tokens remain valid until they expire.
 
-### Resources
+### Resources & Permissions
 
-| Endpoint              | Description     | Notes                                                                                                                                                                                                                   |
-| --------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/api/v1/posts/`      | Blog posts      | Public read; writes require Editor role                                                                                                                                                                                 |
-| `/api/v1/categories/` | Post categories |                                                                                                                                                                                                                         |
-| `/api/v1/tags/`       | Post tags       |                                                                                                                                                                                                                         |
-| `/api/v1/uploads/`    | Media uploads   | Editor role required                                                                                                                                                                                                    |
-| `/api/v1/users/`      | User management | Admin only (list/create/update/delete; self-delete and self-role change blocked with `403`, hard-delete cascades posts/uploads in DB while leaving media files on disk); `GET/PATCH /api/v1/users/me/` for self-service |
-| `/api/v1/profiles/`   | User profiles   | `GET/PUT/PATCH /api/v1/profiles/me/`                                                                                                                                                                                    |
+| Endpoint              | Read                                                       | Write                                                                                                                                                                                                           |
+| --------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/api/v1/posts/`      | Public (published); owner/admin see drafts                 | Editor create; owner or Admin update, soft-delete (`DELETE` with `{"confirm": true}`), restore (`{"confirm": true}`), status transitions, thumbnail, attachments                                                |
+| `/api/v1/categories/` | Public                                                     | Admin create/update/delete (`DELETE` returns `409 Conflict` if category has posts)                                                                                                                              |
+| `/api/v1/tags/`       | Public                                                     | Editor or Admin create/update/delete                                                                                                                                                                            |
+| `/api/v1/uploads/`    | Owner or Admin                                             | Editor create; owner or Admin update (`purpose`, `visibility`), soft-delete, restore, trash, private content stream                                                                                             |
+| `/api/v1/users/`      | Admin (list/detail); self (`GET /users/{id}/`, `/users/me/`) | Admin create/update/delete/role/force-password (self-delete and self-role change return `403`; hard-delete cascades posts/uploads in DB while leaving media files on disk); self `PATCH /users/me/`             |
+| `/api/v1/profiles/`   | Public (`is_public=true`); owner/admin see private         | Owner or Admin `PUT`/`PATCH /profiles/{id}/`; self `GET`/`PUT`/`PATCH /profiles/me/` (preferred for `is_public`) or `POST /profiles/me/public/` toggle                                                          |
 
 Notable sub-resource actions:
 
 ```
-POST   /api/v1/posts/{slug}/change_status/          # draft / published / archived workflow
-POST   /api/v1/posts/{slug}/restore/                # restore from trash
-GET    /api/v1/posts/trash/                         # list soft-deleted posts
-POST   /api/v1/posts/{slug}/thumbnail/              # set thumbnail
+POST   /api/v1/posts/{slug}/change_status/          # draft -> published -> archived -> draft workflow
+DELETE /api/v1/posts/{slug}/                        # soft-delete (requires {"confirm": true})
+POST   /api/v1/posts/{slug}/restore/                # restore from trash (owner/admin, requires {"confirm": true})
+GET    /api/v1/posts/trash/                         # list soft-deleted posts (own for editor, all for admin)
+POST   /api/v1/posts/{slug}/thumbnail/              # set thumbnail (upload must be unused and owned by user)
 DELETE /api/v1/posts/{slug}/thumbnail/              # remove thumbnail
 POST   /api/v1/posts/{slug}/attachments/            # attach uploads
 DELETE /api/v1/posts/{slug}/attachments/{id}/       # detach an upload
-POST   /api/v1/uploads/{id}/restore/
-GET    /api/v1/uploads/trash/
+GET    /api/v1/uploads/{id}/content/                # stream private upload (owner/admin; 404 if public)
+POST   /api/v1/uploads/{id}/restore/                # restore soft-deleted upload (owner/admin)
+GET    /api/v1/uploads/trash/                       # list soft-deleted uploads
 POST   /api/v1/users/me/change-password/
-POST   /api/v1/users/{id}/change_role/              # admin
+POST   /api/v1/users/{id}/change_role/              # admin (cannot change own role)
 POST   /api/v1/users/{id}/force_password_change/    # admin
-POST   /api/v1/profiles/me/public/                  # toggle profile visibility
+POST   /api/v1/profiles/me/public/                  # toggle profile visibility (returns {"data": {"is_public": bool}})
 ```
+
+### Uploads & Media Visibility
+
+Uploads accept `purpose` (`thumbnail`, `attachment`, `avatar`) and `visibility` (`public`, `private`; defaults to `attachment` + `private`).
+- Public uploads are served by nginx under `/media/<purpose>/...`.
+- Private uploads are stored under `private/<purpose>/...`; nginx blocks direct `/media/private/` requests with `404`. Authorized owners/admins stream them via `GET /api/v1/uploads/{id}/content/` (supports `X-Accel-Redirect` to `/internal_media/` when `USE_X_ACCEL_REDIRECT=True`).
+- Soft-deleted uploads (`DELETE /api/v1/uploads/{id}/`) can be listed at `/api/v1/uploads/trash/`, restored via `POST /api/v1/uploads/{id}/restore/`, and are permanently purged after 30 days by Celery beat.
+
+### Rate Limits & Error Codes
+
+- **Throttles**: read endpoints allow `200/hour` anonymous (`anon_read`) and `500/hour` authenticated (`user_read`); write endpoints allow `60/hour` (`write`); upload actions enforce both `10/hour` (`upload_hour`) and `2/minute` (`upload_burst`); login `10/hour`; token refresh/verify/blacklist `5/minute`; password change `10/hour` (fallback defaults: `100/hour` anon, `1000/hour` user).
+- **Errors**: formatted as JSON:API error objects (`400` validation/transition/duplicate errors, `401` unauthenticated, `403` forbidden, `404` not found, `409` category delete conflict, `429` rate limit exceeded, `503` database or storage health check unavailable).
 
 ### Example: list and create posts
 
@@ -298,7 +311,7 @@ curl -X POST http://localhost:8000/api/v1/posts/ \
       }'
 ```
 
-Lists are paginated (10 items per page by default) and support JSON:API `filter[...]`, `sort`, and `filter[search]` query parameters. Anonymous requests are throttled at 100 requests/hour, authenticated requests at 1000/hour (login: 10/hour, token endpoints: 5/minute).
+Lists are paginated (10 items per page by default, max 100 via `page[size]`) and support JSON:API `filter[category]`, `filter[tags]`, `filter[search]`, and `sort` query parameters.
 
 The full request/response reference is generated from the code — see Swagger UI at `/api/v1/docs/`.
 
@@ -309,11 +322,11 @@ The full request/response reference is generated from the code — see Swagger U
 Tests use an in-memory SQLite database, eager Celery execution, and relaxed throttles (`config.settings.tests`):
 
 ```bash
-# From the project root (with the venv activated)
-pytest
+# Run test suite
+uv run pytest
 
 # With coverage
-pytest --cov=src
+uv run pytest --cov=src
 ```
 
 ---
@@ -322,13 +335,17 @@ pytest --cov=src
 
 ```bash
 # Lint and auto-fix
-ruff check --fix .
+uv run ruff check --fix .
 
 # Format
-ruff format .
+uv run ruff format .
+
+# System & OpenAPI schema checks
+uv run python src/manage.py check
+uv run python src/manage.py spectacular --validate --file /dev/null
 
 # Install git hooks (ruff + ruff-format + basic hygiene checks)
-pre-commit install
+uv run pre-commit install
 ```
 
 ---
