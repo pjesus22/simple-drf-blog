@@ -10,6 +10,7 @@ from apps.accounts.schemas import (
     profile_me_action_partial_update_schema,
     profile_me_action_schema,
     profile_me_action_update_schema,
+    profile_toggle_public_schema,
     profile_viewset_schema,
 )
 from apps.accounts.serializers import PrivateProfileSerializer, PublicProfileSerializer
@@ -73,6 +74,7 @@ class ProfileViewSet(
 
         return Response(serializer.data)
 
+    @profile_toggle_public_schema
     @action(detail=False, methods=["post"], url_path="me/public")
     def toggle_public(self, request):
         profile = get_object_or_404(Profile.objects.me(request.user))
