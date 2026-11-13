@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AnonymousUser
 import pytest
+from rest_framework.exceptions import ValidationError
 
 from apps.accounts.serializers import (
     PrivateProfileSerializer,
@@ -137,6 +138,26 @@ class TestPrivateProfile:
             "github",
             "twitter",
         }
+
+    def test_private_profile_creation_rejects_duplicate_social_media(
+        self, db, profile_data, editor_factory
+    ):
+        user = editor_factory()
+        payload = {
+            **profile_data,
+            "is_public": True,
+            "social_media": [
+                {"platform": "github", "url": "https://github.com/one"},
+                {"platform": "github", "url": "https://github.com/two"},
+            ],
+        }
+        serializer = PrivateProfileSerializer(data=payload)
+        assert serializer.is_valid(), serializer.errors
+
+        with pytest.raises(ValidationError) as exc_info:
+            serializer.save(user=user)
+
+        assert exc_info.value.detail == {"social_media": ["Duplicate platform or URL."]}
 
     def test_private_profile_update_social_media_sync(
         self, db, editor_factory, profile_data, social_media_profile_factory
