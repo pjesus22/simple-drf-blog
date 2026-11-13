@@ -340,6 +340,30 @@ class TestPostFiltering:
         assert response.status_code == status.HTTP_200_OK
         assert [item["id"] for item in response.json()["data"]] == [str(match.id)]
 
+    def test_filter_by_category_slug(self, api_client, category_factory, post_factory):
+        tech = category_factory(slug="tech")
+        news = category_factory(slug="news")
+        match = post_factory(status="published", category=tech)
+        post_factory(status="published", category=news)
+
+        response = api_client.get(reverse("v1:post-list"), {"filter[category]": "tech"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()["data"]] == [str(match.id)]
+
+    def test_filter_by_tag_slugs(self, api_client, tag_factory, post_factory):
+        py = tag_factory(slug="python")
+        rs = tag_factory(slug="rust")
+        p1 = post_factory(status="published")
+        p1.tags.add(py)
+        p2 = post_factory(status="published")
+        p2.tags.add(rs)
+
+        response = api_client.get(reverse("v1:post-list"), {"filter[tags]": "python"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()["data"]] == [str(p1.id)]
+
     def test_sort_by_title(self, api_client, post_factory):
         post_factory(status="published", title="Beta")
         post_factory(status="published", title="Alpha")
