@@ -1,6 +1,5 @@
 from django.db.models import Prefetch, ProtectedError
 from rest_framework import viewsets
-from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 
 from apps.accounts.permissions import IsAdmin
@@ -10,6 +9,7 @@ from apps.content.serializers import CategorySerializer
 from config.throttle import (
     ReadWriteThrottleMixin,
 )
+from utils.exceptions import Conflict
 
 
 @category_viewset_schema
@@ -23,7 +23,7 @@ class CategoryViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
         return Category.objects.prefetch_related(
             Prefetch(
                 lookup="posts",
-                queryset=Post.objects.visible_for(self.request.user),
+                queryset=Post.objects.visible_for(self.request.user).with_related(),
             )
         )
 
@@ -38,6 +38,6 @@ class CategoryViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
         try:
             return super().destroy(request, *args, **kwargs)
         except ProtectedError as exc:
-            raise ValidationError(
-                {"detail": "Cannot delete category with posts. Reassign posts first."}
+            raise Conflict(
+                "Cannot delete category with posts. Reassign posts first."
             ) from exc

@@ -1,8 +1,13 @@
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.filters import SearchFilter
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_json_api.django_filters import DjangoFilterBackend
+from rest_framework_json_api.filters import (
+    OrderingFilter,
+    QueryParameterValidationFilter,
+)
 
 from apps.accounts.permissions import IsEditor, IsOwner
 from apps.content.filters import PostFilter
@@ -38,22 +43,29 @@ class PostViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
     serializer_class = PostSerializer
     queryset = Post.objects.all()
     lookup_field = "slug"
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [
+        QueryParameterValidationFilter,
+        OrderingFilter,
+        DjangoFilterBackend,
+        SearchFilter,
+    ]
     filterset_class = PostFilter
+    search_fields = ["title", "content"]
+    ordering_fields = ["title", "published_at", "created_at"]
     read_actions = ("list", "retrieve", "trash")
     upload_actions = ("thumbnail", "add_attachments")
 
     def get_queryset(self):
         if self.action == "restore":
-            return self._get_restore_queryset()
+            return self._get_restore_queryset().with_related()
 
         elif self.action == "trash":
-            return self._get_trash_queryset()
+            return self._get_trash_queryset().with_related()
 
         elif self.action == "destroy":
             return self._get_soft_delete_queryset()
 
-        return Post.objects.visible_for(self.request.user)
+        return Post.objects.visible_for(self.request.user).with_related()
 
     def _get_restore_queryset(self):
         user = self.request.user
@@ -132,7 +144,9 @@ class PostViewSet(ReadWriteThrottleMixin, viewsets.ModelViewSet):
             post.save(update_fields=["thumbnail"])
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-        serializer = self.get_serializer(data=request.data)
+        context = self.get_serializer_context()
+        context["post"] = post
+        serializer = self.get_serializer(data=request.data, context=context)
         serializer.is_valid(raise_exception=True)
 
         post.thumbnail = serializer.validated_data["id"]

@@ -70,6 +70,12 @@ class DatabaseHealthView(APIView):
         except OperationalError:
             db_status = "unavailable"
 
+        if db_status != "ok":
+            return Response(
+                [{"detail": "Database unavailable", "status": "503"}],
+                status=503,
+            )
+
         data = {
             "status": "ok",
             "version": getattr(settings, "API_VERSION", "unknown"),

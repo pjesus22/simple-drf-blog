@@ -1,6 +1,6 @@
 from urllib.parse import urlparse
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from rest_framework_json_api import serializers
 
 from apps.accounts.models import Profile, SocialMediaProfile
@@ -109,23 +109,34 @@ class PrivateProfileSerializer(ProfileSerializer):
     def create(self, validated_data):
         social_data = validated_data.pop("social_media", None)
 
-        with transaction.atomic():
-            instance = Profile.objects.create(**validated_data)
-            self._put_social_media(instance, social_data)
-            return instance
+        try:
+            with transaction.atomic():
+                instance = Profile.objects.create(**validated_data)
+                self._put_social_media(instance, social_data)
+                return instance
+        except IntegrityError as exc:
+            raise serializers.ValidationError(
+                {"social_media": ["Duplicate platform or URL."]}
+            ) from exc
 
     def update(self, instance, validated_data):
         social_media_data = validated_data.pop("social_media", None)
 
-        with transaction.atomic():
-            if self.partial:
-                self._patch_instance(instance, validated_data)
-                self._patch_social_media(instance, social_media_data)
+        try:
+            with transaction.atomic():
+                if self.partial:
+                    self._patch_instance(instance, validated_data)
+                    self._patch_social_media(instance, social_media_data)
 
-            else:
-                self._put_instance(instance, validated_data)
-                if social_media_data is not None:
-                    self._put_social_media(instance, social_media_data)
+                else:
+                    self._put_instance(instance, validated_data)
+                    if social_media_data is not None:
+                        self._put_social_media(instance, social_media_data)
+
+        except IntegrityError as exc:
+            raise serializers.ValidationError(
+                {"social_media": ["Duplicate platform or URL."]}
+            ) from exc
 
         return instance
 
@@ -189,9 +200,3 @@ class PrivateProfileSerializer(ProfileSerializer):
 
         if to_delete_ids:
             SocialMediaProfile.objects.filter(id__in=to_delete_ids).delete()
-
-
-class ProfileVisibilitySerializer(serializers.Serializer):
-    class Meta:
-        model = Profile
-        fields = ["is_public"]

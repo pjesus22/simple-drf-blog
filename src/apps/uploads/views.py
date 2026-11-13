@@ -41,13 +41,12 @@ class UploadViewSet(ReadWriteThrottleMixin, ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if self.action == "restore":
-            qs = Upload.all_objects.filter(deleted_at__isnull=False)
-        elif self.action == "trash":
+        if self.action in ("restore", "trash"):
             qs = Upload.objects.only_deleted()
         else:
             qs = Upload.objects.all()
 
+        qs = qs.select_related("uploaded_by")
         if not user.is_admin:
             qs = qs.filter(uploaded_by=user)
         return qs
@@ -91,11 +90,6 @@ class UploadViewSet(ReadWriteThrottleMixin, ModelViewSet):
             logger.exception("Upload visibility move failed", exc_info=exc)
             raise Conflict() from exc
 
-        if not data:
-            return
-
-        return super().perform_update(serializer)
-
     def perform_destroy(self, instance):
         instance.deleted_at = timezone.now()
         instance.save(update_fields=["deleted_at", "updated_at"])
@@ -111,7 +105,7 @@ class UploadViewSet(ReadWriteThrottleMixin, ModelViewSet):
             )
 
         upload.deleted_at = None
-        upload.save()
+        upload.save(update_fields=["deleted_at", "updated_at"])
 
         serializer = self.get_serializer(upload)
         return Response(serializer.data)
@@ -119,7 +113,7 @@ class UploadViewSet(ReadWriteThrottleMixin, ModelViewSet):
     @upload_trash_action_schema
     @action(detail=False, methods=["get"])
     def trash(self, request):
-        qs = self.filter_queryset(self.get_queryset().deleted())
+        qs = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(qs)
         serializer = self.get_serializer(page, many=True)
         return self.get_paginated_response(serializer.data)

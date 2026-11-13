@@ -393,6 +393,20 @@ class TestDeleteUser:
             code="permission_denied",
         )
 
+    def test_delete_self_as_admin_forbidden(self, admin_client):
+        client, admin = admin_client
+
+        response = client.delete(path=reverse("v1:user-detail", args=[admin.id]))
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_403_FORBIDDEN,
+            pointer="/data",
+            detail_contains="cannot delete your own account.",
+            code="permission_denied",
+        )
+        assert User.objects.filter(id=admin.id).exists()
+
 
 class TestUserMe:
     @pytest.mark.parametrize(
@@ -708,3 +722,16 @@ class TestChangePassword:
             status_code=status.HTTP_400_BAD_REQUEST,
             pointer="/data/attributes/new_password",
         )
+
+
+class TestUsersQueryCount:
+    def test_user_list_query_count(
+        self, admin_client, django_assert_num_queries, editor_factory
+    ):
+        client, _ = admin_client
+        editor_factory.create_batch(3)
+
+        # 1 JWT auth user lookup + 1 count + 1 users/profile = 3
+        with django_assert_num_queries(3):
+            res = client.get(reverse("v1:user-list"))
+        assert res.status_code == status.HTTP_200_OK

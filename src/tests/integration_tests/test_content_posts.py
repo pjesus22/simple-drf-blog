@@ -131,6 +131,117 @@ class TestCreatePost:
             code="does_not_exist",
         )
 
+    def test_create_post_with_foreign_thumbnail_returns_400(
+        self,
+        editor_client,
+        post_data,
+        category_factory,
+        upload_factory,
+        editor_factory,
+    ):
+        client, _ = editor_client
+        category = category_factory()
+        thumbnail = upload_factory(purpose="thumbnail", uploaded_by=editor_factory())
+        payload = {
+            **post_data,
+            "category": {"type": "categories", "id": str(category.id)},
+            "thumbnail": {"type": "uploads", "id": str(thumbnail.id)},
+        }
+
+        response = client.post(
+            path=reverse("v1:post-list"), data=payload, format="json"
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer="/data/relationships/thumbnail",
+            detail_contains="Invalid thumbnail upload",
+        )
+
+    def test_create_post_with_foreign_attachment_returns_400(
+        self,
+        editor_client,
+        post_data,
+        category_factory,
+        upload_factory,
+        editor_factory,
+    ):
+        client, _ = editor_client
+        category = category_factory()
+        attachment = upload_factory(purpose="attachment", uploaded_by=editor_factory())
+        payload = {
+            **post_data,
+            "category": {"type": "categories", "id": str(category.id)},
+            "attachments": [{"type": "uploads", "id": str(attachment.id)}],
+        }
+
+        response = client.post(
+            path=reverse("v1:post-list"), data=payload, format="json"
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer="/data/relationships/attachments",
+            detail_contains="One or more attachments are invalid",
+        )
+
+    def test_create_post_with_used_thumbnail_returns_400(
+        self,
+        editor_client,
+        post_data,
+        category_factory,
+        post_factory,
+        upload_factory,
+    ):
+        client, user = editor_client
+        category = category_factory()
+        thumbnail = upload_factory(purpose="thumbnail", uploaded_by=user)
+        post_factory(thumbnail=thumbnail)
+        payload = {
+            **post_data,
+            "category": {"type": "categories", "id": str(category.id)},
+            "thumbnail": {"type": "uploads", "id": str(thumbnail.id)},
+        }
+
+        response = client.post(
+            path=reverse("v1:post-list"), data=payload, format="json"
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            pointer="/data/relationships/thumbnail",
+            detail_contains="already used by another post",
+        )
+
+    def test_create_post_as_admin_with_foreign_uploads_success(
+        self,
+        admin_client,
+        post_data,
+        category_factory,
+        upload_factory,
+        editor_factory,
+    ):
+        client, _ = admin_client
+        owner = editor_factory()
+        category = category_factory()
+        thumbnail = upload_factory(purpose="thumbnail", uploaded_by=owner)
+        attachment = upload_factory(purpose="attachment", uploaded_by=owner)
+        payload = {
+            **post_data,
+            "category": {"type": "categories", "id": str(category.id)},
+            "thumbnail": {"type": "uploads", "id": str(thumbnail.id)},
+            "attachments": [{"type": "uploads", "id": str(attachment.id)}],
+        }
+
+        response = client.post(
+            path=reverse("v1:post-list"), data=payload, format="json"
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+
     def test_create_post_unauthorized(self, api_client, post_data, category_factory):
         category = category_factory()
         payload = {
@@ -219,6 +330,69 @@ class TestReadPost:
         )
 
 
+class TestPostFiltering:
+    def test_filter_search_matches_title_and_content(self, api_client, post_factory):
+        match = post_factory(status="published", title="Python tips", content="alpha")
+        post_factory(status="published", title="Rust tips", content="beta")
+
+        response = api_client.get(reverse("v1:post-list"), {"filter[search]": "python"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()["data"]] == [str(match.id)]
+
+    def test_filter_by_category_slug(self, api_client, category_factory, post_factory):
+        tech = category_factory(slug="tech")
+        news = category_factory(slug="news")
+        match = post_factory(status="published", category=tech)
+        post_factory(status="published", category=news)
+
+        response = api_client.get(reverse("v1:post-list"), {"filter[category]": "tech"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()["data"]] == [str(match.id)]
+
+    def test_filter_by_tag_slugs(self, api_client, tag_factory, post_factory):
+        py = tag_factory(slug="python")
+        rs = tag_factory(slug="rust")
+        p1 = post_factory(status="published")
+        p1.tags.add(py)
+        p2 = post_factory(status="published")
+        p2.tags.add(rs)
+
+        response = api_client.get(reverse("v1:post-list"), {"filter[tags]": "python"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert [item["id"] for item in response.json()["data"]] == [str(p1.id)]
+
+    def test_sort_by_title(self, api_client, post_factory):
+        post_factory(status="published", title="Beta")
+        post_factory(status="published", title="Alpha")
+
+        response = api_client.get(reverse("v1:post-list"), {"sort": "title"})
+
+        assert response.status_code == status.HTTP_200_OK
+        titles = [item["attributes"]["title"] for item in response.json()["data"]]
+        assert titles == ["Alpha", "Beta"]
+
+    def test_invalid_sort_returns_400(self, api_client):
+        response = api_client.get(reverse("v1:post-list"), {"sort": "bogus"})
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail_contains="invalid sort parameter",
+        )
+
+    def test_unknown_query_param_returns_400(self, api_client):
+        response = api_client.get(reverse("v1:post-list"), {"bogus": "1"})
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail_contains="invalid query parameter",
+        )
+
+
 class TestUpdatePost:
     def test_partial_update_post_success(self, editor_client, post_factory):
         client, client_user = editor_client
@@ -270,9 +444,6 @@ class TestUpdatePost:
             format="json",
         )
 
-        print(response.json())
-        print(response.status_code)
-
         assert_jsonapi_error_response(
             response=response,
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -303,7 +474,6 @@ class TestDeletePost:
         response = client.post(
             path=reverse("v1:post-restore", args=[post.slug]),
             data={"confirm": True},
-            query_params={"include_deleted": "true"},
             format="json",
         )
 
@@ -348,6 +518,44 @@ class TestPostLifecycle:
         assert post.status == target_status
         if expected_published:
             assert post.published_at is not None
+
+    def test_change_status_invalid_transition_returns_400(
+        self, editor_client, post_factory
+    ):
+        client, client_user = editor_client
+        post = post_factory(author=client_user, status="draft")
+
+        response = client.post(
+            path=reverse("v1:post-change-status", args=[post.slug]),
+            data={"status": "archived"},
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail_contains="Cannot transition from draft to archived",
+        )
+
+    def test_set_thumbnail_already_used_returns_400(
+        self, editor_client, post_factory, upload_factory
+    ):
+        client, client_user = editor_client
+        thumbnail = upload_factory(purpose="thumbnail", uploaded_by=client_user)
+        post_factory(thumbnail=thumbnail)
+        post = post_factory(author=client_user, thumbnail=None)
+
+        response = client.post(
+            path=reverse("v1:post-thumbnail", args=[post.slug]),
+            data={"id": str(thumbnail.id)},
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail_contains="already used by another post",
+        )
 
     def test_manage_thumbnail_flow(
         self, editor_client, post_factory, upload_factory, clean_media
@@ -553,3 +761,30 @@ class TestPostPaginationBoundaries:
 
         assert response.status_code == status.HTTP_200_OK
         assert body["meta"]["pagination"]["page"] == 1
+
+
+class TestPostQueryCounts:
+    def test_post_list_query_count(
+        self, api_client, django_assert_num_queries, post_factory, tag_factory
+    ):
+        tags = tag_factory.create_batch(2)
+        for _ in range(3):
+            p = post_factory(status=Post.Status.PUBLISHED)
+            p.tags.set(tags)
+
+        # 1 count + 1 posts + 1 tags prefetch + 1 attachments prefetch = 4
+        with django_assert_num_queries(4):
+            res = api_client.get(reverse("v1:post-list"))
+        assert res.status_code == status.HTTP_200_OK
+
+    def test_post_detail_query_count(
+        self, api_client, django_assert_num_queries, post_factory, tag_factory
+    ):
+        tags = tag_factory.create_batch(2)
+        post = post_factory(status=Post.Status.PUBLISHED)
+        post.tags.set(tags)
+
+        # 1 post/select_related + 1 tags prefetch + 1 attachments prefetch = 3
+        with django_assert_num_queries(3):
+            res = api_client.get(reverse("v1:post-detail", args=[post.slug]))
+        assert res.status_code == status.HTTP_200_OK

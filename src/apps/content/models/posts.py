@@ -73,7 +73,7 @@ class Post(SlugMixin, BaseModel):
         with transaction.atomic():
             locked = (
                 Post.all_objects.select_for_update()
-                .only("status", "published_at")
+                .only("status", "published_at", "updated_at")
                 .get(pk=self.pk)
             )
 
@@ -90,12 +90,14 @@ class Post(SlugMixin, BaseModel):
                     f"Cannot transition from {locked.status} to {new_status}"
                 )
 
+            update_fields = ["status", "updated_at"]
             if new_status == self.Status.PUBLISHED and locked.published_at is None:
                 locked.published_at = timezone.now()
+                update_fields.append("published_at")
 
             locked.status = new_status
-            locked.save()
-            self.refresh_from_db(fields=["status", "published_at"])
+            locked.save(update_fields=update_fields)
+            self.refresh_from_db(fields=update_fields)
 
     def publish(self):
         self.transition_to(self.Status.PUBLISHED)

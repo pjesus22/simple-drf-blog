@@ -25,7 +25,7 @@ POST_SLUG_PARAMETER = OpenApiParameter(
 )
 
 POST_SEARCH_PARAMETER = OpenApiParameter(
-    name="search",
+    name="filter[search]",
     type=str,
     location=OpenApiParameter.QUERY,
     description="Case-insensitive search across post title and content.",
@@ -33,7 +33,7 @@ POST_SEARCH_PARAMETER = OpenApiParameter(
 )
 
 POST_TAGS_PARAMETER = OpenApiParameter(
-    name="tags",
+    name="filter[tags]",
     type=str,
     location=OpenApiParameter.QUERY,
     description=(
@@ -43,7 +43,7 @@ POST_TAGS_PARAMETER = OpenApiParameter(
 )
 
 POST_CATEGORY_PARAMETER = OpenApiParameter(
-    name="category",
+    name="filter[category]",
     type=str,
     location=OpenApiParameter.QUERY,
     description="Filter by category slug (case-insensitive).",
@@ -55,6 +55,25 @@ POST_ATTACHMENT_ID_PARAMETER = OpenApiParameter(
     type=str,
     location=OpenApiParameter.PATH,
     description="UUID of the attachment to remove.",
+)
+
+POST_SORT_PARAMETER = OpenApiParameter(
+    name="sort",
+    type=str,
+    location=OpenApiParameter.QUERY,
+    description=("Comma-separated ordering fields. Prefix with `-` for descending."),
+    required=False,
+)
+
+soft_delete_schema = extend_schema(
+    summary="posts_soft_delete",
+    description=(
+        "Soft-delete a post (owner or admin role). "
+        'Requires `{"confirm": true}` in the request body.'
+    ),
+    request=PostSoftDeleteSerializer,
+    responses={204: OpenApiResponse(description="Post soft deleted")},
+    parameters=[POST_SLUG_PARAMETER],
 )
 
 post_viewset_schema = extend_schema_view(
@@ -96,7 +115,7 @@ post_viewset_schema = extend_schema_view(
             "Visibility depends on the requesting user:\n"
             "- Anonymous users: only published posts.\n"
             "- Authenticated users: published posts and their own posts.\n"
-            "- Staff users: all non-deleted posts.\n"
+            "- Admin role: all non-deleted posts.\n"
         ),
         responses={200: PostSerializer},
         parameters=[POST_SLUG_PARAMETER],
@@ -108,7 +127,7 @@ post_viewset_schema = extend_schema_view(
             "Visibility depends on the requesting user:\n"
             "- Anonymous users: only published posts.\n"
             "- Authenticated users: published posts and their own posts.\n"
-            "- Staff users: all non-deleted posts.\n\n"
+            "- Admin role: all non-deleted posts.\n\n"
             "Supports filtering by search, tags, and category."
         ),
         responses={200: PostSerializer(many=True)},
@@ -116,9 +135,10 @@ post_viewset_schema = extend_schema_view(
             POST_SEARCH_PARAMETER,
             POST_TAGS_PARAMETER,
             POST_CATEGORY_PARAMETER,
+            POST_SORT_PARAMETER,
         ],
     ),
-    destroy=extend_schema(exclude=True),
+    destroy=soft_delete_schema,
 )
 
 change_status_schema = extend_schema(
@@ -168,17 +188,10 @@ remove_attachment_schema = extend_schema(
     parameters=[POST_SLUG_PARAMETER, POST_ATTACHMENT_ID_PARAMETER],
 )
 
-soft_delete_schema = extend_schema(
-    summary="posts_soft_delete",
-    description="Mark a post as deleted. Requires confirmation.",
-    request=PostSoftDeleteSerializer,
-    responses={204: OpenApiResponse(description="Post soft deleted")},
-    parameters=[POST_SLUG_PARAMETER],
-)
 
 restore_schema = extend_schema(
     summary="posts_restore",
-    description="Restore a deleted post (requires admin role).",
+    description="Restore a deleted post (post owner or admin role).",
     request=PostRestoreSerializer,
     responses={200: PostSerializer},
     parameters=[POST_SLUG_PARAMETER],
@@ -186,6 +199,9 @@ restore_schema = extend_schema(
 
 trash_schema = extend_schema(
     summary="posts_trash",
-    description="List posts currently in deleted state.",
+    description=(
+        "List soft-deleted posts (own deleted posts for editors, "
+        "all deleted posts for admin role)."
+    ),
     responses={200: PostSerializer(many=True)},
 )

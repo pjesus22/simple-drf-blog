@@ -76,10 +76,10 @@ class TestDatabaseHealthView:
 
         api_client.force_authenticate(user=admin_factory())
         response = api_client.get("/health/database/")
-        data = response.json().get("data")
+        body = response.json()
 
-        assert response.status_code == 200
-        assert data["attributes"]["db_status"] == "unavailable"
+        assert response.status_code == 503
+        assert body["errors"][0]["detail"] == "Database unavailable"
 
 
 class TestMetricRecordView:

@@ -42,10 +42,15 @@ category_viewset_schema = extend_schema_view(
     destroy=extend_schema(
         summary="categories_delete",
         description=(
-            "Delete a category (requires admin role). Fails if category still has "
-            "posts; reassign first."
+            "Delete a category (requires admin role). Fails with 409 Conflict "
+            "if category still has posts; reassign first."
         ),
         parameters=[CATEGORY_SLUG_PARAMETER],
-        responses={204: OpenApiResponse(description="Category deleted successfully.")},
+        responses={
+            204: OpenApiResponse(description="Category deleted successfully."),
+            409: OpenApiResponse(
+                description="Cannot delete category that still has posts."
+            ),
+        },
     ),
 )

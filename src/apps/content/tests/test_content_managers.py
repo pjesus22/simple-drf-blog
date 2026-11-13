@@ -98,3 +98,7 @@ class TestPostManager:
         qs_method = getattr(Post.objects.all(), method_name)
 
         assert manager_method(editor).count() == qs_method(editor).count()
+
+    def test_with_related_delegates_to_queryset(self, post_factory):
+        post_factory()
+        assert Post.objects.with_related().count() == 1

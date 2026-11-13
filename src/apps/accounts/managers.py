@@ -6,6 +6,9 @@ from django.db.models import Q
 
 
 class ProfileQuerySet(models.QuerySet):
+    def with_related(self):
+        return self.select_related("user").prefetch_related("social_media")
+
     def visible_for(self, user):
         if user and user.is_authenticated:
             if user.is_admin:
@@ -29,6 +32,9 @@ class ProfileQuerySet(models.QuerySet):
 class ProfileManager(models.Manager):
     def get_queryset(self):
         return ProfileQuerySet(self.model, using=self._db)
+
+    def with_related(self):
+        return self.get_queryset().with_related()
 
     def visible_for(self, user):
         return self.get_queryset().visible_for(user)

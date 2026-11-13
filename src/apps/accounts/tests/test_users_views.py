@@ -1,6 +1,6 @@
 from django.contrib.auth.models import AnonymousUser
 import pytest
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 
 from apps.accounts.exceptions import CannotDemoteLastAdmin, InvalidPassword
@@ -236,6 +236,15 @@ class TestUserViewSetActions:
             target_user=target_user,
             new_password="new_secure_pass",
         )
+
+    def test_perform_destroy_self_raises_permission_denied(
+        self, viewset, admin_factory
+    ):
+        admin = admin_factory()
+        viewset.request.user = admin
+
+        with pytest.raises(PermissionDenied, match="cannot delete your own account"):
+            viewset.perform_destroy(admin)
 
 
 class TestUserViewSetThrottle:

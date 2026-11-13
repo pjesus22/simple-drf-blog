@@ -64,6 +64,10 @@ CACHES = {
     }
 }
 REST_FRAMEWORK["NUM_PROXIES"] = config("NUM_PROXIES", default=1, cast=int)
+REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = (
+    "rest_framework_json_api.renderers.JSONRenderer",
+    "rest_framework.renderers.JSONRenderer",
+)
 
 # -----------------------------------------------------------------------------
 # STATIC & MEDIA FILES

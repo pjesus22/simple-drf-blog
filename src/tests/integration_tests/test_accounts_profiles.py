@@ -996,3 +996,59 @@ class TestSocialMediaProfile:
         assert len(social_media) == 1
         assert social_media[0]["platform"] == "github"
         assert social_media[0]["url"] == "https://github.com/testuser"
+
+    @pytest.mark.parametrize(
+        "social_media",
+        [
+            pytest.param(
+                [
+                    {"platform": "github", "url": "https://github.com/one"},
+                    {"platform": "github", "url": "https://github.com/two"},
+                ],
+                id="duplicate-platform",
+            ),
+            pytest.param(
+                [
+                    {"platform": "github", "url": "https://github.com/same"},
+                    {"platform": "github", "url": "https://github.com/same"},
+                ],
+                id="duplicate-url",
+            ),
+        ],
+    )
+    def test_duplicate_social_media_returns_400(
+        self, editor_client, profile_factory, social_media
+    ):
+        client, user = editor_client
+        profile = profile_factory(user=user)
+
+        response = client.patch(
+            path=reverse("v1:profile-detail", args=[profile.id]),
+            data={"social_media": social_media},
+            format="json",
+        )
+
+        assert_jsonapi_error_response(
+            response=response,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail_contains="Duplicate platform or URL",
+        )
+        assert profile.social_media.count() == 0
+
+
+class TestProfilesQueryCount:
+    def test_profile_list_query_count(
+        self,
+        api_client,
+        django_assert_num_queries,
+        profile_factory,
+        social_media_profile_factory,
+    ):
+        for _ in range(3):
+            p = profile_factory(is_public=True)
+            social_media_profile_factory(profile=p)
+
+        # 1 count + 1 profiles/user + 1 social_media prefetch = 3
+        with django_assert_num_queries(3):
+            res = api_client.get(reverse("v1:profile-list"))
+        assert res.status_code == status.HTTP_200_OK

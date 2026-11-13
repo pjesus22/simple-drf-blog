@@ -28,7 +28,7 @@ class TestProfileQuerySet:
         profile_factory(is_public=True)
         profile_factory(is_public=False)
 
-        if user.is_authenticated and not user.is_staff:
+        if user.is_authenticated and not user.is_admin:
             Profile.objects.filter(is_public=False).update(user=user)
 
         profiles = Profile.objects.visible_for(user)
@@ -55,13 +55,13 @@ class TestProfileQuerySet:
         p1 = profile_factory()
         profile_factory()
 
-        if user.is_authenticated and not user.is_staff:
+        if user.is_authenticated and not user.is_admin:
             p1.user = user
             p1.save()
 
         profiles = Profile.objects.editable_by(user)
         assert profiles.count() == expected_count
-        if expected_count == 1 and not user.is_staff:
+        if expected_count == 1 and not user.is_admin:
             assert profiles.first().user == user
 
     @pytest.mark.parametrize(
@@ -106,6 +106,10 @@ class TestProfileManager:
         qs_method = getattr(Profile.objects.all(), method_name)
 
         assert manager_method(editor).count() == qs_method(editor).count()
+
+    def test_with_related_delegates_to_queryset(self, profile_factory):
+        profile_factory()
+        assert Profile.objects.with_related().count() == 1
 
 
 class TestUserManager:

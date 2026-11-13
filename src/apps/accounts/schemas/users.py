@@ -58,8 +58,15 @@ user_viewset_schema = extend_schema_view(
     ),
     destroy=extend_schema(
         summary="users_delete",
-        description="Delete a user (requires admin role).",
-        responses={204: OpenApiResponse(description="User deleted successfully")},
+        description=(
+            "Hard-delete a user and cascade-delete their posts and uploads in "
+            "the database (media files on disk are not removed immediately). "
+            "Requires admin role; admins cannot delete their own account."
+        ),
+        responses={
+            204: OpenApiResponse(description="User deleted successfully"),
+            403: OpenApiResponse(description="Cannot delete own account or not admin"),
+        },
         parameters=[USER_ID_PARAMETER],
     ),
 )
@@ -85,12 +92,15 @@ user_me_action_update_schema = extend_schema(
 change_role_schema = extend_schema(
     summary="users_change_role",
     description=(
-        "Change a user's role (requires admin role). Cannot demote the last admin."
+        "Change another user's role (requires admin role; admins cannot change "
+        "their own role). Service-level logic also guards against demoting the "
+        "last admin."
     ),
     request=ChangeRoleSerializer,
     responses={
         200: UserDetailSerializer,
-        400: OpenApiResponse(description="Cannot demote last admin or invalid role"),
+        400: OpenApiResponse(description="Invalid role"),
+        403: OpenApiResponse(description="Cannot change own role or not admin"),
     },
     parameters=[USER_ID_PARAMETER],
 )
@@ -98,7 +108,8 @@ change_password_schema = extend_schema(
     summary="users_change_password",
     description=(
         "Change the authenticated user's password (requires old password for "
-        "verification)."
+        "verification). Blacklists outstanding refresh tokens; existing access "
+        "tokens remain valid until they expire."
     ),
     request=PasswordUpdateSerializer,
     responses={
@@ -108,7 +119,11 @@ change_password_schema = extend_schema(
 )
 force_password_change_schema = extend_schema(
     summary="users_force_password_change",
-    description="Force a password change for a user (requires admin role).",
+    description=(
+        "Force a password change for a user (requires admin role). Blacklists "
+        "the target user's outstanding refresh tokens; existing access tokens "
+        "remain valid until they expire."
+    ),
     request=PasswordResetSerializer,
     responses={204: OpenApiResponse(description="Password changed successfully")},
     parameters=[USER_ID_PARAMETER],

@@ -32,6 +32,10 @@ class TestAPIRootView:
             assert isinstance(value, str)
             assert value.startswith(("http://", "/"))
 
+    def test_anonymous_client_can_access_root_and_v1_root(self, client):
+        assert client.get("/").status_code == 200
+        assert client.get("/api/v1/").status_code == 200
+
 
 class TestDevMediaServe:
     def test_blocks_private_paths(self, rf, settings, tmp_path):

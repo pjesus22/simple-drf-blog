@@ -52,15 +52,38 @@ class PostSerializer(serializers.ModelSerializer):
 
 
 class PostCreateSerializer(PostSerializer):
-    status = serializers.ChoiceField(choices=Post.Status.choices, required=False)
-
     class Meta(PostSerializer.Meta):
         read_only_fields = (*PostSerializer.Meta.read_only_fields, "slug", "author")
 
+    def validate(self, attrs):
+        thumbnail = attrs.get("thumbnail")
+        attachments = attrs.get("attachments") or []
+
+        if not thumbnail and not attachments:
+            return attrs
+
+        user = self.context["request"].user
+
+        if thumbnail:
+            if not user.is_admin and thumbnail.uploaded_by_id != user.id:
+                raise serializers.ValidationError(
+                    {"thumbnail": ["Invalid thumbnail upload."]}
+                )
+            if Post.all_objects.filter(thumbnail=thumbnail).exists():
+                raise serializers.ValidationError(
+                    {"thumbnail": ["Thumbnail is already used by another post."]}
+                )
+
+        for attachment in attachments:
+            if not user.is_admin and attachment.uploaded_by_id != user.id:
+                raise serializers.ValidationError(
+                    {"attachments": ["One or more attachments are invalid."]}
+                )
+
+        return attrs
+
     def create(self, validated_data):
         validated_data["author"] = self.context["request"].user
-        validated_data["status"] = Post.Status.DRAFT
-
         return super().create(validated_data)
 
 
@@ -130,13 +153,23 @@ class PostThumbnailSerializer(serializers.Serializer):
 
     def validate_id(self, value):
         try:
-            return Upload.objects.get(
+            upload = Upload.objects.get(
                 id=value,
                 purpose=Upload.Purpose.THUMBNAIL,
                 uploaded_by=self.context["request"].user,
             )
         except Upload.DoesNotExist:
             raise serializers.ValidationError("Invalid thumbnail upload.") from None
+        post = self.context.get("post")
+        used = Post.all_objects.filter(thumbnail=upload)
+        if post is not None:
+            used = used.exclude(pk=post.pk)
+        if used.exists():
+            raise serializers.ValidationError(
+                "Thumbnail is already used by another post."
+            )
+
+        return upload
 
 
 class PostAttachmentAddSerializer(serializers.Serializer):

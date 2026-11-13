@@ -240,9 +240,6 @@ class TestPostCreateSerializer:
         data = {}
         serializer = PostCreateSerializer(data=data)
 
-        print(serializer.is_valid())
-        print(serializer.errors)
-
         assert not serializer.is_valid()
         assert all(field in serializer.errors for field in ["title", "category"])
 

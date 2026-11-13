@@ -2,6 +2,7 @@ from apps.accounts.schemas.profiles import (
     profile_me_action_partial_update_schema,
     profile_me_action_schema,
     profile_me_action_update_schema,
+    profile_toggle_public_schema,
     profile_viewset_schema,
 )
 from apps.accounts.schemas.users import (
@@ -20,6 +21,7 @@ __all__ = [
     "profile_me_action_partial_update_schema",
     "profile_me_action_schema",
     "profile_me_action_update_schema",
+    "profile_toggle_public_schema",
     "profile_viewset_schema",
     "user_me_action_schema",
     "user_me_action_update_schema",
