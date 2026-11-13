@@ -67,7 +67,10 @@ POST_SORT_PARAMETER = OpenApiParameter(
 
 soft_delete_schema = extend_schema(
     summary="posts_soft_delete",
-    description="Mark a post as deleted. Requires confirmation.",
+    description=(
+        "Soft-delete a post (owner or admin role). "
+        'Requires `{"confirm": true}` in the request body.'
+    ),
     request=PostSoftDeleteSerializer,
     responses={204: OpenApiResponse(description="Post soft deleted")},
     parameters=[POST_SLUG_PARAMETER],
@@ -112,7 +115,7 @@ post_viewset_schema = extend_schema_view(
             "Visibility depends on the requesting user:\n"
             "- Anonymous users: only published posts.\n"
             "- Authenticated users: published posts and their own posts.\n"
-            "- Staff users: all non-deleted posts.\n"
+            "- Admin role: all non-deleted posts.\n"
         ),
         responses={200: PostSerializer},
         parameters=[POST_SLUG_PARAMETER],
@@ -124,7 +127,7 @@ post_viewset_schema = extend_schema_view(
             "Visibility depends on the requesting user:\n"
             "- Anonymous users: only published posts.\n"
             "- Authenticated users: published posts and their own posts.\n"
-            "- Staff users: all non-deleted posts.\n\n"
+            "- Admin role: all non-deleted posts.\n\n"
             "Supports filtering by search, tags, and category."
         ),
         responses={200: PostSerializer(many=True)},
@@ -188,7 +191,7 @@ remove_attachment_schema = extend_schema(
 
 restore_schema = extend_schema(
     summary="posts_restore",
-    description="Restore a deleted post (requires admin role).",
+    description="Restore a deleted post (post owner or admin role).",
     request=PostRestoreSerializer,
     responses={200: PostSerializer},
     parameters=[POST_SLUG_PARAMETER],
@@ -196,6 +199,9 @@ restore_schema = extend_schema(
 
 trash_schema = extend_schema(
     summary="posts_trash",
-    description="List posts currently in deleted state.",
+    description=(
+        "List soft-deleted posts (own deleted posts for editors, "
+        "all deleted posts for admin role)."
+    ),
     responses={200: PostSerializer(many=True)},
 )
