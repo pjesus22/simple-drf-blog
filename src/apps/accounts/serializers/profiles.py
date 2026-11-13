@@ -200,9 +200,3 @@ class PrivateProfileSerializer(ProfileSerializer):
 
         if to_delete_ids:
             SocialMediaProfile.objects.filter(id__in=to_delete_ids).delete()
-
-
-class ProfileVisibilitySerializer(serializers.Serializer):
-    class Meta:
-        model = Profile
-        fields = ["is_public"]
