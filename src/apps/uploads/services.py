@@ -34,7 +34,7 @@ class FileMetadata:
 
 class UploadService:
     """
-    Service layer responsible for upload creation, deduplication
+    Service layer responsible for upload creation, visibility changes,
     and metadata synchronization.
     """
 
