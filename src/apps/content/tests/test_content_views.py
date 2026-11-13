@@ -181,7 +181,7 @@ class TestPostViewSet:
         viewset.get_queryset()
         mock_post.objects.visible_for.assert_called_once_with(request.user)
 
-    def test_get_queryset_restore_action_staff_user(self, rf, admin_factory, mocker):
+    def test_get_queryset_restore_action_admin_user(self, rf, admin_factory, mocker):
         request = rf.get("/posts/restore/")
         request.user = admin_factory()
         viewset = PostViewSet(request=request, action="restore")
@@ -190,9 +190,7 @@ class TestPostViewSet:
         viewset.get_queryset()
         mock_post.objects.only_deleted.assert_called_once()
 
-    def test_get_queryset_restore_action_non_staff_user(
-        self, rf, editor_factory, mocker
-    ):
+    def test_get_queryset_restore_action_editor_user(self, rf, editor_factory, mocker):
         request = rf.get("/posts/restore/")
         request.user = editor_factory()
         viewset = PostViewSet(request=request, action="restore")
@@ -206,7 +204,7 @@ class TestPostViewSet:
         mock_post.objects.only_deleted.assert_called_once()
         mock_queryset.owned_by.assert_called_once_with(request.user)
 
-    def test_get_queryset_trash_action_staff_user(self, rf, admin_factory, mocker):
+    def test_get_queryset_trash_action_admin_user(self, rf, admin_factory, mocker):
         request = rf.get("/posts/trash/")
         request.user = admin_factory()
         viewset = PostViewSet(request=request, action="trash")
@@ -215,7 +213,7 @@ class TestPostViewSet:
         viewset.get_queryset()
         mock_post.objects.only_deleted.assert_called_once()
 
-    def test_get_queryset_trash_action_non_staff_user(self, rf, editor_factory, mocker):
+    def test_get_queryset_trash_action_editor_user(self, rf, editor_factory, mocker):
         request = rf.get("/posts/trash/")
         request.user = editor_factory()
         viewset = PostViewSet(request=request, action="trash")
@@ -229,7 +227,7 @@ class TestPostViewSet:
         mock_post.objects.only_deleted.assert_called_once()
         mock_queryset.owned_by.assert_called_once_with(request.user)
 
-    def test_get_queryset_destroy_action_staff_user(self, rf, admin_factory, mocker):
+    def test_get_queryset_destroy_action_admin_user(self, rf, admin_factory, mocker):
         request = rf.get("/posts/")
         request.user = admin_factory()
         viewset = PostViewSet(request=request, action="destroy")
@@ -242,9 +240,7 @@ class TestPostViewSet:
         mock_post.objects.all.assert_called_once()
         mock_queryset.owned_by.assert_not_called()
 
-    def test_get_queryset_destroy_action_non_staff_user(
-        self, rf, editor_factory, mocker
-    ):
+    def test_get_queryset_destroy_action_editor_user(self, rf, editor_factory, mocker):
         request = rf.get("/posts/")
         request.user = editor_factory()
         viewset = PostViewSet(request=request, action="destroy")
