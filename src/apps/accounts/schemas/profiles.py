@@ -2,7 +2,9 @@ from drf_spectacular.utils import (
     OpenApiParameter,
     extend_schema,
     extend_schema_view,
+    inline_serializer,
 )
+from rest_framework import serializers
 
 from apps.accounts.serializers import (
     PrivateProfileSerializer,
@@ -73,9 +75,26 @@ profile_me_action_partial_update_schema = extend_schema(
     description=(
         "Partially update the authenticated user's profile. "
         "Only provided fields are updated. "
-        "social_media` is merged without removing unspecified items."
+        "`social_media` replaces the set when provided (items with matching `id` "
+        "are updated, omitted items are deleted)."
     ),
     request=PrivateProfileSerializer,
     responses={200: PrivateProfileSerializer},
     methods=["PATCH"],
+)
+
+profile_toggle_public_schema = extend_schema(
+    summary="profiles_me_toggle_public",
+    description=(
+        "Toggle the authenticated user's profile visibility (`is_public`). "
+        'Returns a non-resource payload `{"data": {"is_public": <bool>}}`.'
+    ),
+    request=None,
+    responses={
+        200: inline_serializer(
+            name="ProfileTogglePublicResponse",
+            fields={"is_public": serializers.BooleanField()},
+        )
+    },
+    methods=["POST"],
 )
